@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime, date
-from .resume_models import ResumeModel, ContactInfo, ExperienceEntry, EducationEntry, SkillEntry
+from .resume_models import ResumeModel, ContactInfo, ExperienceEntry, EducationEntry, SkillEntry, CompetencyEntry, ProjectEntry
 from .resume_generator import ResumeGenerator
 from google import genai
 from google.genai import types
@@ -131,10 +131,18 @@ Generate an improved resume that:
 - Professional Experience (achievement-focused)
 - Education & Certifications
 
+**CORE COMPETENCIES REQUIREMENTS:**
+Generate 4-8 core competencies that are highly relevant to the target job:
+- Each competency should have a title (the competency name) and description (1-3 lines explanation)
+- Focus on high-level professional capabilities, methodologies, and domain expertise
+- Align competencies with the job requirements and candidate's experience
+- Examples: "Business Process Analysis & Optimization", "Agile Project Management", "Cloud Architecture & Design"
+- Avoid generic skills - make them specific and impactful for the role
+
 **PROFESSIONAL EXPERIENCE DETAILED REQUIREMENTS:**
 For each professional experience entry, generate the following sections:
 - Summary: 4-8 lines overall summary of the role and its relevance to the target job
-- Notable Projects: 2-6 significant projects, each with 2-4 lines of detailed explanation showing impact and relevance
+- Notable Projects: 2-6 significant projects, each with a title (project name) and description (2-4 lines of detailed explanation showing impact and relevance)
 - Responsibilities: 4-12 bullet points covering key job duties and responsibilities
 - Accomplishments: 4-10 bullet points focusing on quantifiable achievements with metrics when possible
 - Environment: Comma-separated list of technologies, tools, frameworks, and methodologies used (e.g., "ASP.NET 3.5, C# 3.0, WCF, Web Services, AJAX, ADO.NET, LINQ, XML")
