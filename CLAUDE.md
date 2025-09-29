@@ -1,2 +1,0 @@
-- No manual JSON configuration for gemini output! Always use GENAI native structured output!
-- Do not use emojis
