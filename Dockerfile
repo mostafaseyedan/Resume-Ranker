@@ -8,7 +8,17 @@ RUN npm ci
 
 COPY frontend .
 
-COPY .env .env
+ARG VITE_AZURE_CLIENT_ID
+ARG VITE_AZURE_TENANT_ID
+ARG VITE_AZURE_AUTHORITY
+ARG VITE_REDIRECT_URI
+ARG VITE_API_BASE_URL
+
+ENV VITE_AZURE_CLIENT_ID=${VITE_AZURE_CLIENT_ID} \
+    VITE_AZURE_TENANT_ID=${VITE_AZURE_TENANT_ID} \
+    VITE_AZURE_AUTHORITY=${VITE_AZURE_AUTHORITY} \
+    VITE_REDIRECT_URI=${VITE_REDIRECT_URI} \
+    VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 RUN npm run build
 
@@ -36,8 +46,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./
 
 COPY --from=frontend-build /frontend/dist ./static/frontend
-
-COPY .env .env
 
 ENV PORT=8080
 
