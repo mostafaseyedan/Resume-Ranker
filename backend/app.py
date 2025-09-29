@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, session, send_from_directory
 from flask_cors import CORS
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import msal
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -17,8 +17,8 @@ import logging
 import base64
 import json
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from shared .env
+load_dotenv(find_dotenv())
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')

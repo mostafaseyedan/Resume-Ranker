@@ -8,6 +8,8 @@ RUN npm ci
 
 COPY frontend .
 
+COPY .env .env
+
 RUN npm run build
 
 FROM python:3.11-slim AS runtime
@@ -32,6 +34,8 @@ COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend .
+
+COPY .env .env
 
 COPY --from=frontend-build /frontend/dist ./static/frontend
 
