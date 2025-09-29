@@ -156,3 +156,6 @@ uploads/
 # Application specific
 resume_text_cache/
 analysis_cache/
+
+# Markdown files
+*.md

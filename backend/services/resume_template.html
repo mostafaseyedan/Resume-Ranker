@@ -8,20 +8,24 @@
 
         @page {
             size: legal;
-            margin: 2cm 2cm 4cm 2cm; /* Increased bottom margin for footer */
+            margin: 2cm 2cm 3cm 2cm; /* Reduced bottom margin */
 
             @bottom-center {
-                content: "{{ resume.footer|replace(' | ', ' \A ') }}";
+                content: "{{ resume.footer|replace('Phone: ', '')|replace(' | ', '   •   ') }}";
                 white-space: pre-wrap;
                 font-family: 'Carlito', 'Lato', Calibri, Arial, sans-serif;
-                font-size: 9pt;
-                color: #000;
-                border-top: 1px solid #000;
-                padding-top: 2px;
-                margin-top: 5px;
+                font-size: 8pt;
+                color: #444;
+                border-top: 0.5pt solid #000; /* Minimum thickness black line */
+                background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+                padding: 4px 15px;
+                margin-top: 4px;
                 width: 100%;
-                font-weight: normal;
+                font-weight: 700; /* Bold font */
                 text-align: center;
+                line-height: 1.6;
+                letter-spacing: 0.4px;
+                box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
             }
         }
 

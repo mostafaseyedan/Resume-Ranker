@@ -1,22 +1,22 @@
 import requests
 import msal
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, Union
 import os
 from urllib.parse import quote, urlparse, parse_qs
 
 logger = logging.getLogger(__name__)
 
 class SharePointService:
-    def __init__(self, azure_config: Dict):
-        self.client_id = azure_config['client_id']
-        self.client_secret = azure_config['client_secret']
-        self.tenant_id = azure_config['tenant_id']
-        self.authority = azure_config['authority']
-        self.scope = ['https://graph.microsoft.com/.default']
-        self._token = None
+    def __init__(self, azure_config: Dict[str, Any]):
+        self.client_id: str = azure_config['client_id']
+        self.client_secret: str = azure_config['client_secret']
+        self.tenant_id: str = azure_config['tenant_id']
+        self.authority: str = azure_config['authority']
+        self.scope: List[str] = ['https://graph.microsoft.com/.default']
+        self._token: Optional[str] = None
 
-    def _get_access_token(self):
+    def _get_access_token(self) -> Optional[str]:
         """Get access token for Microsoft Graph API"""
         try:
             if self._token:
@@ -30,18 +30,19 @@ class SharePointService:
 
             result = app.acquire_token_for_client(scopes=self.scope)
 
-            if 'access_token' in result:
+            if result and isinstance(result, dict) and 'access_token' in result:
                 self._token = result['access_token']
                 return self._token
             else:
-                logger.error(f"Token acquisition failed: {result.get('error_description', 'Unknown error')}")
+                error_desc = result.get('error_description', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
+                logger.error(f"Token acquisition failed: {error_desc}")
                 return None
 
         except Exception as e:
             logger.error(f"Error getting access token: {e}")
             return None
 
-    def _parse_sharepoint_url(self, sharepoint_url: str) -> Optional[Dict[str, str]]:
+    def _parse_sharepoint_url(self, sharepoint_url: str) -> Optional[Dict[str, Union[str, bool]]]:
         """Parse SharePoint URL to extract site, drive, and folder path"""
         try:
             from urllib.parse import unquote
@@ -139,7 +140,7 @@ class SharePointService:
             logger.error(f"Error parsing SharePoint URL {sharepoint_url}: {e}")
             return None
 
-    def get_folder_files(self, sharepoint_url: str, recursive: bool = True, job_title: str = None) -> List[Dict]:
+    def get_folder_files(self, sharepoint_url: str, recursive: bool = True, job_title: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all files in a SharePoint folder and optionally its subfolders"""
         try:
             token = self._get_access_token()
@@ -194,7 +195,8 @@ class SharePointService:
             drive_id = default_drive['id']
 
             # Get folder contents
-            folder_path = url_info['folder_path'].strip('/')
+            folder_path_raw = url_info['folder_path']
+            folder_path = folder_path_raw.strip('/') if isinstance(folder_path_raw, str) else ''
 
             # Special handling for sharing links - try to find the job requisitions folder
             if url_info.get('sharing_link') and not folder_path:
@@ -225,7 +227,7 @@ class SharePointService:
             logger.error(f"Error getting folder files from {sharepoint_url}: {e}")
             return []
 
-    def _get_files_recursive(self, folder_url: str, headers: Dict, recursive: bool, current_path: str = "") -> List[Dict]:
+    def _get_files_recursive(self, folder_url: str, headers: Dict[str, str], recursive: bool, current_path: str = "") -> List[Dict[str, Any]]:
         """Recursively get files from folders"""
         try:
             files = []
@@ -340,7 +342,7 @@ class SharePointService:
             logger.error(f"Error downloading file content: {e}")
             return None
 
-    def categorize_files(self, files: List[Dict]) -> Dict[str, List[Dict]]:
+    def categorize_files(self, files: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
         """Show all files in both categories - let users decide which to process"""
         # Filter to only include PDF and DOCX files
         processable_files = [
@@ -358,7 +360,7 @@ class SharePointService:
         }
 
 
-    def _find_job_folder_by_title(self, site_id: str, drive_id: str, headers: Dict, job_title: str) -> Optional[Dict]:
+    def _find_job_folder_by_title(self, site_id: str, drive_id: str, headers: Dict[str, str], job_title: str) -> Optional[Dict[str, Any]]:
         """Find a job folder that matches the job title"""
         try:
             # First, browse the job requisitions folder

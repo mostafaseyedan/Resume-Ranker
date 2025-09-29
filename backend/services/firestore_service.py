@@ -6,6 +6,9 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class FirestoreService:
+    # Collection path constant
+    COLLECTION_ROOT = 'resume-evaluator'
+
     def __init__(self):
         self.db = firebase_firestore.client()
 
@@ -13,7 +16,7 @@ class FirestoreService:
     def create_job(self, job_data):
         """Create a new job posting"""
         try:
-            doc_ref = self.db.collection('resume-evaluator').document('jobs').collection('jobs').document()
+            doc_ref = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document()
             job_data['id'] = doc_ref.id
             doc_ref.set(job_data)
             logger.info(f"Created job with ID: {doc_ref.id}")
@@ -25,7 +28,7 @@ class FirestoreService:
     def get_job(self, job_id):
         """Get a specific job by ID"""
         try:
-            doc_ref = self.db.collection('resume-evaluator').document('jobs').collection('jobs').document(job_id)
+            doc_ref = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document(job_id)
             doc = doc_ref.get()
             if doc.exists:
                 job_data = doc.to_dict()
@@ -40,7 +43,7 @@ class FirestoreService:
         """Get all job postings"""
         try:
             # Get all jobs without ordering first (to avoid filtering out jobs without created_at)
-            docs = self.db.collection('resume-evaluator').document('jobs').collection('jobs').stream()
+            docs = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').stream()
             jobs = []
             for doc in docs:
                 job_data = doc.to_dict()
@@ -50,8 +53,8 @@ class FirestoreService:
                 if 'created_at' in job_data and job_data['created_at']:
                     job_data['created_at'] = job_data['created_at'].isoformat() if hasattr(job_data['created_at'], 'isoformat') else str(job_data['created_at'])
                 else:
-                    # Set a default timestamp for jobs without created_at
-                    job_data['created_at'] = '1970-01-01T00:00:00'
+                    # Jobs without created_at will have None, which will be handled by sort_key
+                    job_data['created_at'] = None
 
                 jobs.append(job_data)
 
@@ -67,7 +70,9 @@ class FirestoreService:
                         return (0, job['monday_id'])
                 else:
                     # Non-Monday jobs sorted by creation date (newer first)
-                    return (1, job.get('created_at', ''))
+                    # None timestamps go to the end
+                    created_at = job.get('created_at')
+                    return (1, created_at if created_at else '')
 
             jobs.sort(key=sort_key, reverse=False)
 
@@ -80,7 +85,7 @@ class FirestoreService:
     def update_job(self, job_id, update_data):
         """Update a job posting"""
         try:
-            doc_ref = self.db.collection('resume-evaluator').document('jobs').collection('jobs').document(job_id)
+            doc_ref = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document(job_id)
             update_data['updated_at'] = firestore.SERVER_TIMESTAMP
             if 'monday_metadata' in update_data:
                 doc = doc_ref.get()
@@ -104,7 +109,7 @@ class FirestoreService:
                 self.delete_candidate(candidate['candidate_id'])
 
             # Delete the job document
-            doc_ref = self.db.collection('resume-evaluator').document('jobs').collection('jobs').document(job_id)
+            doc_ref = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document(job_id)
             doc_ref.delete()
 
             logger.info(f"Deleted job {job_id} and {len(candidates)} associated candidates")
@@ -117,13 +122,13 @@ class FirestoreService:
     def save_candidate(self, candidate_data):
         """Save candidate and analysis data"""
         try:
-            doc_ref = self.db.collection('resume-evaluator').document('candidates').collection('candidates').document()
+            doc_ref = self.db.collection(self.COLLECTION_ROOT).document('candidates').collection('candidates').document()
             candidate_data['id'] = doc_ref.id
             doc_ref.set(candidate_data)
 
             # Also save to job's candidates subcollection for easy querying
             job_id = candidate_data['job_id']
-            job_candidate_ref = self.db.collection('resume-evaluator').document('jobs').collection('jobs').document(job_id).collection('candidates').document(doc_ref.id)
+            job_candidate_ref = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document(job_id).collection('candidates').document(doc_ref.id)
 
             # Create summary for job subcollection
             summary_data = {
@@ -148,7 +153,7 @@ class FirestoreService:
     def get_candidate(self, candidate_id):
         """Get a specific candidate by ID"""
         try:
-            doc_ref = self.db.collection('resume-evaluator').document('candidates').collection('candidates').document(candidate_id)
+            doc_ref = self.db.collection(self.COLLECTION_ROOT).document('candidates').collection('candidates').document(candidate_id)
             doc = doc_ref.get()
             if doc.exists:
                 candidate_data = doc.to_dict()
@@ -168,7 +173,7 @@ class FirestoreService:
         """Get all candidates for a specific job, ranked by score"""
         try:
             # First get candidate IDs from job's candidates subcollection
-            summary_docs = (self.db.collection('resume-evaluator')
+            summary_docs = (self.db.collection(self.COLLECTION_ROOT)
                            .document('jobs')
                            .collection('jobs')
                            .document(job_id)
@@ -211,10 +216,10 @@ class FirestoreService:
             job_id = candidate['job_id']
 
             # Delete from main candidates collection
-            self.db.collection('resume-evaluator').document('candidates').collection('candidates').document(candidate_id).delete()
+            self.db.collection(self.COLLECTION_ROOT).document('candidates').collection('candidates').document(candidate_id).delete()
 
             # Delete from job's candidates subcollection
-            self.db.collection('resume-evaluator').document('jobs').collection('jobs').document(job_id).collection('candidates').document(candidate_id).delete()
+            self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document(job_id).collection('candidates').document(candidate_id).delete()
 
             logger.info(f"Deleted candidate {candidate_id}")
             return True
@@ -261,7 +266,7 @@ class FirestoreService:
     def get_jobs_by_monday_id(self, monday_id):
         """Get jobs by Monday.com ID"""
         try:
-            docs = (self.db.collection('resume-evaluator')
+            docs = (self.db.collection(self.COLLECTION_ROOT)
                    .document('jobs')
                    .collection('jobs')
                    .where('monday_id', '==', monday_id)
@@ -282,8 +287,8 @@ class FirestoreService:
     def health_check(self):
         """Check if Firestore connection is healthy"""
         try:
-            # Try to read from the resume-evaluator collection
-            test_ref = self.db.collection('resume-evaluator').document('health-check')
+            # Try to read from the collection
+            test_ref = self.db.collection(self.COLLECTION_ROOT).document('health-check')
             test_ref.set({'timestamp': firestore.SERVER_TIMESTAMP, 'status': 'healthy'})
             doc = test_ref.get()
             test_ref.delete()

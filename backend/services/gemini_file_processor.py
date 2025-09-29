@@ -182,8 +182,12 @@ class GeminiFileProcessor:
                 )
             )
 
-            if response.text is None:
-                raise ValueError("Gemini response text is None")
+            if response.text is None or not response.text.strip():
+                logger.error(f"Gemini returned empty response for {file.filename}")
+                raise ValueError("Gemini response is empty")
+
+            logger.info(f"Raw Gemini response for {file.filename}: {response.text[:200]}...")
+
             extracted_data = json.loads(response.text)
             logger.info(f"Extracted structured job info from {file.filename}: {extracted_data.get('job_title', 'Unknown Title')}")
 

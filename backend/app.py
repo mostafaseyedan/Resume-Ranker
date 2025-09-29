@@ -161,20 +161,26 @@ def login():
         # Decode JWT token to extract user information
         token_payload = decode_jwt_token(access_token)
 
-        user_email = 'user@example.com'  # fallback
-        user_name = 'Unknown User'       # fallback
+        if not token_payload:
+            logger.error("Failed to decode JWT token")
+            return jsonify({'error': 'Invalid access token'}), 401
 
-        if token_payload:
-            # Extract email from various possible claims
-            user_email = (token_payload.get('email') or
-                         token_payload.get('preferred_username') or
-                         token_payload.get('upn') or
-                         token_payload.get('unique_name') or
-                         'user@example.com')
+        # Extract email from various possible claims
+        user_email = (token_payload.get('email') or
+                     token_payload.get('preferred_username') or
+                     token_payload.get('upn') or
+                     token_payload.get('unique_name'))
 
-            user_name = (token_payload.get('name') or
-                        token_payload.get('given_name', '') + ' ' + token_payload.get('family_name', '') or
-                        user_email.split('@')[0])
+        if not user_email:
+            logger.error("No email claim found in JWT token")
+            return jsonify({'error': 'Invalid token: missing email claim'}), 401
+
+        # Extract user name
+        user_name = token_payload.get('name')
+        if not user_name:
+            given_name = token_payload.get('given_name', '')
+            family_name = token_payload.get('family_name', '')
+            user_name = f"{given_name} {family_name}".strip() or user_email.split('@')[0]
 
         # Store session data with extracted user info
         session['user'] = {
@@ -209,7 +215,7 @@ def create_job():
         data = request.get_json()
 
         # Validate required fields
-        required_fields = ['title', 'description', 'department']
+        required_fields = ['title', 'description']
         if not all(field in data for field in required_fields):
             return jsonify({'error': 'Missing required fields'}), 400
 
@@ -228,7 +234,6 @@ def create_job():
         job_data = {
             'title': data['title'],
             'description': data['description'],
-            'department': data.get('department', ''),
             'status': data.get('status', 'active'),
             'requirements': requirements,
             'skill_weights': {item['skill_name']: item['weight'] for item in job_analysis.get('skill_weights', [])},
@@ -269,8 +274,6 @@ def create_job_from_pdf():
 
         # Get additional form data
         title = request.form.get('title', '').strip()
-        department = request.form.get('department', '').strip()
-
         # Use extracted title from PDF if no title provided by user
         if not title:
             title = job_extraction.get('job_title', '').strip()
@@ -286,7 +289,6 @@ def create_job_from_pdf():
 
         job_data = {
             'title': title,
-            'department': department,
             'status': 'active',
             'created_by': session['user']['email'],
             'created_at': firestore.SERVER_TIMESTAMP,

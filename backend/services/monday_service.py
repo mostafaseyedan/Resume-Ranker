@@ -1,24 +1,29 @@
 import requests
 import logging
+import os
 from typing import List, Dict, Optional
 from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
 
 class MondayService:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, board_id: Optional[str] = None):
         self.api_key = api_key
+        self.board_id: str = board_id or os.getenv('MONDAY_BOARD_ID', '18004940852')
         self.base_url = "https://api.monday.com/v2"
         self.headers = {
             "Authorization": api_key,
             "Content-Type": "application/json"
         }
 
-    def get_job_requisitions(self, board_id: str = "18004940852") -> List[Dict]:
+    def get_job_requisitions(self, board_id: Optional[str] = None) -> List[Dict]:
         """
         Fetch job requisitions from Monday.com board
         """
         try:
+            # Use instance board_id if not provided
+            board_id_to_use = board_id if board_id is not None else self.board_id
+
             query = """
             query {
                 boards (ids: %s) {
@@ -41,7 +46,7 @@ class MondayService:
                     }
                 }
             }
-            """ % board_id
+            """ % board_id_to_use
 
             payload = {"query": query}
 
@@ -79,13 +84,12 @@ class MondayService:
             job_data = {
                 'monday_id': item['id'],
                 'title': item['name'],
-                'description': "*Run the analysis first*",
-                'department': 'Unknown',
-                'status': 'active',
-                'monday_metadata': {
-                    'group': item.get('group', {}).get('title', 'Unknown'),
-                    'column_values': {}
-                }
+                'status': 'active'
+            }
+
+            metadata = {
+                'group': item.get('group', {}).get('title'),
+                'column_values': {}
             }
 
             # Parse column values to extract additional info
@@ -94,10 +98,8 @@ class MondayService:
                 col_text = col.get('text', '')
 
                 # Map specific columns
-                if col_id == 'label7' and col_text:  # Category/Department
-                    job_data['department'] = col_text
-                elif col_id == 'color_mkvy85b7' and col_text:  # Req Status
-                    job_data['monday_metadata']['status'] = col_text
+                if col_id == 'color_mkvy85b7' and col_text:  # Req Status
+                    metadata['status'] = col_text
                     # Map Monday status to job status for compatibility
                     status_mapping = {
                         'Open': 'active',
@@ -108,19 +110,23 @@ class MondayService:
                     }
                     job_data['status'] = status_mapping.get(col_text, 'active')
                 elif col_id == 'color_mkw33brw' and col_text:  # Work Mode
-                    job_data['monday_metadata']['work_mode'] = col_text
+                    metadata['work_mode'] = col_text
                 elif col_id == 'color_mkvym9qm' and col_text:  # Employment Type
-                    job_data['monday_metadata']['employment_type'] = col_text
+                    metadata['employment_type'] = col_text
                 elif col_id == 'date_17' and col_text:  # Due date
-                    job_data['monday_metadata']['due_date'] = col_text
+                    metadata['due_date'] = col_text
                 elif col_id == 'file_mkw32xnz' and col_text:  # SharePoint link
-                    job_data['monday_metadata']['sharepoint_link'] = col_text
-                    # Add simple description for jobs with SharePoint
-                    job_data['description'] = "*Run the analysis first*"
+                    metadata['sharepoint_link'] = col_text
+                elif col_id == 'link_mkvy6wjb' and col_text:
+                    metadata['job_post_link'] = col_text
+                elif col_id == 'text_mkw3tw0e' and col_text:
+                    metadata['job_location'] = col_text
 
                 # Store all column values for reference
                 if col_text:
-                    job_data['monday_metadata']['column_values'][col_id] = col_text
+                    metadata['column_values'][col_id] = col_text
+
+            job_data['monday_metadata'] = metadata
 
             return job_data
 
@@ -153,18 +159,44 @@ class MondayService:
                     # Check if job already exists (by monday_id)
                     existing_jobs = firestore_service.get_jobs_by_monday_id(job_data['monday_id'])
 
+                    metadata = job_data.pop('monday_metadata', {})
+
                     if existing_jobs:
-                        # Update existing job
+                        # Update existing job with limited fields
                         job_id = existing_jobs[0]['id']
-                        firestore_service.update_job(job_id, job_data)
-                        synced_jobs.append({'action': 'updated', 'job_id': job_id, 'title': job_data['title']})
+                        update_data = {}
+
+                        if 'status' in job_data and job_data['status']:
+                            update_data['status'] = job_data['status']
+
+                        if metadata:
+                            update_data['monday_metadata'] = metadata
+
+                        if 'title' in job_data and job_data['title']:
+                            update_data['title'] = job_data['title']
+
+                        if update_data:
+                            firestore_service.update_job(job_id, update_data)
+
+                        synced_jobs.append({
+                            'action': 'updated',
+                            'job_id': job_id,
+                            'title': job_data.get('title') or existing_jobs[0].get('title')
+                        })
                     else:
                         # Create new job - add required fields
-                        job_data['created_at'] = firestore.SERVER_TIMESTAMP
-                        job_data['created_by'] = 'monday_sync'
+                        new_job = {
+                            'title': job_data.get('title', 'Untitled Job'),
+                            'description': '',
+                            'status': job_data.get('status', 'active'),
+                            'monday_id': job_data['monday_id'],
+                            'monday_metadata': metadata,
+                            'created_at': firestore.SERVER_TIMESTAMP,
+                            'created_by': 'monday_sync'
+                        }
 
-                        job_id = firestore_service.create_job(job_data)
-                        synced_jobs.append({'action': 'created', 'job_id': job_id, 'title': job_data['title']})
+                        job_id = firestore_service.create_job(new_job)
+                        synced_jobs.append({'action': 'created', 'job_id': job_id, 'title': new_job['title']})
 
                 except Exception as e:
                     error_msg = f"Error syncing item {item.get('id', 'unknown')}: {e}"

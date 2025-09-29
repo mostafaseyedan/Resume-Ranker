@@ -111,6 +111,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         // Show success message inline
         setSuccessMessage(`✅ Job file "${fileName}" processed successfully! The job description has been updated.`);
 
+        // Switch to job-details tab to show the updated information
+        setActiveTab('job-details');
+
         // Clear success message after 5 seconds
         setTimeout(() => setSuccessMessage(null), 5000);
       }
