@@ -1,0 +1,11 @@
+backend/venv/
+frontend/node_modules/
+frontend/dist/
+*.py[cod]
+__pycache__/
+.env
+**/.env
+.git
+.gitignore
+ResumeGeneratorEvaluation.md
+SESSION_SUMMARY.md
