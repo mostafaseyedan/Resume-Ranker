@@ -49,4 +49,4 @@ COPY --from=frontend-build /frontend/dist ./static/frontend
 
 ENV PORT=8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--timeout", "300", "app:app"]
