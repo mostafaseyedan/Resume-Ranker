@@ -159,3 +159,5 @@ analysis_cache/
 
 # Markdown files
 *.md
+
+cloudbuild.yaml
