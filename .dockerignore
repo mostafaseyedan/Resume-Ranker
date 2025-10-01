@@ -9,3 +9,6 @@ __pycache__/
 .gitignore
 ResumeGeneratorEvaluation.md
 SESSION_SUMMARY.md
+
+# Windows Zone.Identifier files
+*:Zone.Identifier

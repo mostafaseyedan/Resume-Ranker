@@ -6,6 +6,7 @@ __pycache__/
 .Python
 build/
 develop-eggs/
+deploy/
 dist/
 downloads/
 eggs/
@@ -161,3 +162,6 @@ analysis_cache/
 *.md
 
 cloudbuild.yaml
+
+# Windows Zone.Identifier files
+*:Zone.Identifier
