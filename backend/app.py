@@ -740,6 +740,100 @@ def delete_candidate(candidate_id):
         logger.error(f"Delete candidate error: {e}")
         return jsonify({'error': 'Failed to delete candidate'}), 500
 
+@app.route('/api/resume/templates', methods=['GET'])
+@require_auth
+def list_resume_templates():
+    """List all available resume templates"""
+    try:
+        templates = resume_service.resume_generator.template_registry.list_templates()
+        return jsonify({'templates': templates})
+    except Exception as e:
+        logger.error(f"List templates error: {e}")
+        return jsonify({'error': 'Failed to list templates'}), 500
+
+@app.route('/api/candidates/<candidate_id>/generate-resume', methods=['POST'])
+@require_auth
+def generate_and_save_resume(candidate_id):
+    """Generate resume and optionally save to SharePoint"""
+    try:
+        data = request.get_json()
+        template_id = data.get('template_id', 'professional')
+        save_to_sharepoint = data.get('save_to_sharepoint', False)
+
+        candidate = firestore_service.get_candidate(candidate_id)
+        if not candidate:
+            return jsonify({'error': 'Candidate not found'}), 404
+
+        job = firestore_service.get_job(candidate['job_id'])
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Flatten analysis data if needed
+        if 'analysis' in candidate:
+            analysis = candidate.pop('analysis')
+            for key, value in analysis.items():
+                candidate[key] = value
+
+        # Company branding information
+        company_info = {
+            'logo_path': LOGO_URL_PATH,
+            'logo_file_path': LOGO_FILE_PATH,
+            'footer': 'Arisma Group LLC dba Cendien | 1846 E Rosemead Pkwy Ste. 200 Carrollton, TX 75007 | Phone: (214) 245-4580 | http://www.cendien.com'
+        }
+
+        # Get template metadata
+        template = resume_service.resume_generator.template_registry.get_template(template_id)
+        if not template:
+            return jsonify({'error': f'Template not found: {template_id}'}), 404
+
+        # Generate improved resume PDF
+        pdf_bytes = resume_service.improve_and_generate_pdf(
+            candidate_data=candidate,
+            job_data=job,
+            company_info=company_info,
+            template_name=template.filename
+        )
+
+        # Save to SharePoint if requested
+        sharepoint_url = None
+        sharepoint_link = job.get('monday_metadata', {}).get('sharepoint_link')
+        logger.info(f"SharePoint save requested: {save_to_sharepoint}, Job has sharepoint_link: {bool(sharepoint_link)}")
+
+        if save_to_sharepoint and sharepoint_link:
+            logger.info(f"Attempting to save resume to SharePoint for job: {job.get('title')}")
+            filename = f"improved_resume_{candidate.get('name', 'candidate').replace(' ', '_')}.pdf"
+            upload_result = sharepoint_service.upload_file_to_folder(
+                sharepoint_url=sharepoint_link,
+                file_content=pdf_bytes,
+                filename=filename,
+                job_title=job.get('title')
+            )
+
+            if upload_result:
+                sharepoint_url = upload_result.get('web_url')
+                logger.info(f"Resume saved to SharePoint: {sharepoint_url}")
+            else:
+                logger.warning("Failed to save resume to SharePoint")
+        elif save_to_sharepoint and not sharepoint_link:
+            logger.warning(f"SharePoint save requested but job has no sharepoint_link in monday_metadata")
+        else:
+            logger.info("SharePoint save not requested")
+
+        # Return PDF as downloadable file
+        from flask import make_response
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename="improved_resume_{candidate.get("name", "candidate").replace(" ", "_")}.pdf"'
+
+        if sharepoint_url:
+            response.headers['X-SharePoint-URL'] = sharepoint_url
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Generate and save resume error: {e}")
+        return jsonify({'error': 'Failed to generate resume'}), 500
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'AI Resume Evaluator API is running'})

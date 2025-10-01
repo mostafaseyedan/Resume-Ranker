@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Candidate, Job, apiService } from '../services/apiService';
+import ResumeTemplateSelector from './ResumeTemplateSelector';
 
 interface CandidateDetailProps {
   candidate: Candidate;
@@ -11,6 +12,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
   const [improvingResume, setImprovingResume] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'strengths' | 'weaknesses' | 'skills' | 'experience'>('strengths');
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
   const showNotification = (type: 'success' | 'error' | 'info', message: string, duration: number = 5000) => {
     setNotification({ type, message });
@@ -123,27 +125,32 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               <div className="text-xs text-gray-500">Overall Score</div>
             </div>
             <button
-              onClick={handleImproveResume}
-              disabled={improvingResume}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 flex items-center space-x-2"
+              onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center space-x-2"
             >
-              {improvingResume ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span>Generating Resume...</span>
-                </>
-              ) : (
-                <>
-                  <span>Improve</span>
-                </>
-              )}
+              <span>{showTemplateSelector ? 'Hide Templates' : 'Improve'}</span>
             </button>
           </div>
         </div>
       </div>
+
+      {/* Template Selector */}
+      {showTemplateSelector && (
+        <div className="px-6">
+          <ResumeTemplateSelector
+            candidateId={candidate.id}
+            candidateName={candidate.name}
+            onGenerate={(sharepointUrl) => {
+              if (sharepointUrl) {
+                showNotification('success', `Resume generated and saved to SharePoint!`);
+              } else {
+                showNotification('success', 'Resume generated successfully!');
+              }
+              setShowTemplateSelector(false);
+            }}
+          />
+        </div>
+      )}
 
       <div className="p-6">
         {/* Contact Information */}

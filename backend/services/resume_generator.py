@@ -3,6 +3,7 @@ from typing import Optional
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 from .resume_models import ResumeModel
+from .template_registry import TemplateRegistry
 import logging
 
 # Disable fontTools debug logging
@@ -21,13 +22,17 @@ class ResumeGenerator:
             template_path: Path to the directory containing resume templates
         """
         if template_path is None:
-            # Default to the services directory where templates are stored
-            template_path = os.path.dirname(os.path.abspath(__file__))
+            # Default to the templates directory
+            template_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                'templates'
+            )
 
         self.template_path = template_path
         self.env = Environment(loader=FileSystemLoader(template_path))
+        self.template_registry = TemplateRegistry(template_path)
 
-    def generate_pdf(self, resume_model: ResumeModel, template_name: str = "resume_template.html") -> bytes:
+    def generate_pdf(self, resume_model: ResumeModel, template_name: str = "resume_template_professional.html") -> bytes:
         """
         Generate PDF from ResumeModel
 
@@ -74,7 +79,7 @@ class ResumeGenerator:
             logger.error(f"Error generating PDF: {e}")
             raise Exception(f"Failed to generate resume PDF: {str(e)}")
 
-    def generate_html_preview(self, resume_model: ResumeModel, template_name: str = "resume_template.html") -> str:
+    def generate_html_preview(self, resume_model: ResumeModel, template_name: str = "resume_template_professional.html") -> str:
         """
         Generate HTML preview of the resume
 

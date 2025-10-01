@@ -407,3 +407,110 @@ class SharePointService:
         except Exception as e:
             logger.error(f"Error finding job folder for '{job_title}': {e}")
             return None
+
+    def upload_file_to_folder(self, sharepoint_url: str, file_content: bytes, filename: str, job_title: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Upload a file to a SharePoint folder
+
+        Args:
+            sharepoint_url: SharePoint folder URL
+            file_content: File content as bytes
+            filename: Name of the file to create
+            job_title: Optional job title to find specific job folder
+
+        Returns:
+            Uploaded file information or None on failure
+        """
+        try:
+            token = self._get_access_token()
+            if not token:
+                logger.error("Failed to get access token for upload")
+                return None
+
+            url_info = self._parse_sharepoint_url(sharepoint_url)
+            if not url_info:
+                logger.error(f"Could not parse SharePoint URL: {sharepoint_url}")
+                return None
+
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Content-Type': 'application/octet-stream'
+            }
+
+            # Get site ID
+            site_url = f"https://graph.microsoft.com/v1.0/sites/{url_info['tenant']}.sharepoint.com:/sites/{url_info['site_name']}"
+            site_response = requests.get(site_url, headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json'})
+
+            if site_response.status_code != 200:
+                logger.error(f"Failed to get site info: {site_response.status_code} - {site_response.text}")
+                return None
+
+            site_data = site_response.json()
+            site_id = site_data.get('id')
+
+            if not site_id:
+                logger.error("Could not get site ID")
+                return None
+
+            # Get default drive
+            drives_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives"
+            drives_response = requests.get(drives_url, headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json'})
+
+            if drives_response.status_code != 200:
+                logger.error(f"Failed to get drives: {drives_response.status_code}")
+                return None
+
+            drives_data = drives_response.json()
+            default_drive = None
+
+            for drive in drives_data.get('value', []):
+                if drive.get('name') == 'Documents':
+                    default_drive = drive
+                    break
+
+            if not default_drive:
+                logger.error("Could not find default drive")
+                return None
+
+            drive_id = default_drive['id']
+
+            # Determine upload path
+            folder_path_raw = url_info['folder_path']
+            folder_path = folder_path_raw.strip('/') if isinstance(folder_path_raw, str) else ''
+
+            # Handle sharing links - try to find specific job folder
+            if url_info.get('sharing_link') and job_title:
+                job_folder = self._find_job_folder_by_title(site_id, drive_id, headers, job_title)
+                if job_folder:
+                    # Upload to specific job folder
+                    upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{job_folder['id']}:/{filename}:/content"
+                    logger.info(f"Uploading to job folder: {job_folder['name']}")
+                else:
+                    logger.error(f"Could not find job folder for: {job_title}")
+                    return None
+            elif folder_path:
+                # Upload to specified folder path
+                upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{quote(folder_path)}/{filename}:/content"
+            else:
+                # Upload to root
+                upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{filename}:/content"
+
+            # Upload file
+            upload_response = requests.put(upload_url, headers=headers, data=file_content)
+
+            if upload_response.status_code in [200, 201]:
+                upload_data = upload_response.json()
+                logger.info(f"Successfully uploaded file: {filename}")
+                return {
+                    'id': upload_data.get('id'),
+                    'name': upload_data.get('name'),
+                    'web_url': upload_data.get('webUrl'),
+                    'size': upload_data.get('size')
+                }
+            else:
+                logger.error(f"Failed to upload file: {upload_response.status_code} - {upload_response.text}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error uploading file to SharePoint: {e}")
+            return None

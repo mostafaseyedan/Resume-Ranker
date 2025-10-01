@@ -80,7 +80,12 @@ class GeminiFileProcessor:
 
                 response = self.client.models.generate_content(
                     model="gemini-2.5-flash-lite",
-                    contents=[uploaded_file, prompt]
+                    contents=[uploaded_file, prompt],
+                    config=types.GenerateContentConfig(
+                        thinking_config=types.ThinkingConfig(
+                            thinking_budget=-1  # Dynamic thinking
+                        )
+                    )
                 )
 
                 extracted_text = response.text
@@ -179,6 +184,9 @@ class GeminiFileProcessor:
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=JobExtraction,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_budget=-1  # Dynamic thinking
+                    )
                 )
             )
 

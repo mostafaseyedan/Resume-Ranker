@@ -90,6 +90,9 @@ class GeminiAnalyzer:
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=JobAnalysis,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_budget=-1  # Dynamic thinking
+                    )
                 )
             )
 
@@ -128,6 +131,9 @@ class GeminiAnalyzer:
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=ResumeAnalysis,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_budget=-1  # Dynamic thinking
+                    )
                 )
             )
 

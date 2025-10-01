@@ -238,4 +238,19 @@ export const apiService = {
     const response = await apiClient.get('/health');
     return response.data;
   },
+
+  // Resume templates
+  async getResumeTemplates() {
+    const response = await apiClient.get('/resume/templates');
+    return response.data;
+  },
+
+  async generateResumeWithTemplate(candidateId: string, templateId: string, saveToSharepoint: boolean) {
+    const response = await apiClient.post(
+      `/candidates/${candidateId}/generate-resume`,
+      { template_id: templateId, save_to_sharepoint: saveToSharepoint },
+      { responseType: 'blob' }
+    );
+    return response;
+  },
 };
