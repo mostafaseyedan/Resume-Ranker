@@ -161,6 +161,18 @@ class SharePointService:
             site_url = f"https://graph.microsoft.com/v1.0/sites/{url_info['tenant']}.sharepoint.com:/sites/{url_info['site_name']}"
             site_response = requests.get(site_url, headers=headers)
 
+            # If token expired, clear cache and retry once
+            if site_response.status_code == 401:
+                logger.warning("Token expired, refreshing...")
+                self._token = None  # Clear cached token
+                token = self._get_access_token()  # Get new token
+                if token:
+                    headers['Authorization'] = f'Bearer {token}'
+                    site_response = requests.get(site_url, headers=headers)  # Retry
+                else:
+                    logger.error("Failed to refresh token")
+                    return []
+
             if site_response.status_code != 200:
                 logger.error(f"Failed to get site info: {site_response.status_code} - {site_response.text}")
                 return []
@@ -452,6 +464,18 @@ class SharePointService:
             # Get site ID
             site_url = f"https://graph.microsoft.com/v1.0/sites/{url_info['tenant']}.sharepoint.com:/sites/{url_info['site_name']}"
             site_response = requests.get(site_url, headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json'})
+
+            # If token expired, clear cache and retry once
+            if site_response.status_code == 401:
+                logger.warning("Token expired during upload, refreshing...")
+                self._token = None  # Clear cached token
+                token = self._get_access_token()  # Get new token
+                if token:
+                    headers['Authorization'] = f'Bearer {token}'
+                    site_response = requests.get(site_url, headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json'})
+                else:
+                    logger.error("Failed to refresh token")
+                    return None
 
             if site_response.status_code != 200:
                 logger.error(f"Failed to get site info: {site_response.status_code} - {site_response.text}")
