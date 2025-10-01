@@ -122,7 +122,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
   };
 
   return (
-    <div className="max-w-2xl">
+    <div>
       {/* Notification Banner */}
       {notification && (
         <div className={`mb-4 p-4 rounded-lg border ${
@@ -220,7 +220,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
             <button
               type="submit"
               disabled={uploading}
-              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-blue-600 text-white py-1 px-4 text-sm rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? (
                 <div className="flex items-center justify-center">

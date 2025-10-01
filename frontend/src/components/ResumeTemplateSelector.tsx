@@ -26,6 +26,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
   const [saveToSharePoint, setSaveToSharePoint] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [progress, setProgress] = useState<number>(0);
 
   useEffect(() => {
     loadTemplates();
@@ -44,6 +45,12 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
   const handleGenerate = async () => {
     setLoading(true);
     setError('');
+    setProgress(0);
+
+    // Simulate progress over 45 seconds
+    const progressInterval = setInterval(() => {
+      setProgress(prev => Math.min(prev + 2, 90));
+    }, 1000);
 
     try {
       const response = await apiService.generateResumeWithTemplate(
@@ -51,6 +58,9 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
         selectedTemplate,
         saveToSharePoint
       );
+
+      clearInterval(progressInterval);
+      setProgress(100);
 
       // Get SharePoint URL from response header if available
       const sharepointUrl = response.headers['x-sharepoint-url'];
@@ -75,10 +85,12 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
       }
 
     } catch (err: any) {
+      clearInterval(progressInterval);
       console.error('Failed to generate resume:', err);
       setError(err.response?.data?.error || 'Failed to generate resume');
     } finally {
       setLoading(false);
+      setTimeout(() => setProgress(0), 1000);
     }
   };
 
@@ -142,14 +154,24 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
         </label>
       </div>
 
+      {loading && progress > 0 && (
+        <div style={styles.progressContainer}>
+          <div style={styles.progressBar}>
+            <div style={{...styles.progressFill, width: `${progress}%`}} />
+          </div>
+          <div style={styles.progressText}>{progress}%</div>
+        </div>
+      )}
+
       <div style={styles.actions}>
         <button
           onClick={handleGenerate}
           disabled={loading || !selectedTemplate}
-          style={{
-            ...styles.button,
-            ...(loading || !selectedTemplate ? styles.buttonDisabled : {}),
-          }}
+          className={`px-4 py-1 text-sm rounded ${
+            loading || !selectedTemplate
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
         >
           {loading ? 'Generating...' : 'Start'}
         </button>
@@ -288,6 +310,27 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: '1px solid #f5c6cb',
     borderRadius: '4px',
     marginBottom: '15px',
+  },
+  progressContainer: {
+    marginBottom: '15px',
+  },
+  progressBar: {
+    width: '100%',
+    height: '8px',
+    backgroundColor: '#e0e0e0',
+    borderRadius: '4px',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#007bff',
+    transition: 'width 0.5s ease',
+  },
+  progressText: {
+    marginTop: '5px',
+    fontSize: '12px',
+    color: '#666',
+    textAlign: 'center',
   },
 };
 

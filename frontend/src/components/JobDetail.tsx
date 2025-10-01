@@ -18,6 +18,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [sharepointFiles, setSharepointFiles] = useState<{ job_files: any[]; resume_files: any[]; sharepoint_link: string } | null>(null);
   const [loadingSharePoint, setLoadingSharePoint] = useState(false);
   const [processingFile, setProcessingFile] = useState<string | null>(null);
+  const [processingFileType, setProcessingFileType] = useState<'job' | 'resume' | null>(null);
+  const [fileProgress, setFileProgress] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -89,11 +91,22 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   };
 
   const handleProcessJobFile = async (downloadUrl: string, fileName: string) => {
+    let progressInterval: NodeJS.Timeout | null = null;
     try {
       setProcessingFile(fileName);
+      setProcessingFileType('job');
+      setFileProgress(0);
       setSuccessMessage(null);
 
+      // Simulate progress
+      progressInterval = setInterval(() => {
+        setFileProgress(prev => Math.min(prev + 2, 90));
+      }, 500);
+
       const response = await apiService.processSharePointJobFile(downloadUrl, fileName, job.id);
+
+      if (progressInterval) clearInterval(progressInterval);
+      setFileProgress(100);
       if (response.success) {
         // Refetch the updated job data
         const updatedJobResponse = await apiService.getJob(job.id);
@@ -118,17 +131,28 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         setTimeout(() => setSuccessMessage(null), 5000);
       }
     } catch (err: any) {
+      if (progressInterval) clearInterval(progressInterval);
       setSuccessMessage(`❌ Failed to process "${fileName}": ${err.response?.data?.error || err.message}`);
       setTimeout(() => setSuccessMessage(null), 8000);
     } finally {
       setProcessingFile(null);
+      setProcessingFileType(null);
+      setTimeout(() => setFileProgress(0), 1000);
     }
   };
 
   const handleProcessResumeFile = async (downloadUrl: string, fileName: string) => {
+    let progressInterval: NodeJS.Timeout | null = null;
     try {
       setProcessingFile(fileName);
+      setProcessingFileType('resume');
+      setFileProgress(0);
       setSuccessMessage(null);
+
+      // Simulate progress
+      progressInterval = setInterval(() => {
+        setFileProgress(prev => Math.min(prev + 2, 90));
+      }, 500);
 
       // Download the SharePoint resume file
       const response = await apiService.downloadSharePointFile(downloadUrl, true);
@@ -152,6 +176,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
       // Upload as resume
       const uploadResponse = await apiService.uploadResume(job.id, file);
+
+      if (progressInterval) clearInterval(progressInterval);
+      setFileProgress(100);
 
       if (uploadResponse.success) {
         // Create candidate object to match expected format
@@ -178,10 +205,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         setTimeout(() => setSuccessMessage(null), 5000);
       }
     } catch (err: any) {
+      if (progressInterval) clearInterval(progressInterval);
       setSuccessMessage(`❌ Failed to process resume "${fileName}": ${err.response?.data?.error || err.message}`);
       setTimeout(() => setSuccessMessage(null), 8000);
     } finally {
       setProcessingFile(null);
+      setProcessingFileType(null);
+      setTimeout(() => setFileProgress(0), 1000);
     }
   };
 
@@ -302,10 +332,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             {/* SharePoint Files Section */}
             {(job as any).monday_metadata?.sharepoint_link && (
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                  <span className="mr-2">📁</span> SharePoint Files
-                </h3>
-
                 {loadingSharePoint ? (
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <div className="flex items-center space-x-2">
@@ -315,75 +341,80 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   </div>
                 ) : sharepointFiles ? (
                   <div className="space-y-4">
-                    {/* Job Description Files */}
-                    {sharepointFiles.job_files && sharepointFiles.job_files.length > 0 && (
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <h4 className="font-medium text-green-900 mb-3">Files - Process as Job Description</h4>
-                        <div className="space-y-2">
-                          {sharepointFiles.job_files.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between bg-white p-2 rounded border">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-green-600">📄</span>
-                                <span className="text-sm font-medium">{file.name}</span>
-                                <span className="text-xs text-gray-500">({Math.round(file.size / 1024)} KB)</span>
-                              </div>
-                              <button
-                                onClick={() => handleProcessJobFile(file.download_url, file.name)}
-                                disabled={processingFile === file.name}
-                                className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-                              >
-                                {processingFile === file.name ? (
-                                  <>
-                                    <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 818-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Processing...</span>
-                                  </>
-                                ) : (
-                                  <span>Process with AI</span>
-                                )}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    {/* All Files - Single List */}
+                    {(() => {
+                      const allFiles = [
+                        ...(sharepointFiles.job_files || []),
+                        ...(sharepointFiles.resume_files || [])
+                      ];
 
-                    {/* Resume Files */}
-                    {sharepointFiles.resume_files && sharepointFiles.resume_files.length > 0 && (
-                      <div className="bg-blue-50 p-4 rounded-lg">
-                        <h4 className="font-medium text-blue-900 mb-3">Files - Process as Resume</h4>
-                        <div className="space-y-2">
-                          {sharepointFiles.resume_files.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between bg-white p-2 rounded border">
-                              <div className="flex items-center space-x-2">
-                                <span className="text-blue-600">📄</span>
-                                <span className="text-sm font-medium">{file.name}</span>
-                                <span className="text-xs text-gray-500">({Math.round(file.size / 1024)} KB)</span>
+                      // Remove duplicates based on file name
+                      const uniqueFiles = allFiles.filter((file, index, self) =>
+                        index === self.findIndex((f) => f.name === file.name)
+                      );
+
+                      return uniqueFiles.length > 0 ? (
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-900 mb-3">SharePoint Files</h4>
+                          <div className="space-y-2">
+                            {uniqueFiles.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between bg-white p-3 rounded border">
+                                <div className="flex items-center space-x-2 flex-1">
+                                  <span className="text-gray-600">📄</span>
+                                  <div className="flex-1">
+                                    <a
+                                      href={file.web_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                    >
+                                      {file.name}
+                                    </a>
+                                    <div className="text-xs text-gray-500">
+                                      {file.path} • {Math.round(file.size / 1024)} KB
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 ml-4">
+                                  {processingFile === file.name ? (
+                                    <div className={`flex items-center rounded px-3 py-1 space-x-2 ${processingFileType === 'job' ? 'bg-green-600' : 'bg-blue-600'}`} style={{ minWidth: '200px' }}>
+                                      <div className={`flex-1 rounded overflow-hidden ${processingFileType === 'job' ? 'bg-green-600' : 'bg-blue-600'}`} style={{ height: '8px' }}>
+                                        <div
+                                          className="h-full bg-white transition-all duration-500"
+                                          style={{ width: `${fileProgress}%` }}
+                                        />
+                                      </div>
+                                      <div className="text-xs text-white whitespace-nowrap">{fileProgress}%</div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => handleProcessJobFile(file.download_url, file.name)}
+                                        disabled={processingFile !== null}
+                                        className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                                      >
+                                        <span>Job Description</span>
+                                      </button>
+                                      <button
+                                        onClick={() => handleProcessResumeFile(file.download_url, file.name)}
+                                        disabled={processingFile !== null}
+                                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                                      >
+                                        <span>Resume</span>
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
-                              <button
-                                onClick={() => handleProcessResumeFile(file.download_url, file.name)}
-                                disabled={processingFile === file.name}
-                                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-                              >
-                                {processingFile === file.name ? (
-                                  <>
-                                    <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 818-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Processing...</span>
-                                  </>
-                                ) : (
-                                  <span>Process with AI</span>
-                                )}
-                              </button>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                          No files found in SharePoint folder
+                        </div>
+                      );
+                    })()}
 
                     <div className="text-xs text-gray-500 mt-2">
                       🔗 <a href={sharepointFiles.sharepoint_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">

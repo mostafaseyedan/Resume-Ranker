@@ -801,7 +801,9 @@ def generate_and_save_resume(candidate_id):
 
         if save_to_sharepoint and sharepoint_link:
             logger.info(f"Attempting to save resume to SharePoint for job: {job.get('title')}")
-            filename = f"improved_resume_{candidate.get('name', 'candidate').replace(' ', '_')}.pdf"
+            # Get template display name (e.g., "professional" -> "cendien", "modern" -> "modern", "minimal" -> "minimal")
+            template_display_name = "cendien" if template_id == "professional" else template_id
+            filename = f"improved_resume_{template_display_name}_{candidate.get('name', 'candidate').replace(' ', '_')}.pdf"
             upload_result = sharepoint_service.upload_file_to_folder(
                 sharepoint_url=sharepoint_link,
                 file_content=pdf_bytes,
@@ -823,7 +825,9 @@ def generate_and_save_resume(candidate_id):
         from flask import make_response
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'attachment; filename="improved_resume_{candidate.get("name", "candidate").replace(" ", "_")}.pdf"'
+        # Use same template display name for download filename
+        template_display_name = "cendien" if template_id == "professional" else template_id
+        response.headers['Content-Disposition'] = f'attachment; filename="improved_resume_{template_display_name}_{candidate.get("name", "candidate").replace(" ", "_")}.pdf"'
 
         if sharepoint_url:
             response.headers['X-SharePoint-URL'] = sharepoint_url

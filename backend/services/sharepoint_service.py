@@ -227,7 +227,7 @@ class SharePointService:
             logger.error(f"Error getting folder files from {sharepoint_url}: {e}")
             return []
 
-    def _get_files_recursive(self, folder_url: str, headers: Dict[str, str], recursive: bool, current_path: str = "") -> List[Dict[str, Any]]:
+    def _get_files_recursive(self, folder_url: str, headers: Dict[str, str], recursive: bool, current_path: str = "", site_id: str = None, drive_id: str = None) -> List[Dict[str, Any]]:
         """Recursively get files from folders"""
         try:
             files = []
@@ -238,6 +238,15 @@ class SharePointService:
                 return files
 
             data = response.json()
+
+            # Extract site_id and drive_id from folder_url if not provided
+            if not site_id or not drive_id:
+                url_parts = folder_url.split('/')
+                for i, part in enumerate(url_parts):
+                    if part == 'sites' and i + 1 < len(url_parts):
+                        site_id = url_parts[i + 1]
+                    elif part == 'drives' and i + 1 < len(url_parts):
+                        drive_id = url_parts[i + 1]
 
             for item in data.get('value', []):
                 item_path = f"{current_path}/{item['name']}" if current_path else item['name']
@@ -256,9 +265,12 @@ class SharePointService:
                     files.append(file_info)
 
                 elif 'folder' in item and recursive:  # It's a folder and we want to recurse
-                    subfolder_url = f"{folder_url.split('/children')[0]}/items/{item['id']}/children"
-                    subfolder_files = self._get_files_recursive(subfolder_url, headers, recursive, item_path)
+                    # Use the Graph API children endpoint directly
+                    subfolder_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{item['id']}/children"
+                    logger.info(f"Recursing into subfolder: {item_path} (URL: {subfolder_url})")
+                    subfolder_files = self._get_files_recursive(subfolder_url, headers, recursive, item_path, site_id, drive_id)
                     files.extend(subfolder_files)
+                    logger.info(f"Found {len(subfolder_files)} files in subfolder: {item_path}")
 
             return files
 

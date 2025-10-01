@@ -73,6 +73,24 @@ class ResumeService:
         weakness_list = "\n".join([f"- {w.get('weakness', '')}: {w.get('recommendation', '')}"
                                  for w in candidate_data.get('weaknesses', [])[:5]])
 
+        # Format skill weights for prioritization
+        skill_weights_text = ""
+        if job_data.get('skill_weights'):
+            skill_weights_text = f"""
+
+**SKILL PRIORITIES (from job analysis):**
+{json.dumps(job_data['skill_weights'], indent=2)}
+
+CRITICAL: These weights (0-10 scale) indicate the importance of each skill for this role. Skills with weight 8-10 are MANDATORY and must be prominently featured.
+
+You MUST:
+- Feature ALL high-weight skills (8-10) in the professional summary
+- Include ALL required skills in core competencies with detailed descriptions
+- Demonstrate high-weight skills through specific projects and accomplishments in work experience
+- Use exact keywords from job requirements multiple times throughout the resume
+- For any skill with weight 9-10, provide at least 3-4 pieces of evidence across different sections
+"""
+
         prompt = f"""
 As an expert resume writer and career coach with 20+ years of experience, create an improved version of this resume that is perfectly tailored to the job description.
 
@@ -82,6 +100,7 @@ As an expert resume writer and career coach with 20+ years of experience, create
 **TARGET JOB DESCRIPTION:**
 - Job Title: {job_data.get('title', 'N/A')}
 - Job Description: {job_data.get('description', 'N/A')}
+{skill_weights_text}
 
 **REQUIRED CERTIFICATIONS FROM JOB:**
 Based on the job description, identify any required or preferred certifications, licenses, or professional credentials mentioned.
@@ -102,17 +121,20 @@ Based on the job description, identify any required or preferred certifications,
 **RESUME IMPROVEMENT INSTRUCTIONS:**
 Generate an improved resume that:
 
-1. Maintains all factual information from the original
-2. Restructures content to highlight relevant skills and experience
-3. Uses keywords from the job description naturally
-4. Addresses identified weaknesses where possible
+CRITICAL GOAL: The improved resume MUST score 95% or higher when analyzed against this job description. The current score is {candidate_data.get('overall_score', 'N/A')}% - you must dramatically improve it.
+
+1. Is fully tailored to the job description with 100% alignment
+2. Restructures content to highlight relevant skills and experience prominently
+3. Uses keywords from the job description naturally and frequently throughout
+4. Addresses ALL identified weaknesses comprehensively
 5. Follows modern resume best practices
 6. Optimizes for ATS (Applicant Tracking Systems)
-7. Add, or make up experiences or skills for areas that are weak or missing.
-8. Resume has to be 100% aligned to the job description.
-9. It should not be shorter than the original resume.
-10. Try to keep the same tone and style as the original resume.
-11. Try to keep all of the original's resume's content, and just align and add to it to fit the job description.
+7. Add, or make up experiences or skills for areas that are weak or missing
+8. Every single requirement in the job description must be clearly demonstrated
+9. Should be comprehensive and detailed - length is not a concern if it means better alignment
+10. Emphasize high-weight skills from the job analysis in multiple sections
+11. Should address all the requirements in the job description, do not leave any requirement unaddressed
+12. Quantify achievements with metrics wherever possible to demonstrate impact
 
 **FORMATTING REQUIREMENTS:**
 - Write a compelling professional summary that highlights the candidate's value proposition for this specific role
@@ -163,7 +185,6 @@ For each professional experience entry, generate the following sections:
 - Use recent dates (within last 3-5 years) for certifications
 
 **CRITICAL REQUIREMENTS:**
-- DO NOT change dates or company names from original data
 - NEVER use placeholders anywhere - always use realistic, specific names and details
 - DO focus on optimal presentation and positioning of existing qualifications
 - DO ensure all content aligns with and supports the job requirements

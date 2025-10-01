@@ -24,7 +24,7 @@ class ExperienceEntry(BaseModel):
     responsibilities: Optional[List[str]] = None  # 4-12 bullet points
     accomplishments: Optional[List[str]] = None  # 4-10 bullet points (quantifiable)
     environment: Optional[List[str]] = None  # Comma-separated tech list
-    description: List[str] = Field(min_length=1)  # Keep for backward compatibility
+    description: Optional[List[str]] = None  # Keep for backward compatibility
     tech_stack: Optional[List[str]] = None  # Keep for backward compatibility
 
 class EducationEntry(BaseModel):

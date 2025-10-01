@@ -251,7 +251,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               <button
                 type="submit"
                 disabled={creating}
-                className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
               >
                 {creating ? 'Creating...' : 'Create Job'}
               </button>
@@ -261,14 +261,14 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                   setShowPDFForm(true);
                   setShowCreateForm(false);
                 }}
-                className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                className="px-4 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
               >
                  From PDF
               </button>
               <button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
-                className="px-4 py-2 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                className="px-4 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
               >
                 Cancel
               </button>
@@ -306,14 +306,14 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               <button
                 type="submit"
                 disabled={creatingFromPDF}
-                className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
               >
                 {creatingFromPDF ? 'Creating...' : 'Create from PDF'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowPDFForm(false)}
-                className="px-4 py-2 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                className="px-4 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
               >
                 Cancel
               </button>

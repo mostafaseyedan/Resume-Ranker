@@ -103,7 +103,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
       {/* Header */}
       <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 flex-1">
             <button
               onClick={onBack}
               className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
@@ -117,16 +117,16 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               <p className="text-sm text-gray-600">Candidate Analysis for {job.title}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="text-center">
-              <div className={`text-3xl font-bold ${getScoreColor(analysis?.overall_score || 0)}`}>
-                {analysis?.overall_score || 0}%
-              </div>
-              <div className="text-xs text-gray-500">Overall Score</div>
+          <div className="text-center flex-1">
+            <div className={`text-3xl font-bold ${getScoreColor(analysis?.overall_score || 0)}`}>
+              {analysis?.overall_score || 0}%
             </div>
+            <div className="text-xs text-gray-500">Overall Score</div>
+          </div>
+          <div className="flex justify-end flex-1">
             <button
               onClick={() => setShowTemplateSelector(!showTemplateSelector)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center space-x-2"
+              className="bg-blue-600 text-white px-4 py-1 text-sm rounded hover:bg-blue-700 flex items-center space-x-2"
             >
               <span>{showTemplateSelector ? 'Hide Templates' : 'Improve'}</span>
             </button>
