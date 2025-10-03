@@ -8,6 +8,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel
 
+
 logger = logging.getLogger(__name__)
 
 class ResumeService:
@@ -124,7 +125,7 @@ class ResumeService:
 CRITICAL: These weights (0-10 scale) indicate the importance of each skill for this role. Skills with weight 8-10 are MANDATORY and must be prominently featured.
 
 You MUST:
-- Feature ALL high-weight skills (8-10) in the professional summary
+- Feature ALL high-weight skills (8-12) in the professional summary
 - Include ALL required skills in core competencies with detailed descriptions
 - Demonstrate high-weight skills through specific projects and accomplishments in work experience
 - Use exact keywords from job requirements multiple times throughout the resume
