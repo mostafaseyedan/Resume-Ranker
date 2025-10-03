@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Job, apiService, CreateJobRequest } from '../services/apiService';
 
 interface JobListProps {
@@ -26,6 +26,44 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     title: '',
     file: null as File | null
   });
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const normalizeStatus = (status: string) =>
+    (status || '')
+      .toLowerCase()
+      .replace(/_/g, ' ')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const statusOptions = useMemo(
+    () => {
+      const map = new Map<string, string>();
+      jobs.forEach((job) => {
+        const status = job.monday_metadata?.status;
+        if (status) {
+          const key = normalizeStatus(status);
+          if (key && !map.has(key)) {
+            map.set(key, status);
+          }
+        }
+      });
+      return Array.from(map.entries())
+        .map(([key, label]) => ({ key, label }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    },
+    [jobs]
+  );
+
+  const filteredJobs = useMemo(
+    () => {
+      if (statusFilter === 'all') {
+        return jobs;
+      }
+      return jobs.filter((job) => normalizeStatus(job.monday_metadata?.status || '') === statusFilter);
+    },
+    [jobs, statusFilter]
+  );
 
   const showNotification = (type: 'success' | 'error' | 'info', message: string, duration: number = 5000) => {
     setNotification({ type, message });
@@ -192,24 +230,38 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
       )}
 
       <div className="p-4 border-b">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold">{jobs.length} Job{jobs.length !== 1 ? 's' : ''}</h2>
-          <div className="flex space-x-2">
+        <div className="flex flex-wrap justify-between items-center gap-3">
+          <div className="flex items-center flex-wrap gap-2 text-sm text-gray-700">
+            <span className="text-lg font-semibold text-gray-900">
+              {filteredJobs.length} Job{filteredJobs.length !== 1 ? 's' : ''}
+              {statusFilter !== 'all' && ` (of ${jobs.length})`}
+            </span>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="text-sm border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="all">All statuses</option>
+              {statusOptions.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleSyncMonday}
               disabled={syncingMonday}
-              className="px-3 py-1 text-sm bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 flex items-center space-x-1"
+              title={syncingMonday ? 'Syncing...' : 'Sync Monday jobs'}
+              aria-label={syncingMonday ? 'Syncing Monday jobs' : 'Sync Monday jobs'}
+              className="h-9 w-9 bg-white rounded hover:bg-gray-100 disabled:opacity-50 flex items-center justify-center"
             >
               {syncingMonday ? (
-                <>
-                  <div className="animate-spin h-3 w-3 border border-white border-t-transparent rounded-full"></div>
-                  <span>Syncing...</span>
-                </>
+                <div className="animate-spin h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full"></div>
               ) : (
-                <>
-                  <span></span>
-                  <span>Sync Monday</span>
-                </>
+                <img src="/monday.svg" alt="" aria-hidden="true" className="h-6 w-6" />
               )}
             </button>
             <button
@@ -329,9 +381,13 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
             <p>No jobs yet</p>
             <p className="text-sm">Create your first job position</p>
           </div>
+        ) : filteredJobs.length === 0 ? (
+          <div className="p-4 text-center text-gray-500">
+            <p className="text-sm">No jobs match the selected status.</p>
+          </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {jobs.map((job) => (
+            {filteredJobs.map((job) => (
               <div
                 key={job.id}
                 onClick={() => onJobSelect(job)}

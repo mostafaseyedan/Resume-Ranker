@@ -759,6 +759,7 @@ def generate_and_save_resume(candidate_id):
         data = request.get_json()
         template_id = data.get('template_id', 'professional')
         save_to_sharepoint = data.get('save_to_sharepoint', False)
+        output_format = data.get('format', 'pdf')
 
         candidate = firestore_service.get_candidate(candidate_id)
         if not candidate:
@@ -786,13 +787,25 @@ def generate_and_save_resume(candidate_id):
         if not template:
             return jsonify({'error': f'Template not found: {template_id}'}), 404
 
-        # Generate improved resume PDF
-        pdf_bytes = resume_service.improve_and_generate_pdf(
-            candidate_data=candidate,
-            job_data=job,
-            company_info=company_info,
-            template_name=template.filename
-        )
+        # Generate improved resume in requested format
+        if output_format == 'docx':
+            file_bytes = resume_service.improve_and_generate_docx(
+                candidate_data=candidate,
+                job_data=job,
+                company_info=company_info,
+                template_name=template.filename
+            )
+            content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            file_extension = 'docx'
+        else:
+            file_bytes = resume_service.improve_and_generate_pdf(
+                candidate_data=candidate,
+                job_data=job,
+                company_info=company_info,
+                template_name=template.filename
+            )
+            content_type = 'application/pdf'
+            file_extension = 'pdf'
 
         # Save to SharePoint if requested
         sharepoint_url = None
@@ -803,10 +816,10 @@ def generate_and_save_resume(candidate_id):
             logger.info(f"Attempting to save resume to SharePoint for job: {job.get('title')}")
             # Get template display name (e.g., "professional" -> "cendien", "modern" -> "modern", "minimal" -> "minimal")
             template_display_name = "cendien" if template_id == "professional" else template_id
-            filename = f"improved_resume_{template_display_name}_{candidate.get('name', 'candidate').replace(' ', '_')}.pdf"
+            filename = f"improved_resume_{template_display_name}_{candidate.get('name', 'candidate').replace(' ', '_')}.{file_extension}"
             upload_result = sharepoint_service.upload_file_to_folder(
                 sharepoint_url=sharepoint_link,
-                file_content=pdf_bytes,
+                file_content=file_bytes,
                 filename=filename,
                 job_title=job.get('title')
             )
@@ -821,13 +834,13 @@ def generate_and_save_resume(candidate_id):
         else:
             logger.info("SharePoint save not requested")
 
-        # Return PDF as downloadable file
+        # Return file as downloadable
         from flask import make_response
-        response = make_response(pdf_bytes)
-        response.headers['Content-Type'] = 'application/pdf'
+        response = make_response(file_bytes)
+        response.headers['Content-Type'] = content_type
         # Use same template display name for download filename
         template_display_name = "cendien" if template_id == "professional" else template_id
-        response.headers['Content-Disposition'] = f'attachment; filename="improved_resume_{template_display_name}_{candidate.get("name", "candidate").replace(" ", "_")}.pdf"'
+        response.headers['Content-Disposition'] = f'attachment; filename="improved_resume_{template_display_name}_{candidate.get("name", "candidate").replace(" ", "_")}.{file_extension}"'
 
         if sharepoint_url:
             response.headers['X-SharePoint-URL'] = sharepoint_url

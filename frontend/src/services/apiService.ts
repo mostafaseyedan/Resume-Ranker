@@ -245,10 +245,10 @@ export const apiService = {
     return response.data;
   },
 
-  async generateResumeWithTemplate(candidateId: string, templateId: string, saveToSharepoint: boolean) {
+  async generateResumeWithTemplate(candidateId: string, templateId: string, saveToSharepoint: boolean, format: 'pdf' | 'docx' = 'pdf') {
     const response = await apiClient.post(
       `/candidates/${candidateId}/generate-resume`,
-      { template_id: templateId, save_to_sharepoint: saveToSharepoint },
+      { template_id: templateId, save_to_sharepoint: saveToSharepoint, format: format },
       { responseType: 'blob' }
     );
     return response;

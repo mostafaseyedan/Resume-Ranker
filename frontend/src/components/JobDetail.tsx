@@ -9,6 +9,39 @@ interface JobDetailProps {
   onJobUpdated?: (updatedJob: Job) => void;
 }
 
+const getReqStatusColor = (status: string) => {
+  const normalizedStatus = (status || '')
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const matchableStatus = (() => {
+    if (normalizedStatus.includes('open')) return 'open';
+    if (normalizedStatus.includes('submit')) return 'submitted';
+    if (normalizedStatus.includes('interview')) return 'interviewing';
+    if (normalizedStatus.includes('not pursuing')) return 'not pursuing';
+    if (normalizedStatus.includes('closed')) return 'closed';
+    return normalizedStatus;
+  })();
+
+  switch (matchableStatus) {
+    case 'open':
+      return 'bg-blue-100 text-blue-800';
+    case 'submitted':
+      return 'bg-green-100 text-green-800';
+    case 'interviewing':
+      return 'bg-pink-100 text-pink-800';
+    case 'not pursuing':
+      return 'bg-gray-100 text-gray-800';
+    case 'closed':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
 const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
@@ -233,13 +266,25 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           <div>
             <h2 className="text-xl font-bold text-gray-900">{job.title}</h2>
             <div className="flex items-center mt-2 space-x-4">
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                job.status === 'active'
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-800'
-              }`}>
-                {job.status}
-              </span>
+              {(job.monday_metadata?.status || job.status) && (
+                <span
+                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    getReqStatusColor(job.monday_metadata?.status || job.status || '')
+                  }`}
+                >
+                  {job.monday_metadata?.status || job.status}
+                </span>
+              )}
+              {job.monday_metadata?.work_mode && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {job.monday_metadata.work_mode}
+                </span>
+              )}
+              {job.monday_metadata?.employment_type && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  {job.monday_metadata.employment_type}
+                </span>
+              )}
               <span className="text-xs text-gray-500">
                 Created: {new Date(job.created_at).toLocaleDateString()}
               </span>

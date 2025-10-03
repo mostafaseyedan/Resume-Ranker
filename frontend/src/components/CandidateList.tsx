@@ -17,14 +17,6 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
     return 'text-red-600 bg-red-50';
   };
 
-  const getScoreGrade = (score: number): string => {
-    if (score >= 90) return 'A';
-    if (score >= 80) return 'B';
-    if (score >= 70) return 'C';
-    if (score >= 60) return 'D';
-    return 'F';
-  };
-
   const handleDeleteCandidate = async (candidateId: string, candidateName: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent candidate selection when clicking delete
 
@@ -60,13 +52,11 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
         <h3 className="text-lg font-medium text-gray-900">
           Candidates ({candidates.length})
         </h3>
-        <div className="text-sm text-gray-500">
-          Ranked by compatibility score
-        </div>
+        <div className="text-xs text-gray-500">Select a candidate to view full analysis</div>
       </div>
 
       <div className="grid gap-4">
-        {candidates.map((candidate, index) => (
+        {candidates.map((candidate) => (
           <div
             key={candidate.id}
             onClick={() => onCandidateSelect(candidate)}
@@ -74,96 +64,42 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
-                  <h4 className="text-lg font-semibold text-gray-900">{candidate.name}</h4>
-                  <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getScoreColor(candidate.overall_score || 0)}`}>
-                    <span className="mr-1">{getScoreGrade(candidate.overall_score || 0)}</span>
-                    {candidate.overall_score || 0}%
-                  </div>
-                </div>
-
-                <div className="mt-1 space-y-1">
-                  {candidate.email && (
-                    <p className="text-sm text-gray-600"> {candidate.email}</p>
+                <h4 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+                  <span>{candidate.name || 'Unnamed Candidate'}</span>
+                  {(candidate.resume_filename || '').toLowerCase().includes('improved') && (
+                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                      Improved
+                    </span>
                   )}
-                  {candidate.phone && (
-                    <p className="text-sm text-gray-600"> {candidate.phone}</p>
+                </h4>
+                <p className="mt-1 text-sm text-gray-600">
+                  {candidate.resume_filename || 'No filename provided'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Uploaded: {candidate.created_at ? new Date(candidate.created_at).toLocaleDateString() : '—'}
+                </p>
+              </div>
+
+              <div className="ml-4 flex items-center space-x-4">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                  <div className={`text-2xl font-bold ${getScoreColor(candidate.overall_score || 0).replace('bg-', 'text-').replace('-50', '-600').replace('-100', '-600')}`}>
+                    {candidate.overall_score || 0}
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => handleDeleteCandidate(candidate.id, candidate.name, e)}
+                  disabled={deletingCandidateId === candidate.id}
+                  className="text-red-500 hover:text-red-700 p-1 rounded disabled:opacity-50"
+                  title="Delete candidate"
+                >
+                  {deletingCandidateId === candidate.id ? (
+                    <div className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full"></div>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
                   )}
-                  <p className="text-xs text-gray-500">
-                     {candidate.resume_filename} • Uploaded: {new Date(candidate.created_at).toLocaleString()}
-                  </p>
-                </div>
-
-                {candidate.summary && (
-                  <p className="mt-2 text-sm text-gray-700 line-clamp-2">
-                    {candidate.summary}
-                  </p>
-                )}
-              </div>
-
-              <div className="ml-4 text-right">
-                <div className="flex flex-col items-center space-y-2">
-                  <button
-                    onClick={(e) => handleDeleteCandidate(candidate.id, candidate.name, e)}
-                    disabled={deletingCandidateId === candidate.id}
-                    className="text-red-500 hover:text-red-700 p-1 rounded disabled:opacity-50"
-                    title="Delete candidate"
-                  >
-                    {deletingCandidateId === candidate.id ? (
-                      <div className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full"></div>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                      </svg>
-                    )}
-                  </button>
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                    <div className={`text-2xl font-bold ${getScoreColor(candidate.overall_score || 0).replace('bg-', 'text-').replace('-50', '-600').replace('-100', '-600')}`}>
-                      {candidate.overall_score || 0}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick preview of strengths and weaknesses */}
-            {candidate.strengths && (
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                {candidate.strengths && candidate.strengths.length > 0 && (
-                  <div>
-                    <div className="text-xs font-medium text-green-700 mb-1">Top Strengths</div>
-                    <div className="space-y-1">
-                      {candidate.strengths.slice(0, 2).map((strength, idx) => (
-                        <div key={idx} className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                          {strength.strength}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {candidate.weaknesses && candidate.weaknesses.length > 0 && (
-                  <div>
-                    <div className="text-xs font-medium text-red-700 mb-1">Areas for Improvement</div>
-                    <div className="space-y-1">
-                      {candidate.weaknesses.slice(0, 2).map((weakness, idx) => (
-                        <div key={idx} className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                          {weakness.weakness}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="mt-3 flex justify-between items-center">
-              <div className="text-xs text-gray-500">
-                Click to view detailed analysis
-              </div>
-              <div className="text-xs text-blue-600">
-                View Details →
+                </button>
               </div>
             </div>
           </div>

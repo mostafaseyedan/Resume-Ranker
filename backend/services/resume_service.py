@@ -63,6 +63,46 @@ class ResumeService:
             logger.error(f"Error in improve_and_generate_pdf: {e}")
             raise Exception(f"Failed to generate improved resume: {str(e)}")
 
+    def improve_and_generate_docx(self, candidate_data: Dict, job_data: Dict, company_info: Optional[Dict] = None, template_name: str = "resume_template_professional.html") -> bytes:
+        """
+        Generate improved resume DOCX using Gemini structured output
+
+        Args:
+            candidate_data: Original candidate information from database
+            job_data: Job description and requirements
+            company_info: Company branding information (logo, footer, etc.)
+            template_name: Name of the template file to use
+
+        Returns:
+            DOCX bytes for download
+        """
+        try:
+            # Step 1: Generate ResumeModel schema for Gemini
+            schema = ResumeModel.model_json_schema()
+
+            # Step 2: Create comprehensive prompt for Gemini
+            prompt = self._create_improvement_prompt(candidate_data, job_data, schema)
+
+            # Step 3: Get structured output from Gemini
+            improved_data = self._get_gemini_structured_output(prompt, schema)
+
+            # Step 4: Add company branding
+            if company_info:
+                improved_data = self._add_company_branding(improved_data, company_info)
+
+            # Step 5: Validate and create ResumeModel
+            resume_model = ResumeModel.model_validate(improved_data)
+
+            # Step 6: Generate DOCX with specified template
+            docx_bytes = self.resume_generator.generate_docx(resume_model, template_name=template_name)
+
+            logger.info(f"Successfully generated improved resume DOCX for {candidate_data.get('name', 'unknown')}")
+            return docx_bytes
+
+        except Exception as e:
+            logger.error(f"Error in improve_and_generate_docx: {e}")
+            raise Exception(f"Failed to generate improved resume: {str(e)}")
+
     def _create_improvement_prompt(self, candidate_data: Dict, job_data: Dict, schema: Dict) -> str:
         """Create comprehensive prompt for Gemini to improve resume"""
 

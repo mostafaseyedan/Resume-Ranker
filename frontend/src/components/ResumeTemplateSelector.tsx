@@ -23,6 +23,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
 }) => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('professional');
+  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'docx'>('pdf');
   const [saveToSharePoint, setSaveToSharePoint] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -56,7 +57,8 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
       const response = await apiService.generateResumeWithTemplate(
         candidateId,
         selectedTemplate,
-        saveToSharePoint
+        saveToSharePoint,
+        selectedFormat
       );
 
       clearInterval(progressInterval);
@@ -65,12 +67,14 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
       // Get SharePoint URL from response header if available
       const sharepointUrl = response.headers['x-sharepoint-url'];
 
-      // Create download link for PDF
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      // Create download link for PDF or DOCX
+      const mimeType = selectedFormat === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      const fileExtension = selectedFormat === 'pdf' ? 'pdf' : 'docx';
+      const blob = new Blob([response.data], { type: mimeType });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `improved_resume_${candidateName.replace(/\s+/g, '_')}.pdf`;
+      link.download = `improved_resume_${candidateName.replace(/\s+/g, '_')}.${fileExtension}`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -141,6 +145,36 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
           ))}
         </div>
       </div>
+
+      {selectedTemplate === 'professional' && (
+        <div style={styles.section}>
+          <label style={styles.label}>Output Format:</label>
+          <div style={styles.formatSelector}>
+            <label style={styles.formatOption}>
+              <input
+                type="radio"
+                name="format"
+                value="pdf"
+                checked={selectedFormat === 'pdf'}
+                onChange={(e) => setSelectedFormat('pdf')}
+                style={styles.radio}
+              />
+              PDF
+            </label>
+            <label style={styles.formatOption}>
+              <input
+                type="radio"
+                name="format"
+                value="docx"
+                checked={selectedFormat === 'docx'}
+                onChange={(e) => setSelectedFormat('docx')}
+                style={styles.radio}
+              />
+              DOCX (Word)
+            </label>
+          </div>
+        </div>
+      )}
 
       <div style={styles.section}>
         <label style={styles.checkboxLabel}>
@@ -281,6 +315,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
   },
   checkbox: {
+    marginRight: '8px',
+    cursor: 'pointer',
+  },
+  formatSelector: {
+    display: 'flex',
+    gap: '20px',
+  },
+  formatOption: {
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: '14px',
+    color: '#555',
+    cursor: 'pointer',
+  },
+  radio: {
     marginRight: '8px',
     cursor: 'pointer',
   },

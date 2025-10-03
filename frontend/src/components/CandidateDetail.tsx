@@ -74,6 +74,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
   // Analysis data is now directly on candidate object
   const analysis = candidate;
+  const isImprovedResume = (candidate.resume_filename || '').toLowerCase().includes('improved');
 
   return (
     <div className="bg-white rounded-lg shadow max-w-6xl mx-auto">
@@ -113,7 +114,14 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               </svg>
             </button>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{candidate.name}</h2>
+              <h2 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
+                <span>{candidate.name}</span>
+                {isImprovedResume && (
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                    Improved
+                  </span>
+                )}
+              </h2>
               <p className="text-sm text-gray-600">Candidate Analysis for {job.title}</p>
             </div>
           </div>
