@@ -85,7 +85,7 @@ class GeminiAnalyzer:
             """
 
             response = self.client.models.generate_content(
-                model="models/gemini-flash-latest",
+                model="gemini-flash-latest",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -199,7 +199,7 @@ SCORING GUIDELINES:
 """
 
             response = self.client.models.generate_content(
-                model="models/gemini-flash-latest",
+                model="gemini-flash-latest",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",

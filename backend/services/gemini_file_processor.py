@@ -79,7 +79,7 @@ class GeminiFileProcessor:
                 prompt = "Extract all text content from this document. Preserve formatting and structure as much as possible. Return only the raw text content without any analysis or summary."
 
                 response = self.client.models.generate_content(
-                    model="models/gemini-flash-latest",
+                    model="gemini-flash-latest",
                     contents=[uploaded_file, prompt],
                     config=types.GenerateContentConfig(
                         thinking_config=types.ThinkingConfig(
@@ -179,7 +179,7 @@ class GeminiFileProcessor:
             """
 
             response = self.client.models.generate_content(
-                model="models/gemini-flash-latest",
+                model="gemini-flash-latest",
                 contents=[uploaded_file, prompt],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
