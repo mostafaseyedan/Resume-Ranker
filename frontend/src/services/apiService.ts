@@ -253,4 +253,10 @@ export const apiService = {
     );
     return response;
   },
+
+  // Activity logs
+  async getActivities(limit: number = 50): Promise<{ activities: any[] }> {
+    const response = await apiClient.get(`/activities?limit=${limit}`);
+    return response.data;
+  },
 };

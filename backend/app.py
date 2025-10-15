@@ -13,6 +13,7 @@ from services.gemini_file_processor import GeminiFileProcessor
 from services.monday_service import MondayService
 from services.sharepoint_service import SharePointService
 from services.resume_service import ResumeService
+from services.activity_logger_service import ActivityLoggerService
 import logging
 import base64
 import json
@@ -51,6 +52,7 @@ gemini_analyzer = GeminiAnalyzer(os.getenv('GEMINI_API_KEY'))
 gemini_file_processor = GeminiFileProcessor(os.getenv('GEMINI_API_KEY'))
 monday_service = MondayService(os.getenv('MONDAY_API_KEY')) if os.getenv('MONDAY_API_KEY') else None
 resume_service = ResumeService(os.getenv('GEMINI_API_KEY'))
+activity_logger = ActivityLoggerService()
 
 # Azure AD Configuration
 AZURE_CONFIG = {
@@ -62,7 +64,10 @@ AZURE_CONFIG = {
 }
 
 # Initialize SharePoint service after AZURE_CONFIG
-sharepoint_service = SharePointService(AZURE_CONFIG)
+# Cache TTL can be configured via environment variable (default: 15 minutes)
+sharepoint_cache_ttl = int(os.getenv('SHAREPOINT_CACHE_TTL_MINUTES', '15'))
+sharepoint_service = SharePointService(AZURE_CONFIG, cache_ttl_minutes=sharepoint_cache_ttl)
+logger.info(f"SharePoint service initialized with cache TTL: {sharepoint_cache_ttl} minutes")
 
 
 def build_job_analysis_payload(job_description, extraction_data=None):
@@ -190,6 +195,13 @@ def login():
             'name': user_name
         }
 
+        # Log the login activity
+        activity_logger.log_activity(
+            user_email=user_email,
+            user_name=user_name,
+            action='login'
+        )
+
         return jsonify({'success': True, 'user': session['user']})
 
     except Exception as e:
@@ -242,6 +254,15 @@ def create_job():
         }
 
         job_id = firestore_service.create_job(job_data)
+
+        # Log the job creation activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='job_created',
+            details={'job_title': data['title']}
+        )
+
         return jsonify({'success': True, 'job_id': job_id})
 
     except Exception as e:
@@ -298,6 +319,15 @@ def create_job_from_pdf():
         job_data.update(analysis_payload)
 
         job_id = firestore_service.create_job(job_data)
+
+        # Log the job creation activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='job_created',
+            details={'job_title': title}
+        )
+
         return jsonify({'success': True, 'job_id': job_id})
 
     except Exception as e:
@@ -535,6 +565,16 @@ def process_sharepoint_job_file():
         try:
             firestore_service.update_job(job_id, update_data)
             logger.info(f"Updated job {job_id} with extracted job information")
+
+            # Log the job update activity
+            job = firestore_service.get_job(job_id)
+            if job:
+                activity_logger.log_activity(
+                    user_email=session['user']['email'],
+                    user_name=session['user']['name'],
+                    action='job_created',
+                    details={'job_title': job.get('title', 'Unknown job')}
+                )
         except Exception as update_error:
             logger.error(f"Failed to update job {job_id}: {update_error}")
             return jsonify({'error': 'Failed to update job with extracted information'}), 500
@@ -595,6 +635,17 @@ def upload_resume(job_id):
         }
 
         candidate_id = firestore_service.save_candidate(candidate_data)
+
+        # Log the candidate analysis activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='candidate_analyzed',
+            details={
+                'candidate_name': candidate_data.get('name', 'Unknown'),
+                'job_title': job.get('title', 'Unknown job')
+            }
+        )
 
         return jsonify({
             'success': True,
@@ -821,7 +872,8 @@ def generate_and_save_resume(candidate_id):
                 sharepoint_url=sharepoint_link,
                 file_content=file_bytes,
                 filename=filename,
-                job_title=job.get('title')
+                job_title=job.get('title'),
+                subfolder='Resume Ranker Improvement'
             )
 
             if upload_result:
@@ -850,6 +902,32 @@ def generate_and_save_resume(candidate_id):
     except Exception as e:
         logger.error(f"Generate and save resume error: {e}")
         return jsonify({'error': 'Failed to generate resume'}), 500
+
+@app.route('/api/sharepoint/clear-cache', methods=['POST'])
+@require_auth
+def clear_sharepoint_cache():
+    """Clear the SharePoint cache manually"""
+    try:
+        sharepoint_service.clear_cache()
+        return jsonify({
+            'success': True,
+            'message': 'SharePoint cache cleared successfully'
+        })
+    except Exception as e:
+        logger.error(f"Clear cache error: {e}")
+        return jsonify({'error': 'Failed to clear cache'}), 500
+
+@app.route('/api/activities', methods=['GET'])
+@require_auth
+def get_activities():
+    """Get recent activity logs"""
+    try:
+        limit = int(request.args.get('limit', 50))
+        activities = activity_logger.get_recent_activities(limit=limit)
+        return jsonify({'activities': activities})
+    except Exception as e:
+        logger.error(f"Get activities error: {e}")
+        return jsonify({'error': 'Failed to retrieve activities'}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():

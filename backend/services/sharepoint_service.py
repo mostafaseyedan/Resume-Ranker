@@ -4,17 +4,58 @@ import logging
 from typing import List, Dict, Optional, Any, Union
 import os
 from urllib.parse import quote, urlparse, parse_qs
+from datetime import datetime, timedelta
+import hashlib
 
 logger = logging.getLogger(__name__)
 
 class SharePointService:
-    def __init__(self, azure_config: Dict[str, Any]):
+    def __init__(self, azure_config: Dict[str, Any], cache_ttl_minutes: int = 15):
         self.client_id: str = azure_config['client_id']
         self.client_secret: str = azure_config['client_secret']
         self.tenant_id: str = azure_config['tenant_id']
         self.authority: str = azure_config['authority']
         self.scope: List[str] = ['https://graph.microsoft.com/.default']
         self._token: Optional[str] = None
+
+        # Cache configuration
+        self.cache_ttl_minutes = cache_ttl_minutes
+        self._cache: Dict[str, Dict[str, Any]] = {}
+        # Cache structure: {cache_key: {'data': [...], 'timestamp': datetime, 'ttl': datetime}}
+
+    def _generate_cache_key(self, *args) -> str:
+        """Generate a unique cache key from arguments"""
+        key_string = '|'.join(str(arg) for arg in args)
+        return hashlib.md5(key_string.encode()).hexdigest()
+
+    def _get_from_cache(self, cache_key: str) -> Optional[Any]:
+        """Retrieve data from cache if not expired"""
+        if cache_key not in self._cache:
+            return None
+
+        cache_entry = self._cache[cache_key]
+        if datetime.now() > cache_entry['ttl']:
+            # Cache expired, remove it
+            del self._cache[cache_key]
+            logger.debug(f"Cache expired for key: {cache_key}")
+            return None
+
+        logger.debug(f"Cache hit for key: {cache_key}")
+        return cache_entry['data']
+
+    def _set_cache(self, cache_key: str, data: Any) -> None:
+        """Store data in cache with TTL"""
+        self._cache[cache_key] = {
+            'data': data,
+            'timestamp': datetime.now(),
+            'ttl': datetime.now() + timedelta(minutes=self.cache_ttl_minutes)
+        }
+        logger.debug(f"Cached data for key: {cache_key}, TTL: {self.cache_ttl_minutes} minutes")
+
+    def clear_cache(self) -> None:
+        """Clear all cached data"""
+        self._cache.clear()
+        logger.info("SharePoint cache cleared")
 
     def _get_access_token(self) -> Optional[str]:
         """Get access token for Microsoft Graph API"""
@@ -143,6 +184,15 @@ class SharePointService:
     def get_folder_files(self, sharepoint_url: str, recursive: bool = True, job_title: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all files in a SharePoint folder and optionally its subfolders"""
         try:
+            # Generate cache key based on URL, recursive flag, and job title
+            cache_key = self._generate_cache_key('folder_files', sharepoint_url, recursive, job_title)
+
+            # Check cache first
+            cached_files = self._get_from_cache(cache_key)
+            if cached_files is not None:
+                logger.info(f"Returning cached files for SharePoint URL: {sharepoint_url}")
+                return cached_files
+
             token = self._get_access_token()
             if not token:
                 return []
@@ -233,7 +283,13 @@ class SharePointService:
             else:
                 folder_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root/children"
 
-            return self._get_files_recursive(folder_url, headers, recursive)
+            files = self._get_files_recursive(folder_url, headers, recursive)
+
+            # Cache the results
+            self._set_cache(cache_key, files)
+            logger.info(f"Fetched and cached {len(files)} files from SharePoint")
+
+            return files
 
         except Exception as e:
             logger.error(f"Error getting folder files from {sharepoint_url}: {e}")
@@ -272,7 +328,9 @@ class SharePointService:
                         'download_url': item.get('@microsoft.graph.downloadUrl'),
                         'web_url': item.get('webUrl'),
                         'mime_type': item.get('file', {}).get('mimeType'),
-                        'type': 'file'
+                        'type': 'file',
+                        'created_datetime': item.get('createdDateTime'),
+                        'modified_datetime': item.get('lastModifiedDateTime')
                     }
                     files.append(file_info)
 
@@ -432,7 +490,7 @@ class SharePointService:
             logger.error(f"Error finding job folder for '{job_title}': {e}")
             return None
 
-    def upload_file_to_folder(self, sharepoint_url: str, file_content: bytes, filename: str, job_title: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def upload_file_to_folder(self, sharepoint_url: str, file_content: bytes, filename: str, job_title: Optional[str] = None, subfolder: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Upload a file to a SharePoint folder
 
@@ -441,6 +499,7 @@ class SharePointService:
             file_content: File content as bytes
             filename: Name of the file to create
             job_title: Optional job title to find specific job folder
+            subfolder: Optional subfolder name to create/upload to within the target folder
 
         Returns:
             Uploaded file information or None on failure
@@ -518,18 +577,29 @@ class SharePointService:
             if url_info.get('sharing_link') and job_title:
                 job_folder = self._find_job_folder_by_title(site_id, drive_id, headers, job_title)
                 if job_folder:
-                    # Upload to specific job folder
-                    upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{job_folder['id']}:/{filename}:/content"
-                    logger.info(f"Uploading to job folder: {job_folder['name']}")
+                    # Upload to specific job folder (with optional subfolder)
+                    if subfolder:
+                        upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{job_folder['id']}:/{quote(subfolder)}/{filename}:/content"
+                        logger.info(f"Uploading to job folder: {job_folder['name']}/{subfolder}")
+                    else:
+                        upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{job_folder['id']}:/{filename}:/content"
+                        logger.info(f"Uploading to job folder: {job_folder['name']}")
                 else:
                     logger.error(f"Could not find job folder for: {job_title}")
                     return None
             elif folder_path:
-                # Upload to specified folder path
-                upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{quote(folder_path)}/{filename}:/content"
+                # Upload to specified folder path (with optional subfolder)
+                if subfolder:
+                    full_path = f"{folder_path}/{subfolder}"
+                    upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{quote(full_path)}/{filename}:/content"
+                else:
+                    upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{quote(folder_path)}/{filename}:/content"
             else:
-                # Upload to root
-                upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{filename}:/content"
+                # Upload to root (with optional subfolder)
+                if subfolder:
+                    upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{quote(subfolder)}/{filename}:/content"
+                else:
+                    upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{filename}:/content"
 
             # Upload file
             upload_response = requests.put(upload_url, headers=headers, data=file_content)

@@ -1,20 +1,61 @@
 import React, { useState } from 'react';
 import { Candidate, apiService } from '../services/apiService';
 
+interface SharePointFile {
+  name: string;
+  web_url: string;
+  download_url: string;
+  path: string;
+  size: number;
+  created_datetime?: string;
+  modified_datetime?: string;
+}
+
 interface CandidateListProps {
   candidates: Candidate[];
   onCandidateSelect: (candidate: Candidate) => void;
   onCandidateDeleted: (candidateId: string) => void;
+  sharepointFiles?: { job_files: SharePointFile[]; resume_files: SharePointFile[]; sharepoint_link: string } | null;
 }
 
-const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSelect, onCandidateDeleted }) => {
+const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSelect, onCandidateDeleted, sharepointFiles }) => {
   const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
+
   const getScoreColor = (score: number): string => {
     if (score >= 90) return 'text-green-600 bg-green-100';
     if (score >= 80) return 'text-green-600 bg-green-50';
     if (score >= 70) return 'text-yellow-600 bg-yellow-50';
     if (score >= 60) return 'text-orange-600 bg-orange-50';
     return 'text-red-600 bg-red-50';
+  };
+
+  // Function to find SharePoint file by matching filename
+  const findSharePointFile = (filename: string): SharePointFile | null => {
+    if (!sharepointFiles) return null;
+
+    const allFiles = [
+      ...(sharepointFiles.job_files || []),
+      ...(sharepointFiles.resume_files || [])
+    ];
+
+    // Try exact match first
+    let file = allFiles.find(f => f.name === filename);
+
+    // If no exact match, try case-insensitive match
+    if (!file) {
+      file = allFiles.find(f => f.name.toLowerCase() === filename.toLowerCase());
+    }
+
+    // If still no match, try matching without extension
+    if (!file) {
+      const filenameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+      file = allFiles.find(f => {
+        const fNameWithoutExt = f.name.replace(/\.[^/.]+$/, '');
+        return fNameWithoutExt.toLowerCase() === filenameWithoutExt.toLowerCase();
+      });
+    }
+
+    return file || null;
   };
 
   const handleDeleteCandidate = async (candidateId: string, candidateName: string, e: React.MouseEvent) => {
@@ -73,10 +114,47 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                   )}
                 </h4>
                 <p className="mt-1 text-sm text-gray-600">
-                  {candidate.resume_filename || 'No filename provided'}
+                  {(() => {
+                    const filename = candidate.resume_filename || 'No filename provided';
+                    const sharepointFile = findSharePointFile(filename);
+
+                    if (sharepointFile) {
+                      return (
+                        <a
+                          href={sharepointFile.web_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center space-x-1"
+                        >
+                          <span>{filename}</span>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                          </svg>
+                        </a>
+                      );
+                    }
+
+                    return <span>{filename}</span>;
+                  })()}
                 </p>
                 <p className="text-xs text-gray-500">
-                  Uploaded: {candidate.created_at ? new Date(candidate.created_at).toLocaleDateString() : '—'}
+                  {(() => {
+                    const isImproved = (candidate.resume_filename || '').toLowerCase().includes('improved');
+                    const filename = candidate.resume_filename || '';
+                    const sharepointFile = findSharePointFile(filename);
+
+                    if (isImproved && sharepointFile?.created_datetime) {
+                      // For improved resumes with SharePoint data, show "Generated" date using created date
+                      return `Generated: ${new Date(sharepointFile.created_datetime).toLocaleDateString()}`;
+                    } else if (sharepointFile?.modified_datetime) {
+                      // For normal resumes with SharePoint data, show "Added" date using modified date
+                      return `Added: ${new Date(sharepointFile.modified_datetime).toLocaleDateString()}`;
+                    } else {
+                      // Fallback to Firestore date if no SharePoint data available
+                      return `Uploaded: ${candidate.created_at ? new Date(candidate.created_at).toLocaleDateString() : '—'}`;
+                    }
+                  })()}
                 </p>
               </div>
 

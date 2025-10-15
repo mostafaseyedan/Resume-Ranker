@@ -3,6 +3,7 @@ import { Job, JobExtractedData, Candidate, apiService } from '../services/apiSer
 import ResumeUpload from './ResumeUpload';
 import CandidateList from './CandidateList';
 import CandidateDetail from './CandidateDetail';
+import CandidatesGroupedList from './CandidatesGroupedList';
 
 interface JobDetailProps {
   job: Job;
@@ -45,9 +46,10 @@ const getReqStatusColor = (status: string) => {
 const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [selectedCandidateName, setSelectedCandidateName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'candidates' | 'files' | 'job-details'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details'>('candidates');
   const [sharepointFiles, setSharepointFiles] = useState<{ job_files: any[]; resume_files: any[]; sharepoint_link: string } | null>(null);
   const [loadingSharePoint, setLoadingSharePoint] = useState(false);
   const [processingFile, setProcessingFile] = useState<string | null>(null);
@@ -58,9 +60,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   useEffect(() => {
     loadCandidates();
     setSelectedCandidate(null); // Reset selected candidate when job changes
+    setSelectedCandidateName(null); // Reset selected candidate name when job changes
     setSharepointFiles(null);
     setSuccessMessage(null);
     setProcessingFile(null);
+    // Load SharePoint files if available
+    if ((job as any).monday_metadata?.sharepoint_link) {
+      loadSharePointFiles();
+    }
   }, [job.id]);
 
   const loadCandidates = async () => {
@@ -85,8 +92,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     setSelectedCandidate(candidate);
   };
 
+  const handleCandidateNameSelect = (candidateName: string) => {
+    setSelectedCandidateName(candidateName);
+  };
+
   const handleBackToCandidates = () => {
     setSelectedCandidate(null);
+  };
+
+  const handleBackToCandidatesList = () => {
+    setSelectedCandidateName(null);
   };
 
   const handleCandidateDeleted = (candidateId: string) => {
@@ -301,14 +316,27 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex">
           <button
-            onClick={() => setActiveTab('candidates')}
+            onClick={() => {
+              setActiveTab('candidates');
+              setSelectedCandidateName(null);
+            }}
             className={`py-2 px-4 text-sm font-medium ${
               activeTab === 'candidates'
                 ? 'border-b-2 border-blue-500 text-blue-600'
                 : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Candidates ({candidates.length})
+            Candidates
+          </button>
+          <button
+            onClick={() => setActiveTab('resumes')}
+            className={`py-2 px-4 text-sm font-medium ${
+              activeTab === 'resumes'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Resumes ({candidates.length})
           </button>
           <button
             onClick={() => {
@@ -362,11 +390,61 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   Retry
                 </button>
               </div>
+            ) : selectedCandidateName ? (
+              <div>
+                <button
+                  onClick={handleBackToCandidatesList}
+                  className="mb-4 flex items-center text-blue-600 hover:text-blue-800"
+                >
+                  <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Candidates
+                </button>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  Resumes for {selectedCandidateName}
+                </h3>
+                <CandidateList
+                  candidates={candidates.filter(c =>
+                    (c.name || '').toLowerCase().trim() === selectedCandidateName.toLowerCase().trim()
+                  )}
+                  onCandidateSelect={handleCandidateSelect}
+                  onCandidateDeleted={handleCandidateDeleted}
+                  sharepointFiles={sharepointFiles}
+                />
+              </div>
+            ) : (
+              <CandidatesGroupedList
+                candidates={candidates}
+                onCandidateSelect={handleCandidateNameSelect}
+              />
+            )}
+          </div>
+        )}
+
+        {activeTab === 'resumes' && (
+          <div>
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="text-lg">Loading resumes...</div>
+              </div>
+            ) : error ? (
+              <div className="text-center py-8 text-red-600">
+                <div className="text-lg mb-2">Error</div>
+                <div>{error}</div>
+                <button
+                  onClick={loadCandidates}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Retry
+                </button>
+              </div>
             ) : (
               <CandidateList
                 candidates={candidates}
                 onCandidateSelect={handleCandidateSelect}
                 onCandidateDeleted={handleCandidateDeleted}
+                sharepointFiles={sharepointFiles}
               />
             )}
           </div>

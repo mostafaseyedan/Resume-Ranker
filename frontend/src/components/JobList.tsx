@@ -7,9 +7,10 @@ interface JobListProps {
   onJobSelect: (job: Job) => void;
   onJobCreated: (job: Job) => void;
   onJobDeleted: (jobId: string) => void;
+  onShowLogs: () => void;
 }
 
-const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJobCreated, onJobDeleted }) => {
+const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJobCreated, onJobDeleted, onShowLogs }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showPDFForm, setShowPDFForm] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -263,6 +264,12 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               ) : (
                 <img src="/monday.svg" alt="" aria-hidden="true" className="h-6 w-6" />
               )}
+            </button>
+            <button
+              onClick={onShowLogs}
+              className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
+            >
+              Logs
             </button>
             <button
               onClick={() => setShowCreateForm(!showCreateForm)}

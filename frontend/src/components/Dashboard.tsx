@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Job, apiService } from '../services/apiService';
 import JobList from './JobList';
 import JobDetail from './JobDetail';
+import ActivityLogs from './ActivityLogs';
 import { useAuth } from '../hooks/useAuth';
 import { useMsal } from '@azure/msal-react';
 
 const Dashboard: React.FC = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [showLogs, setShowLogs] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -64,6 +66,11 @@ const Dashboard: React.FC = () => {
     });
   };
 
+  const handleShowLogs = () => {
+    setSelectedJob(null);
+    setShowLogs(true);
+  };
+
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -109,7 +116,7 @@ const Dashboard: React.FC = () => {
               <h1 className="text-2xl font-bold text-gray-900">Resume Evaluator</h1>
             </div>
             <div className="flex space-x-10 text-sm">
-              <a href="http://www.recon.cendien.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800">Recon</a>
+              <a href="http://www.reconrfp.cendien.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800">Recon</a>
               <a href="http://sales.cendien.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800">RFP Analyzer</a>
               <a href="http://rag.cendien.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800">Cendien RAG</a>
             </div>
@@ -132,9 +139,13 @@ const Dashboard: React.FC = () => {
           <JobList
             jobs={jobs}
             selectedJob={selectedJob}
-            onJobSelect={setSelectedJob}
+            onJobSelect={(job) => {
+              setSelectedJob(job);
+              setShowLogs(false);
+            }}
             onJobCreated={handleJobCreated}
             onJobDeleted={handleJobDeleted}
+            onShowLogs={handleShowLogs}
           />
         </div>
 
@@ -144,13 +155,7 @@ const Dashboard: React.FC = () => {
             {selectedJob ? (
               <JobDetail job={selectedJob} onJobUpdated={handleJobUpdated} />
             ) : (
-              <div className="bg-white rounded-lg shadow p-8 min-h-[60vh] flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <div className="text-4xl mb-4"></div>
-                  <h3 className="text-lg font-medium mb-2">Select a Job Position</h3>
-                  <p>Choose a job from the list to view candidates and upload resumes</p>
-                </div>
-              </div>
+              <ActivityLogs />
             )}
           </div>
         </div>
