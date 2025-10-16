@@ -61,7 +61,7 @@ class VertexSearchService:
             )
 
             # Construct search prompt
-            prompt = f"""Based on the job description below, find relevant candidate resumes in the knowledge base that would be a good match for this position.
+            prompt = f"""Based on the job description below, find at least 5 relevant candidate resumes in the knowledge base that would be a good match for this position.
 
 Job Description:
 {job_description}
