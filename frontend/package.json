@@ -17,8 +17,10 @@
     "postcss": "^8.5.6",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.9.2",
     "recharts": "^3.2.1",
+    "remark-gfm": "^4.0.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.2",
     "web-vitals": "^2.1.4"

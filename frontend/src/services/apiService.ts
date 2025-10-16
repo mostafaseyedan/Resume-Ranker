@@ -186,6 +186,12 @@ export const apiService = {
     return response.data;
   },
 
+  // Vertex AI Search for potential candidates
+  async searchPotentialCandidates(jobId: string): Promise<{ success: boolean; candidates: Array<{filename: string; sharepoint_url: string | null}>; error?: string }> {
+    const response = await apiClient.post(`/jobs/${jobId}/search-potential-candidates`);
+    return response.data;
+  },
+
   // Candidates
   async uploadResume(jobId: string, file: File): Promise<any> {
     const formData = new FormData();

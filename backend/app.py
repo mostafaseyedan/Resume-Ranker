@@ -14,6 +14,7 @@ from services.monday_service import MondayService
 from services.sharepoint_service import SharePointService
 from services.resume_service import ResumeService
 from services.activity_logger_service import ActivityLoggerService
+from services.vertex_search_service import VertexSearchService
 import logging
 import base64
 import json
@@ -68,6 +69,10 @@ AZURE_CONFIG = {
 sharepoint_cache_ttl = int(os.getenv('SHAREPOINT_CACHE_TTL_MINUTES', '15'))
 sharepoint_service = SharePointService(AZURE_CONFIG, cache_ttl_minutes=sharepoint_cache_ttl)
 logger.info(f"SharePoint service initialized with cache TTL: {sharepoint_cache_ttl} minutes")
+
+# Initialize Vertex Search service
+vertex_search_service = VertexSearchService()
+logger.info("Vertex AI Search service initialized")
 
 
 def build_job_analysis_payload(job_description, extraction_data=None):
@@ -587,6 +592,89 @@ def process_sharepoint_job_file():
     except Exception as e:
         logger.error(f"Process SharePoint job file error: {e}")
         return jsonify({'error': 'Failed to process job file'}), 500
+
+@app.route('/api/jobs/<job_id>/search-potential-candidates', methods=['POST'])
+@require_auth
+def search_potential_candidates(job_id):
+    """Search for potential candidates using Vertex AI Search"""
+    try:
+        # Get job details
+        job = firestore_service.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Check if job has a description
+        job_description = job.get('description', '').strip()
+        if not job_description:
+            return jsonify({
+                'success': False,
+                'error': 'There is no job description'
+            }), 400
+
+        # Search for candidates using Vertex AI Search
+        search_result = vertex_search_service.search_candidates(job_description)
+
+        if not search_result.get('success'):
+            return jsonify(search_result), 500
+
+        # Save the potential candidates to Firestore
+        candidates = search_result.get('candidates', [])
+        potential_candidates = []
+        for candidate in candidates:
+            if candidate.get('sharepoint_url'):
+                potential_candidates.append({
+                    'filename': candidate.get('filename'),
+                    'sharepoint_url': candidate.get('sharepoint_url'),
+                    'download_url': candidate.get('download_url'),
+                    'original_path': candidate.get('original_path')
+                })
+
+        logger.info(f"Saving {len(potential_candidates)} potential candidates to Firestore")
+
+        # Update job with potential candidates, gemini response, and search timestamp
+        try:
+            update_data = {
+                'potential_candidates': potential_candidates,
+                'potential_candidates_last_search': firestore.SERVER_TIMESTAMP
+            }
+
+            # Add gemini response if available
+            if search_result.get('response_text'):
+                update_data['potential_candidates_gemini_response'] = search_result.get('response_text')
+
+            firestore_service.update_job(job_id, update_data)
+            logger.info(f"Successfully saved potential candidates to job {job_id}")
+
+            # Verify the data was saved by retrieving the job
+            updated_job = firestore_service.get_job(job_id)
+            saved_candidates = updated_job.get('potential_candidates', [])
+            logger.info(f"Verification: Job now has {len(saved_candidates)} potential candidates")
+            if len(saved_candidates) != len(potential_candidates):
+                logger.error(f"MISMATCH: Tried to save {len(potential_candidates)} but only {len(saved_candidates)} were saved!")
+        except Exception as e:
+            logger.error(f"Error saving potential candidates: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+
+        # Log the search activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='potential_candidates_search',
+            details={
+                'job_title': job.get('title', 'Unknown job'),
+                'candidates_found': len(search_result.get('candidates', []))
+            }
+        )
+
+        return jsonify(search_result)
+
+    except Exception as e:
+        logger.error(f"Search potential candidates error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to search for potential candidates'
+        }), 500
 
 # Resume upload and analysis routes
 @app.route('/api/jobs/<job_id>/upload-resume', methods=['POST'])

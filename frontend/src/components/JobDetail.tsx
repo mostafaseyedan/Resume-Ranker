@@ -4,6 +4,8 @@ import ResumeUpload from './ResumeUpload';
 import CandidateList from './CandidateList';
 import CandidateDetail from './CandidateDetail';
 import CandidatesGroupedList from './CandidatesGroupedList';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface JobDetailProps {
   job: Job;
@@ -49,13 +51,17 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [selectedCandidateName, setSelectedCandidateName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates'>('candidates');
   const [sharepointFiles, setSharepointFiles] = useState<{ job_files: any[]; resume_files: any[]; sharepoint_link: string } | null>(null);
   const [loadingSharePoint, setLoadingSharePoint] = useState(false);
   const [processingFile, setProcessingFile] = useState<string | null>(null);
   const [processingFileType, setProcessingFileType] = useState<'job' | 'resume' | null>(null);
   const [fileProgress, setFileProgress] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [potentialCandidates, setPotentialCandidates] = useState<Array<{filename: string; sharepoint_url: string | null; download_url: string | null}>>([]);
+  const [searchingCandidates, setSearchingCandidates] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [geminiResponse, setGeminiResponse] = useState<string | null>(null);
 
   useEffect(() => {
     loadCandidates();
@@ -64,6 +70,21 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     setSharepointFiles(null);
     setSuccessMessage(null);
     setProcessingFile(null);
+
+    // Reset and load potential candidates from job if available
+    setPotentialCandidates([]);
+    setGeminiResponse(null);
+    setSearchError(null);
+
+    if ((job as any).potential_candidates) {
+      setPotentialCandidates((job as any).potential_candidates);
+    }
+
+    // Load gemini response from job if available
+    if ((job as any).potential_candidates_gemini_response) {
+      setGeminiResponse((job as any).potential_candidates_gemini_response);
+    }
+
     // Load SharePoint files if available
     if ((job as any).monday_metadata?.sharepoint_link) {
       loadSharePointFiles();
@@ -263,6 +284,31 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     }
   };
 
+  const handleSearchPotentialCandidates = async () => {
+    try {
+      setSearchingCandidates(true);
+      setSearchError(null);
+      setGeminiResponse(null);
+
+      const response = await apiService.searchPotentialCandidates(job.id);
+
+      if (response.success) {
+        setPotentialCandidates(response.candidates || []);
+        setGeminiResponse(response.response_text || null);
+        if (response.candidates.length === 0) {
+          setSearchError('No matching candidates found in the knowledge base');
+        }
+      } else {
+        setSearchError(response.error || 'Failed to search for potential candidates');
+      }
+    } catch (err: any) {
+      console.error('Search potential candidates error:', err);
+      setSearchError(err.response?.data?.error || err.message || 'Failed to search for potential candidates');
+    } finally {
+      setSearchingCandidates(false);
+    }
+  };
+
   if (selectedCandidate) {
     return (
       <CandidateDetail
@@ -367,6 +413,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             }`}
           >
             Files
+          </button>
+          <button
+            onClick={() => setActiveTab('potential-candidates')}
+            className={`py-2 px-4 text-sm font-medium ${
+              activeTab === 'potential-candidates'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Potential Candidates
           </button>
         </nav>
       </div>
@@ -789,6 +845,162 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'potential-candidates' && (
+          <div>
+            {potentialCandidates.length === 0 && !searchingCandidates && !searchError ? (
+              <div className="text-center py-12">
+                <div className="mb-4">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Search for Potential Candidates</h3>
+                <p className="text-sm text-gray-500 mb-6">Use AI to find relevant candidates from the knowledge base</p>
+                <button
+                  onClick={handleSearchPotentialCandidates}
+                  disabled={!job.description}
+                  className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {!job.description ? 'There is no job description' : 'Search for Potential Candidates'}
+                </button>
+              </div>
+            ) : (
+              <div>
+                {searchingCandidates ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-gray-600">Searching for potential candidates...</p>
+                  </div>
+                ) : searchError ? (
+                  <div className="text-center py-12">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+                      <p className="text-red-800 mb-4">{searchError}</p>
+                      <button
+                        onClick={handleSearchPotentialCandidates}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-end mb-4">
+                      <button
+                        onClick={handleSearchPotentialCandidates}
+                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
+                        title="Refresh search"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {geminiResponse && (
+                      <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="prose prose-sm max-w-none text-gray-700">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              ol: ({node, ...props}) => (
+                                <ol className="list-decimal list-outside ml-6 space-y-4 my-4" {...props} />
+                              ),
+                              ul: ({node, ...props}) => (
+                                <ul className="list-disc list-outside ml-6 space-y-2 my-4" {...props} />
+                              ),
+                              li: ({node, ...props}) => (
+                                <li className="pl-2" {...props} />
+                              ),
+                              p: ({node, ...props}) => (
+                                <p className="my-2" {...props} />
+                              ),
+                              strong: ({node, ...props}) => (
+                                <strong className="font-bold text-gray-900" {...props} />
+                              ),
+                              table: ({node, ...props}) => (
+                                <div className="overflow-x-auto my-4">
+                                  <table className="min-w-full divide-y divide-gray-300 border border-gray-300" {...props} />
+                                </div>
+                              ),
+                              thead: ({node, ...props}) => (
+                                <thead className="bg-gray-100" {...props} />
+                              ),
+                              tbody: ({node, ...props}) => (
+                                <tbody className="divide-y divide-gray-200 bg-white" {...props} />
+                              ),
+                              tr: ({node, ...props}) => (
+                                <tr className="hover:bg-gray-50" {...props} />
+                              ),
+                              th: ({node, ...props}) => (
+                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0" {...props} />
+                              ),
+                              td: ({node, ...props}) => (
+                                <td className="px-4 py-2 text-sm text-gray-700 border-r border-gray-300 last:border-r-0" {...props} />
+                              ),
+                            }}
+                          >
+                            {geminiResponse}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="space-y-2">
+                        {potentialCandidates.map((candidate, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white p-3 rounded border">
+                            <div className="flex items-center space-x-2 flex-1">
+                              <span className="text-gray-600">📄</span>
+                              <div className="flex-1">
+                                {candidate.sharepoint_url ? (
+                                  <a
+                                    href={candidate.sharepoint_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                  >
+                                    {candidate.filename}
+                                  </a>
+                                ) : (
+                                  <span className="text-sm font-medium text-gray-700">{candidate.filename}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2 ml-4">
+                              {candidate.download_url && (
+                                processingFile === candidate.filename ? (
+                                  <div className="flex items-center rounded px-3 py-1 space-x-2 bg-blue-600" style={{ minWidth: '200px' }}>
+                                    <div className="flex-1 rounded overflow-hidden bg-blue-600" style={{ height: '8px' }}>
+                                      <div
+                                        className="h-full bg-white transition-all duration-500"
+                                        style={{ width: `${fileProgress}%` }}
+                                      />
+                                    </div>
+                                    <div className="text-xs text-white whitespace-nowrap">{fileProgress}%</div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => handleProcessResumeFile(candidate.download_url!, candidate.filename)}
+                                    disabled={processingFile !== null}
+                                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                                  >
+                                    <span>Analyze</span>
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

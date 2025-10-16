@@ -165,3 +165,5 @@ cloudbuild.yaml
 
 # Windows Zone.Identifier files
 *:Zone.Identifier
+.gemini/
+gha-creds-*.json
