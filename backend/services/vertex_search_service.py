@@ -69,8 +69,8 @@ Job Description:
 Please identify candidates whose experience, skills, and qualifications align with this job's requirements.
 Just retrun of Candidate names in and numbered list format. Format the response in markdown, use bold for candidate names. 
 For each candidate, include the filename that you found them in. 
-State the number of candidates found at the end of the list as "Top x candidates found".
-Sort the list by best match first. Provide reasoning for each candidate in 1-2 sentences.
+State the number of candidates found at the top of the list as "Top x candidates found".
+Sort the list by best match first. Provide reasoning for each candidate selection and their ranking.
 Do not include any other additional commentary or explanation."""
 
             # Generate grounded response
