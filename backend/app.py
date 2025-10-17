@@ -727,6 +727,22 @@ def search_by_skill(job_id):
         if not search_result.get('success'):
             return jsonify(search_result), 500
 
+        # Log Gemini's response text for auditing and debugging
+        response_text = search_result.get('response_text')
+        if response_text:
+            logger.info(
+                "Gemini skill search response | job_id=%s | skill=%s | response=%s",
+                job_id,
+                skill,
+                response_text
+            )
+        else:
+            logger.info(
+                "Gemini skill search response | job_id=%s | skill=%s | response=<empty>",
+                job_id,
+                skill
+            )
+
         # Log the skill search activity
         activity_logger.log_activity(
             user_email=session['user']['email'],

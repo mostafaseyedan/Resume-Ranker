@@ -193,7 +193,7 @@ Do not include any other additional commentary or explanation."""
 
     def search_by_skill(self, skill_or_requirement: str) -> Dict[str, Any]:
         """
-        Search for candidates who have a specific skill or requirement
+        Search for candidates who have a specific skill or requirement using your knowledge base (grounding)
 
         Args:
             skill_or_requirement: The skill, education requirement, or certification to search for
@@ -223,7 +223,11 @@ Do not include any other additional commentary or explanation."""
 Return only the candidate names and their filenames in this format:
 **Candidate Name** - filename.pdf
 
-Keep it brief, maximum 3 candidates. Sort by best match first.
+Keep it brief, maximum 5 candidates. 
+Try to find at least 2 unique match. Usually you should be able to find at least 1 resume with relevance to that skill or requirement or certification.
+**Never invent candidate names.**
+If no candidates are found with that skill (or requirement or certification), just respond with "No candidates found for {skill_or_requirement}".
+**Make sure to look everywhere in the knowledge base before concluding no candidates exist.**
 Do not include any other commentary or explanation."""
 
             # Generate grounded response
