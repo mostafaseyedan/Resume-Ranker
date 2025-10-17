@@ -330,7 +330,9 @@ class SharePointService:
                         'mime_type': item.get('file', {}).get('mimeType'),
                         'type': 'file',
                         'created_datetime': item.get('createdDateTime'),
-                        'modified_datetime': item.get('lastModifiedDateTime')
+                        'modified_datetime': item.get('lastModifiedDateTime'),
+                        'site_id': site_id,  # Include site_id for URL refresh
+                        'drive_id': drive_id  # Include drive_id for URL refresh
                     }
                     files.append(file_info)
 
@@ -410,10 +412,184 @@ class SharePointService:
             logger.error(f"Error downloading file content as text: {e}")
             return None
 
-    def get_file_content_as_binary(self, download_url: str) -> Optional[bytes]:
+    def convert_web_url_to_download_url(self, sharepoint_web_url: str) -> Optional[Dict[str, str]]:
+        """
+        Convert a SharePoint web URL to a Graph API download URL
+
+        Args:
+            sharepoint_web_url: SharePoint web URL (e.g., https://cendien.sharepoint.com/sites/.../file.pdf)
+
+        Returns:
+            Dictionary with download_url, file_id, site_id, drive_id, or None if conversion fails
+        """
+        try:
+            from urllib.parse import unquote
+
+            token = self._get_access_token()
+            if not token:
+                logger.error("Failed to get access token")
+                return None
+
+            # Parse the web URL to extract site, drive path, and file path
+            # Format: https://cendien.sharepoint.com/sites/Cendien-SalesSupport/Shared%20Documents/path/to/file.pdf
+            if 'sharepoint.com' not in sharepoint_web_url:
+                logger.error(f"Not a SharePoint URL: {sharepoint_web_url}")
+                return None
+
+            # Extract tenant and site
+            url_parts = sharepoint_web_url.split('/')
+            tenant = url_parts[2].split('.sharepoint.com')[0]
+
+            # Find 'sites' index
+            try:
+                sites_idx = url_parts.index('sites')
+                site_name = url_parts[sites_idx + 1]
+            except (ValueError, IndexError):
+                logger.error(f"Could not extract site name from URL: {sharepoint_web_url}")
+                return None
+
+            # Extract the file path (everything after "Shared Documents" or "Shared%20Documents")
+            # Join remaining parts and decode
+            remaining_path = '/'.join(url_parts[sites_idx + 2:])
+            remaining_path = unquote(remaining_path)
+
+            # Remove "Shared Documents/" prefix if present
+            if remaining_path.startswith('Shared Documents/'):
+                file_path = remaining_path[len('Shared Documents/'):]
+            elif remaining_path.startswith('Shared%20Documents/'):
+                file_path = remaining_path[len('Shared%20Documents/'):]
+            else:
+                file_path = remaining_path
+
+            logger.info(f"Converting web URL to download URL - Site: {site_name}, File path: {file_path}")
+
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Accept': 'application/json'
+            }
+
+            # Get site ID
+            site_url = f"https://graph.microsoft.com/v1.0/sites/{tenant}.sharepoint.com:/sites/{site_name}"
+            site_response = requests.get(site_url, headers=headers)
+
+            if site_response.status_code == 401:
+                logger.warning("Token expired, refreshing...")
+                self._token = None
+                token = self._get_access_token()
+                if token:
+                    headers['Authorization'] = f'Bearer {token}'
+                    site_response = requests.get(site_url, headers=headers)
+                else:
+                    logger.error("Failed to refresh token")
+                    return None
+
+            if site_response.status_code != 200:
+                logger.error(f"Failed to get site info: {site_response.status_code} - {site_response.text}")
+                return None
+
+            site_data = site_response.json()
+            site_id = site_data.get('id')
+
+            # Get default drive
+            drives_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives"
+            drives_response = requests.get(drives_url, headers=headers)
+
+            if drives_response.status_code != 200:
+                logger.error(f"Failed to get drives: {drives_response.status_code}")
+                return None
+
+            drives_data = drives_response.json()
+            default_drive = None
+
+            for drive in drives_data.get('value', []):
+                if drive.get('name') == 'Documents':
+                    default_drive = drive
+                    break
+
+            if not default_drive:
+                logger.error("Could not find default drive")
+                return None
+
+            drive_id = default_drive['id']
+
+            # Get file metadata using the file path
+            file_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{quote(file_path)}"
+            file_response = requests.get(file_url, headers=headers)
+
+            if file_response.status_code != 200:
+                logger.error(f"Failed to get file info: {file_response.status_code} - {file_response.text}")
+                return None
+
+            file_data = file_response.json()
+            download_url = file_data.get('@microsoft.graph.downloadUrl')
+            file_id = file_data.get('id')
+
+            if not download_url or not file_id:
+                logger.error("No download URL or file ID in response")
+                return None
+
+            logger.info(f"Successfully converted web URL to download URL for file: {file_path}")
+            return {
+                'download_url': download_url,
+                'file_id': file_id,
+                'site_id': site_id,
+                'drive_id': drive_id
+            }
+
+        except Exception as e:
+            logger.error(f"Error converting web URL to download URL: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
+
+    def get_file_content_as_binary(self, download_url: str, file_id: str = None, site_id: str = None, drive_id: str = None) -> Optional[bytes]:
         """Download file content and return as binary data (for resume files)"""
         try:
             response = requests.get(download_url)
+
+            # If download URL expired (401), try to refresh it using file_id
+            if response.status_code == 401 and file_id and site_id and drive_id:
+                logger.warning("Download URL expired, refreshing...")
+
+                token = self._get_access_token()
+                if not token:
+                    logger.error("Failed to get access token for download")
+                    return None
+
+                headers = {
+                    'Authorization': f'Bearer {token}',
+                    'Accept': 'application/json'
+                }
+
+                # Get fresh download URL
+                file_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{file_id}"
+                file_response = requests.get(file_url, headers=headers)
+
+                # If token also expired, refresh it
+                if file_response.status_code == 401:
+                    self._token = None
+                    token = self._get_access_token()
+                    if token:
+                        headers['Authorization'] = f'Bearer {token}'
+                        file_response = requests.get(file_url, headers=headers)
+                    else:
+                        logger.error("Failed to refresh token")
+                        return None
+
+                if file_response.status_code == 200:
+                    file_data = file_response.json()
+                    fresh_download_url = file_data.get('@microsoft.graph.downloadUrl')
+
+                    if fresh_download_url:
+                        logger.info("Successfully refreshed download URL, retrying download")
+                        response = requests.get(fresh_download_url)
+                    else:
+                        logger.error("No download URL in refreshed file metadata")
+                        return None
+                else:
+                    logger.error(f"Failed to refresh file metadata: {file_response.status_code}")
+                    return None
+
             if response.status_code == 200:
                 return response.content
             else:

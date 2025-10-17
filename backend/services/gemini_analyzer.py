@@ -4,8 +4,13 @@ from pydantic import BaseModel, Field
 from typing import List, Dict
 import logging
 import json
+import io
+import requests
 
 logger = logging.getLogger(__name__)
+
+# PDF Processor Service URL
+PDF_PROCESSOR_URL = "https://pdf-processor-service-352598512627.us-central1.run.app/process-rfp-pdf/"
 
 # Pydantic models for structured output - avoid Dict which can cause additionalProperties issues
 class SkillWeight(BaseModel):
@@ -64,9 +69,98 @@ class ResumeAnalysis(BaseModel):
     experience_match: ExperienceMatch
     education_match: EducationMatch
 
+class JobExtraction(BaseModel):
+    job_title: str
+    job_description_text: str
+    required_skills: List[str]
+    preferred_skills: List[str]
+    experience_requirements: str
+    education_requirements: List[str]
+    certifications: List[str]
+    key_responsibilities: List[str]
+    soft_skills: List[str]
+    other: List[str]
+
 class GeminiAnalyzer:
     def __init__(self, api_key):
         self.client = genai.Client(api_key=api_key)
+        self.supported_formats = ['.pdf', '.docx', '.doc']
+
+    def _extract_text_with_processor(self, file):
+        """Extract text from file using PDF processor service"""
+        try:
+            file_content = file.read()
+            file.seek(0)
+
+            filename = file.filename
+            mime_type = "application/pdf" if filename.lower().endswith('.pdf') else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+            files = {"files": (filename, io.BytesIO(file_content), mime_type)}
+            response = requests.post(PDF_PROCESSOR_URL, files=files, timeout=120)
+
+            if response.status_code != 200:
+                logger.error(f"PDF processor returned status {response.status_code}: {response.text}")
+                raise ValueError(f"Failed to extract text from {filename}")
+
+            result = response.json()
+            extracted_text = result.get("extracted_text", "")
+
+            if not extracted_text:
+                raise ValueError(f"No text extracted from {filename}")
+
+            logger.info(f"Extracted {len(extracted_text)} characters from {filename} using PDF processor")
+            return extracted_text
+
+        except Exception as e:
+            logger.error(f"Error extracting text from {file.filename} using PDF processor: {e}")
+            raise
+
+    def _upload_file_to_gemini(self, file):
+        """Upload file directly to Gemini and return file object"""
+        try:
+            file_content = file.read()
+            if file_content is None:
+                raise ValueError("Failed to read file content")
+            file.seek(0)
+
+            file_data = io.BytesIO(file_content)
+
+            filename = file.filename.lower()
+            if filename.endswith('.pdf'):
+                mime_type = "application/pdf"
+            elif filename.endswith(('.docx', '.doc')):
+                mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            else:
+                raise ValueError(f"Unsupported file format. Supported formats: {self.supported_formats}")
+
+            uploaded_file = self.client.files.upload(
+                file=file_data,
+                config={"mime_type": mime_type}
+            )
+
+            logger.info(f"Successfully uploaded file {file.filename} to Gemini")
+            return uploaded_file
+
+        except Exception as e:
+            logger.error(f"Error uploading file {file.filename} to Gemini: {e}")
+            raise
+
+    def validate_file(self, file):
+        """Validate uploaded file"""
+        if not file or file.filename == '':
+            return False, "No file provided"
+
+        if not any(file.filename.lower().endswith(ext) for ext in self.supported_formats):
+            return False, f"Unsupported file format. Supported: {', '.join(self.supported_formats)}"
+
+        file.seek(0, 2)
+        size = file.tell()
+        file.seek(0)
+
+        if size > 20 * 1024 * 1024:
+            return False, "File too large. Maximum size: 20MB"
+
+        return True, "File is valid"
 
     def analyze_job_description(self, job_description):
         """Analyze job description to extract requirements and assign skill weights"""
@@ -104,10 +198,50 @@ class GeminiAnalyzer:
             logger.error(f"Error analyzing job description: {e}")
             raise Exception(f"Failed to analyze job description: {str(e)}")
 
-    def analyze_resume(self, resume_text, job_description, skill_weights=None):
-        """Analyze resume against job requirements and provide detailed scoring"""
+    def analyze_job_description_from_file(self, file):
+        """Extract structured job information from file using PDF processor + Gemini"""
         try:
-            # Format skill weights for prompt
+            # Extract text using PDF processor service
+            job_description_text = self._extract_text_with_processor(file)
+
+            prompt = f"""
+            Analyze this job description text and extract all relevant information including the job title, complete description text, required and preferred skills, experience requirements, education requirements, certifications, responsibilities, soft skills, and any other important details.
+
+            Job Description:
+            {job_description_text}
+            """
+
+            response = self.client.models.generate_content(
+                model="gemini-flash-latest",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=JobExtraction
+                )
+            )
+
+            if response.text is None or not response.text.strip():
+                logger.error(f"Gemini returned empty response for {file.filename}")
+                raise ValueError("Gemini response is empty")
+
+            logger.info(f"Raw Gemini response for {file.filename}: {response.text[:200]}...")
+
+            extracted_data = json.loads(response.text)
+            logger.info(f"Extracted structured job info from {file.filename}: {extracted_data.get('job_title', 'Unknown Title')}")
+
+            return extracted_data
+
+        except Exception as e:
+            logger.error(f"Error extracting job info from {file.filename} using Gemini: {e}")
+            raise
+
+
+    def analyze_resume(self, file, job_description, skill_weights=None):
+        """Analyze resume file against job requirements - PDF processor + Gemini analysis"""
+        try:
+            # Extract text using PDF processor service
+            resume_text = self._extract_text_with_processor(file)
+
             skill_weights_text = ""
             if skill_weights and isinstance(skill_weights, dict):
                 skill_weights_text = f"""
@@ -121,12 +255,12 @@ Use these weights when evaluating skills in the skill_analysis section. Each ski
             prompt = f"""
 As an expert technical recruiter with 20+ years of experience, analyze this candidate's resume against the job requirements.
 
+RESUME TEXT:
+{resume_text}
+
 JOB DESCRIPTION:
 {job_description}
 {skill_weights_text}
-
-RESUME TEXT:
-{resume_text}
 
 SCORING METHODOLOGY:
 You must calculate the overall_score (0-100) using this weighted formula:
@@ -203,10 +337,7 @@ SCORING GUIDELINES:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=ResumeAnalysis,
-                    thinking_config=types.ThinkingConfig(
-                        thinking_budget=-1  # Dynamic thinking
-                    )
+                    response_schema=ResumeAnalysis
                 )
             )
 
@@ -215,11 +346,14 @@ SCORING GUIDELINES:
 
             result = json.loads(response.text)
 
-            # Validate that overall_score is within range
             if not (0 <= result.get('overall_score', -1) <= 100):
                 logger.warning(f"Overall score out of range: {result.get('overall_score')}, clamping to 0-100")
                 result['overall_score'] = max(0, min(100, result.get('overall_score', 0)))
 
+            # Add the extracted text from PDF processor to the result
+            result['extracted_text'] = resume_text
+
+            logger.info(f"Analyzed resume file {file.filename} - Score: {result.get('overall_score')}")
             return result
 
         except Exception as e:

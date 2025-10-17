@@ -6,6 +6,7 @@ import CandidateDetail from './CandidateDetail';
 import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { toast } from 'sonner';
 
 interface JobDetailProps {
   job: Job;
@@ -191,7 +192,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         }
 
         // Show success message inline
-        setSuccessMessage(`✅ Job file "${fileName}" processed successfully! The job description has been updated.`);
+        setSuccessMessage(`Job file "${fileName}" processed successfully! The job description has been updated.`);
 
         // Switch to job-details tab to show the updated information
         setActiveTab('job-details');
@@ -201,7 +202,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
       }
     } catch (err: any) {
       if (progressInterval) clearInterval(progressInterval);
-      setSuccessMessage(`❌ Failed to process "${fileName}": ${err.response?.data?.error || err.message}`);
+      setSuccessMessage(`Failed to process "${fileName}": ${err.response?.data?.error || err.message}`);
       setTimeout(() => setSuccessMessage(null), 8000);
     } finally {
       setProcessingFile(null);
@@ -210,7 +211,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     }
   };
 
-  const handleProcessResumeFile = async (downloadUrl: string, fileName: string) => {
+  const handleProcessResumeFile = async (downloadUrl: string, fileName: string, fileId?: string, siteId?: string, driveId?: string) => {
     let progressInterval: NodeJS.Timeout | null = null;
     try {
       setProcessingFile(fileName);
@@ -223,8 +224,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         setFileProgress(prev => Math.min(prev + 2, 90));
       }, 500);
 
-      // Download the SharePoint resume file
-      const response = await apiService.downloadSharePointFile(downloadUrl, true);
+      // Download the SharePoint resume file with metadata for URL refresh
+      const response = await apiService.downloadSharePointFile(downloadUrl, true, fileId, siteId, driveId);
       if (!response.success) {
         throw new Error('Failed to download file from SharePoint');
       }
@@ -270,12 +271,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         };
 
         handleResumeUploaded(candidateData);
-        setSuccessMessage(`✅ Resume file "${fileName}" processed successfully! New candidate added.`);
+        setSuccessMessage(`Resume file "${fileName}" processed successfully! New candidate added.`);
         setTimeout(() => setSuccessMessage(null), 5000);
       }
     } catch (err: any) {
       if (progressInterval) clearInterval(progressInterval);
-      setSuccessMessage(`❌ Failed to process resume "${fileName}": ${err.response?.data?.error || err.message}`);
+      setSuccessMessage(`Failed to process resume "${fileName}": ${err.response?.data?.error || err.message}`);
       setTimeout(() => setSuccessMessage(null), 8000);
     } finally {
       setProcessingFile(null);
@@ -306,6 +307,41 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
       setSearchError(err.response?.data?.error || err.message || 'Failed to search for potential candidates');
     } finally {
       setSearchingCandidates(false);
+    }
+  };
+
+  const handleSkillClick = async (skill: string) => {
+    try {
+      toast.loading(`Searching for candidates with "${skill}"...`, { id: 'skill-search' });
+
+      const response = await apiService.searchBySkill(job.id, skill);
+
+      if (response.success && response.response_text) {
+        toast.success(
+          <div className="max-w-md">
+            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  p: ({children, ...props}) => (
+                    <p className="my-1 whitespace-pre-wrap" {...props}>
+                      {children}
+                    </p>
+                  ),
+                }}
+              >
+                {response.response_text}
+              </ReactMarkdown>
+            </div>
+          </div>,
+          { id: 'skill-search', duration: Infinity }
+        );
+      } else {
+        toast.error(response.error || 'No candidates found', { id: 'skill-search', duration: Infinity });
+      }
+    } catch (err: any) {
+      console.error('Search by skill error:', err);
+      toast.error('Failed to search for candidates', { id: 'skill-search', duration: Infinity });
     }
   };
 
@@ -385,6 +421,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             Resumes ({candidates.length})
           </button>
           <button
+            onClick={() => setActiveTab('potential-candidates')}
+            className={`py-2 px-4 text-sm font-medium ${
+              activeTab === 'potential-candidates'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Potential Candidates
+          </button>
+          <button
             onClick={() => {
               setActiveTab('job-details');
               if (!sharepointFiles && !loadingSharePoint) {
@@ -413,16 +459,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             }`}
           >
             Files
-          </button>
-          <button
-            onClick={() => setActiveTab('potential-candidates')}
-            className={`py-2 px-4 text-sm font-medium ${
-              activeTab === 'potential-candidates'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Potential Candidates
           </button>
         </nav>
       </div>
@@ -539,7 +575,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             {uniqueFiles.map((file, index) => (
                               <div key={index} className="flex items-center justify-between bg-white p-3 rounded border">
                                 <div className="flex items-center space-x-2 flex-1">
-                                  <span className="text-gray-600">📄</span>
+                                  <span className="text-gray-600"></span>
                                   <div className="flex-1">
                                     <a
                                       href={file.web_url}
@@ -575,7 +611,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                         <span>Job Description</span>
                                       </button>
                                       <button
-                                        onClick={() => handleProcessResumeFile(file.download_url, file.name)}
+                                        onClick={() => handleProcessResumeFile(file.download_url, file.name, file.id, file.site_id, file.drive_id)}
                                         disabled={processingFile !== null}
                                         className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                                       >
@@ -596,7 +632,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     })()}
 
                     <div className="text-xs text-gray-500 mt-2">
-                      🔗 <a href={sharepointFiles.sharepoint_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      <a href={sharepointFiles.sharepoint_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         Open SharePoint folder
                       </a>
                     </div>
@@ -629,9 +665,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             {/* Success/Error Message */}
             {successMessage && (
               <div className={`p-4 rounded-lg border ${
-                successMessage.startsWith('✅')
-                  ? 'bg-green-50 border-green-200 text-green-800'
-                  : 'bg-red-50 border-red-200 text-red-800'
+                successMessage.startsWith('Failed')
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'bg-green-50 border-green-200 text-green-800'
               }`}>
                 <p className="text-sm font-medium">{successMessage}</p>
               </div>
@@ -656,17 +692,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 {job.extracted_data.required_skills && job.extracted_data.required_skills.length > 0 && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      <span className="mr-2"></span> Required Skills
+                      Required Skills
                     </h3>
                     <div className="bg-red-50 p-4 rounded-lg">
                       <div className="flex flex-wrap gap-2">
                         {job.extracted_data.required_skills.map((skill, index) => (
-                          <span
+                          <button
                             key={index}
-                            className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full"
+                            onClick={() => handleSkillClick(skill)}
+                            className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full hover:bg-red-200 hover:shadow-sm transition-all cursor-pointer"
                           >
                             {skill}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -677,17 +714,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 {job.extracted_data.preferred_skills && job.extracted_data.preferred_skills.length > 0 && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      <span className="mr-2"></span> Preferred Skills
+                      Preferred Skills
                     </h3>
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <div className="flex flex-wrap gap-2">
                         {job.extracted_data.preferred_skills.map((skill, index) => (
-                          <span
+                          <button
                             key={index}
-                            className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full"
+                            onClick={() => handleSkillClick(skill)}
+                            className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full hover:bg-blue-200 hover:shadow-sm transition-all cursor-pointer"
                           >
                             {skill}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -698,9 +736,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 {job.extracted_data.experience_requirements && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      <span className="mr-2"></span> Experience Requirements
+                      Experience Requirements
                     </h3>
-                    <div className="bg-green-50 p-4 rounded-lg">
+                    <div
+                      className="bg-green-50 p-4 rounded-lg cursor-pointer hover:bg-green-100 hover:shadow-sm transition-all"
+                      onClick={() => handleSkillClick(job.extracted_data.experience_requirements)}
+                    >
                       <p className="text-gray-700">{job.extracted_data.experience_requirements}</p>
                     </div>
                   </div>
@@ -710,12 +751,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 {job.extracted_data.education_requirements && job.extracted_data.education_requirements.length > 0 && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      <span className="mr-2"></span> Education Requirements
+                      Education Requirements
                     </h3>
                     <div className="bg-purple-50 p-4 rounded-lg">
                       <ul className="list-disc list-inside space-y-1">
                         {job.extracted_data.education_requirements.map((edu, index) => (
-                          <li key={index} className="text-gray-700">{edu}</li>
+                          <li
+                            key={index}
+                            onClick={() => handleSkillClick(edu)}
+                            className="text-gray-700 cursor-pointer hover:text-purple-800 hover:font-medium transition-all"
+                          >
+                            {edu}
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -726,17 +773,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 {job.extracted_data.certifications && job.extracted_data.certifications.length > 0 && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      <span className="mr-2"></span> Certifications
+                      Certifications
                     </h3>
                     <div className="bg-yellow-50 p-4 rounded-lg">
                       <div className="flex flex-wrap gap-2">
                         {job.extracted_data.certifications.map((cert, index) => (
-                          <span
+                          <button
                             key={index}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full"
+                            onClick={() => handleSkillClick(cert)}
+                            className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full hover:bg-yellow-200 hover:shadow-sm transition-all cursor-pointer"
                           >
                             {cert}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -747,7 +795,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 {job.extracted_data.key_responsibilities && job.extracted_data.key_responsibilities.length > 0 && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      <span className="mr-2"></span> Key Responsibilities
+                      Key Responsibilities
                     </h3>
                     <div className="bg-indigo-50 p-4 rounded-lg">
                       <ul className="list-disc list-inside space-y-2">
@@ -763,7 +811,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 {job.extracted_data.soft_skills && job.extracted_data.soft_skills.length > 0 && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      <span className="mr-2"></span> Soft Skills
+                      Soft Skills
                     </h3>
                     <div className="bg-pink-50 p-4 rounded-lg">
                       <div className="flex flex-wrap gap-2">
@@ -784,7 +832,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 {job.extracted_data.other && job.extracted_data.other.length > 0 && (
                   <div className="lg:col-span-2">
                     <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      <span className="mr-2"></span> Additional Information
+                      Additional Information
                     </h3>
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <ul className="list-disc list-inside space-y-1">
@@ -851,28 +899,43 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         {activeTab === 'potential-candidates' && (
           <div>
             {potentialCandidates.length === 0 && !searchingCandidates && !searchError ? (
-              <div className="text-center py-12">
-                <div className="mb-4">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+              <div className="text-center py-16 px-4">
+                <div className="mb-6">
+                  <div className="mx-auto h-24 w-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
+                    <svg className="h-12 w-12 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Search for Potential Candidates</h3>
-                <p className="text-sm text-gray-500 mb-6">Use AI to find relevant candidates from the knowledge base</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Discover Potential Candidates</h3>
+                <p className="text-gray-600 mb-8 max-w-md mx-auto">
+                  Let AI search through the knowledge base to find candidates whose skills and experience match this position
+                </p>
                 <button
                   onClick={handleSearchPotentialCandidates}
                   disabled={!job.description}
-                  className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-8 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg hover:shadow-xl"
                 >
-                  {!job.description ? 'There is no job description' : 'Search for Potential Candidates'}
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  {!job.description ? 'Add Job Description First' : 'Start AI Search'}
                 </button>
               </div>
             ) : (
               <div>
                 {searchingCandidates ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <p className="text-gray-600">Searching for potential candidates...</p>
+                  <div className="text-center py-16">
+                    <div className="relative mb-6">
+                      <div className="animate-spin h-16 w-16 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto"></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Searching Knowledge Base</h4>
+                    <p className="text-gray-600">AI is analyzing resumes to find the best matches...</p>
                   </div>
                 ) : searchError ? (
                   <div className="text-center py-12">
@@ -888,20 +951,22 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   </div>
                 ) : (
                   <div>
-                    <div className="flex items-center justify-end mb-4">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-medium text-gray-900">Potential Candidates</h3>
                       <button
                         onClick={handleSearchPotentialCandidates}
-                        className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
+                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Refresh search"
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
+                        Refresh
                       </button>
                     </div>
 
                     {geminiResponse && (
-                      <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
                         <div className="prose prose-sm max-w-none text-gray-700">
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
@@ -954,7 +1019,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                         {potentialCandidates.map((candidate, index) => (
                           <div key={index} className="flex items-center justify-between bg-white p-3 rounded border">
                             <div className="flex items-center space-x-2 flex-1">
-                              <span className="text-gray-600">📄</span>
+                              <span className="text-gray-600"></span>
                               <div className="flex-1">
                                 {candidate.sharepoint_url ? (
                                   <a
@@ -984,7 +1049,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                   </div>
                                 ) : (
                                   <button
-                                    onClick={() => handleProcessResumeFile(candidate.download_url!, candidate.filename)}
+                                    onClick={() => handleProcessResumeFile(candidate.download_url!, candidate.filename, (candidate as any).id, (candidate as any).site_id, (candidate as any).drive_id)}
                                     disabled={processingFile !== null}
                                     className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
                                   >

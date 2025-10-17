@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Candidate, apiService } from '../services/apiService';
+import RadialProgress from './RadialProgress';
 
 interface SharePointFile {
   name: string;
@@ -159,11 +160,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
               </div>
 
               <div className="ml-4 flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                  <div className={`text-2xl font-bold ${getScoreColor(candidate.overall_score || 0).replace('bg-', 'text-').replace('-50', '-600').replace('-100', '-600')}`}>
-                    {candidate.overall_score || 0}
-                  </div>
-                </div>
+                <RadialProgress score={candidate.overall_score || 0} size={64} />
                 <button
                   onClick={(e) => handleDeleteCandidate(candidate.id, candidate.name, e)}
                   disabled={deletingCandidateId === candidate.id}

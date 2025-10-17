@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { Job, Candidate, apiService } from '../services/apiService';
 
 interface ResumeUploadProps {
@@ -10,12 +11,6 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
-
-  const showNotification = (type: 'success' | 'error' | 'info', message: string, duration: number = 5000) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), duration);
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -43,7 +38,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
       if (isValidFileType(file)) {
         setSelectedFile(file);
       } else {
-        showNotification('error', 'Please select a PDF or DOCX file');
+        toast.error('Please select a PDF or DOCX file');
       }
     }
   };
@@ -64,12 +59,12 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
     e.preventDefault();
 
     if (!selectedFile) {
-      showNotification('error', 'Please select a resume file');
+      toast.error('Please select a resume file');
       return;
     }
 
     if (!isValidFileType(selectedFile)) {
-      showNotification('error', 'Please select a valid PDF or DOCX file');
+      toast.error('Please select a valid PDF or DOCX file');
       return;
     }
 
@@ -105,11 +100,11 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
         const fileInput = document.getElementById('resume-file') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
 
-        showNotification('success', 'Resume uploaded and analyzed successfully!');
+        toast.success('Resume uploaded and analyzed successfully!');
       }
     } catch (err: any) {
       console.error('Upload error:', err);
-      showNotification('error', 'Failed to upload resume: ' + (err.response?.data?.error || err.message));
+      toast.error('Failed to upload resume: ' + (err.response?.data?.error || err.message));
     } finally {
       setUploading(false);
     }
@@ -123,29 +118,6 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
 
   return (
     <div>
-      {/* Notification Banner */}
-      {notification && (
-        <div className={`mb-4 p-4 rounded-lg border ${
-          notification.type === 'success'
-            ? 'bg-green-50 border-green-200 text-green-800'
-            : notification.type === 'error'
-            ? 'bg-red-50 border-red-200 text-red-800'
-            : 'bg-blue-50 border-blue-200 text-blue-800'
-        }`}>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">{notification.message}</p>
-            <button
-              onClick={() => setNotification(null)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="mb-6">
         <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Candidate Resume</h3>
         <p className="text-sm text-gray-600">

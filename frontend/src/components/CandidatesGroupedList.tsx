@@ -1,5 +1,6 @@
 import React from 'react';
 import { Candidate } from '../services/apiService';
+import RadialProgress from './RadialProgress';
 
 interface GroupedCandidate {
   name: string;
@@ -158,11 +159,7 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
                   </div>
                 )}
                 <div className="text-center" title="Highest score across all resumes">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                    <div className={`text-2xl font-bold ${getScoreColor(candidate.bestScore).replace('bg-', 'text-').replace('-50', '-600').replace('-100', '-600')}`}>
-                      {candidate.bestScore}
-                    </div>
-                  </div>
+                  <RadialProgress score={candidate.bestScore} size={64} />
                   <p className="text-xs text-gray-500 mt-1">Best Score</p>
                 </div>
               </div>

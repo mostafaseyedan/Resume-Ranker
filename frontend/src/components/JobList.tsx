@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { Job, apiService, CreateJobRequest } from '../services/apiService';
 
 interface JobListProps {
@@ -17,7 +18,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
   const [creatingFromPDF, setCreatingFromPDF] = useState(false);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [syncingMonday, setSyncingMonday] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [formData, setFormData] = useState<CreateJobRequest>({
     title: '',
     description: '',
@@ -66,15 +66,10 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     [jobs, statusFilter]
   );
 
-  const showNotification = (type: 'success' | 'error' | 'info', message: string, duration: number = 5000) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), duration);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.description.trim()) {
-      showNotification('error', 'Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -87,9 +82,10 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
         onJobCreated(jobResponse.job);
         setFormData({ title: '', description: '', status: 'active' });
         setShowCreateForm(false);
+        toast.success('Job created successfully');
       }
     } catch (err: any) {
-      showNotification('error', 'Failed to create job: ' + (err.response?.data?.error || err.message));
+      toast.error('Failed to create job: ' + (err.response?.data?.error || err.message));
     } finally {
       setCreating(false);
     }
@@ -98,7 +94,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
   const handlePDFSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pdfFormData.file) {
-      showNotification('error', 'Please select a PDF file');
+      toast.error('Please select a PDF file');
       return;
     }
 
@@ -115,9 +111,10 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
         onJobCreated(jobResponse.job);
         setPdfFormData({ title: '', file: null });
         setShowPDFForm(false);
+        toast.success('Job created from PDF successfully');
       }
     } catch (err: any) {
-      showNotification('error', 'Failed to create job from PDF: ' + (err.response?.data?.error || err.message));
+      toast.error('Failed to create job from PDF: ' + (err.response?.data?.error || err.message));
     } finally {
       setCreatingFromPDF(false);
     }
@@ -134,9 +131,10 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     try {
       await apiService.deleteJob(jobId);
       onJobDeleted(jobId);
+      toast.success('Job deleted successfully');
     } catch (error) {
       console.error('Failed to delete job:', error);
-      showNotification('error', 'Failed to delete job. Please try again.');
+      toast.error('Failed to delete job. Please try again.');
     } finally {
       setDeletingJobId(null);
     }
@@ -148,7 +146,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
       const response = await apiService.syncJobsFromMonday();
 
       if (response.success) {
-        showNotification('success', `Successfully synced ${response.synced_jobs.length} jobs from Monday.com!`, 8000);
+        toast.success(`Successfully synced ${response.synced_jobs.length} jobs from Monday.com!`);
 
         // Refresh the job list by calling onJobCreated for each new job
         // In a real app, you might want to refresh the entire list instead
@@ -156,11 +154,11 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
           window.location.reload(); // Simple refresh for now
         }
       } else {
-        showNotification('error', 'Failed to sync jobs from Monday.com');
+        toast.error('Failed to sync jobs from Monday.com');
       }
     } catch (error: any) {
       console.error('Monday sync error:', error);
-      showNotification('error', 'Failed to sync jobs from Monday.com: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to sync jobs from Monday.com: ' + (error.response?.data?.error || error.message));
     } finally {
       setSyncingMonday(false);
     }
@@ -207,29 +205,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
 
   return (
     <div className="h-full flex flex-col">
-      {/* Notification Banner */}
-      {notification && (
-        <div className={`m-4 mb-0 p-3 rounded-lg border ${
-          notification.type === 'success'
-            ? 'bg-green-50 border-green-200 text-green-800'
-            : notification.type === 'error'
-            ? 'bg-red-50 border-red-200 text-red-800'
-            : 'bg-blue-50 border-blue-200 text-blue-800'
-        }`}>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">{notification.message}</p>
-            <button
-              onClick={() => setNotification(null)}
-              className="text-gray-400 hover:text-gray-600 ml-2"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="p-4 border-b">
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center flex-wrap gap-2 text-sm text-gray-700">

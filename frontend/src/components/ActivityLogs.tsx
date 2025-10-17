@@ -53,24 +53,6 @@ const ActivityLogs: React.FC = () => {
     }
   };
 
-  const getActionIcon = (action: string): string => {
-    switch (action) {
-      case 'login':
-        return '🔐';
-      case 'job_created':
-        return '📋';
-      case 'candidate_analyzed':
-        return '📊';
-      case 'resume_improved':
-        return '✨';
-      case 'job_deleted':
-        return '🗑️';
-      case 'candidate_deleted':
-        return '❌';
-      default:
-        return '📌';
-    }
-  };
 
   const getActionColor = (action: string): string => {
     switch (action) {
@@ -147,7 +129,7 @@ const ActivityLogs: React.FC = () => {
 
       {activities.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          <div className="text-4xl mb-4">📊</div>
+
           <h3 className="text-lg font-medium mb-2">No activities yet</h3>
           <p>User activities will appear here</p>
         </div>
@@ -159,7 +141,7 @@ const ActivityLogs: React.FC = () => {
               className={`p-4 rounded-lg border ${getActionColor(activity.action)} transition-all hover:shadow-sm`}
             >
               <div className="flex items-start space-x-3">
-                <div className="text-2xl">{getActionIcon(activity.action)}</div>
+
                 <div className="flex-1">
                   <p className="text-sm text-gray-900 font-medium">
                     {formatActivityMessage(activity)}

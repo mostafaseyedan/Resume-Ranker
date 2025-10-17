@@ -176,8 +176,20 @@ export const apiService = {
     return response.data;
   },
 
-  async downloadSharePointFile(downloadUrl: string, asBinary: boolean = false): Promise<{ success: boolean; content: string }> {
-    const response = await apiClient.post('/sharepoint/download-file', { download_url: downloadUrl, as_binary: asBinary });
+  async downloadSharePointFile(
+    downloadUrl: string,
+    asBinary: boolean = false,
+    fileId?: string,
+    siteId?: string,
+    driveId?: string
+  ): Promise<{ success: boolean; content: string }> {
+    const response = await apiClient.post('/sharepoint/download-file', {
+      download_url: downloadUrl,
+      as_binary: asBinary,
+      file_id: fileId,
+      site_id: siteId,
+      drive_id: driveId
+    });
     return response.data;
   },
 
@@ -189,6 +201,12 @@ export const apiService = {
   // Vertex AI Search for potential candidates
   async searchPotentialCandidates(jobId: string): Promise<{ success: boolean; candidates: Array<{filename: string; sharepoint_url: string | null}>; error?: string }> {
     const response = await apiClient.post(`/jobs/${jobId}/search-potential-candidates`);
+    return response.data;
+  },
+
+  // Search candidates by skill or requirement
+  async searchBySkill(jobId: string, skill: string): Promise<{ success: boolean; response_text: string; skill_searched: string; error?: string }> {
+    const response = await apiClient.post(`/jobs/${jobId}/search-by-skill`, { skill });
     return response.data;
   },
 

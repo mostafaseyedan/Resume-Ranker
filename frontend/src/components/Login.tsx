@@ -27,7 +27,7 @@ const Login: React.FC = () => {
           <img
             src="/cendien_corp_logo.jpg"
             alt="Cendien Corporation Logo"
-            className="w-[120px] h-auto"
+            className="w-[90px] h-auto"
           />
         </div>
         <div className="flex flex-1 items-center justify-center">

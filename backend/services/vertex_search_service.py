@@ -14,17 +14,18 @@ from google.genai.types import (
 logger = logging.getLogger(__name__)
 
 class VertexSearchService:
-    def __init__(self):
+    def __init__(self, sharepoint_service=None):
         """Initialize Vertex AI Search service with grounding configuration"""
         self.project_id = "cendien-sales-support-ai"
         self.location = "global"
         self.datastore_id = "sharepoint-files-datastore"
+        self.sharepoint_service = sharepoint_service
 
         # Construct datastore path
         self.datastore_path = f"projects/{self.project_id}/locations/{self.location}/collections/default_collection/dataStores/{self.datastore_id}"
 
         # Initialize client for Vertex AI using Application Default Credentials
-        os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'True'
+        # Note: vertexai=True parameter makes THIS client use Vertex AI without affecting other clients
         self.client = genai.Client(
             vertexai=True,
             project=self.project_id,
@@ -61,7 +62,7 @@ class VertexSearchService:
             )
 
             # Construct search prompt
-            prompt = f"""Based on the job description below, find at least 5 relevant candidate resumes in the knowledge base that would be a good match for this position.
+            prompt = f"""Based on the job description below, check all resumes and CVs in the knowledge base, then identify candidates that would be a good match for this position.
 
 Job Description:
 {job_description}
@@ -97,6 +98,9 @@ Do not include any other additional commentary or explanation."""
 
             # Transform GCS paths to SharePoint URLs
             candidates = self._transform_to_sharepoint_urls(filenames)
+
+            # Note: We don't enrich with SharePoint metadata here because download URLs expire quickly.
+            # Instead, enrichment should happen when the user clicks "Analyze" to get fresh URLs.
 
             logger.info(f"Found {len(candidates)} potential candidates")
             return {
@@ -187,6 +191,73 @@ Do not include any other additional commentary or explanation."""
 
         return candidates
 
+    def search_by_skill(self, skill_or_requirement: str) -> Dict[str, Any]:
+        """
+        Search for candidates who have a specific skill or requirement
+
+        Args:
+            skill_or_requirement: The skill, education requirement, or certification to search for
+
+        Returns:
+            Dictionary with success status and Gemini's response text
+        """
+        try:
+            if not skill_or_requirement or not skill_or_requirement.strip():
+                return {
+                    'success': False,
+                    'error': 'No skill or requirement provided'
+                }
+
+            # Create grounding tool with Vertex AI Search
+            tool = Tool(
+                retrieval=Retrieval(
+                    vertex_ai_search=VertexAISearch(
+                        datastore=self.datastore_path
+                    )
+                )
+            )
+
+            # Construct search prompt - focused on just names and filenames
+            prompt = f"""Check all resumes and CVs in the knowledge base that have "{skill_or_requirement}".
+
+Return only the candidate names and their filenames in this format:
+**Candidate Name** - filename.pdf
+
+Keep it brief, maximum 3 candidates. Sort by best match first.
+Do not include any other commentary or explanation."""
+
+            # Generate grounded response
+            response = self.client.models.generate_content(
+                model="gemini-flash-latest",
+                contents=prompt,
+                config=GenerateContentConfig(
+                    tools=[tool],
+                ),
+            )
+
+            response_text = response.text if hasattr(response, 'text') else None
+
+            if not response_text or not response_text.strip():
+                return {
+                    'success': True,
+                    'response_text': f'No candidates found with "{skill_or_requirement}"',
+                    'count': 0
+                }
+
+            logger.info(f"Found candidates with skill: {skill_or_requirement}")
+            return {
+                'success': True,
+                'response_text': response_text,
+                'skill_searched': skill_or_requirement
+            }
+
+        except Exception as e:
+            logger.error(f"Error searching by skill '{skill_or_requirement}': {e}")
+            return {
+                'success': False,
+                'error': f'Failed to search for skill: {str(e)}'
+            }
+
     def _gcs_to_sharepoint_url(self, gcs_path: str) -> Optional[str]:
         """
         Convert GCS bucket path to SharePoint URL
@@ -228,3 +299,4 @@ Do not include any other additional commentary or explanation."""
         except Exception as e:
             logger.error(f"Error converting GCS path to SharePoint URL: {e}")
             return None
+

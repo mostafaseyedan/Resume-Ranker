@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { toast } from 'sonner';
 import { Candidate, Job, apiService } from '../services/apiService';
 import ResumeTemplateSelector from './ResumeTemplateSelector';
+import RadialProgress from './RadialProgress';
 
 interface CandidateDetailProps {
   candidate: Candidate;
@@ -10,14 +12,8 @@ interface CandidateDetailProps {
 
 const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBack }) => {
   const [improvingResume, setImprovingResume] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'strengths' | 'weaknesses' | 'skills' | 'experience'>('strengths');
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-
-  const showNotification = (type: 'success' | 'error' | 'info', message: string, duration: number = 5000) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), duration);
-  };
 
   const getScoreColor = (score: number): string => {
     if (score >= 90) return 'text-green-600';
@@ -62,11 +58,11 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      showNotification('success', 'Improved resume downloaded successfully!');
+      toast.success('Improved resume downloaded successfully!');
 
     } catch (err: any) {
       console.error('Improve resume error:', err);
-      showNotification('error', 'Failed to improve resume: ' + (err.response?.data?.error || err.message));
+      toast.error('Failed to improve resume: ' + (err.response?.data?.error || err.message));
     } finally {
       setImprovingResume(false);
     }
@@ -78,29 +74,6 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
   return (
     <div className="bg-white rounded-lg shadow max-w-6xl mx-auto">
-      {/* Notification Banner */}
-      {notification && (
-        <div className={`m-6 mb-0 p-4 rounded-lg border ${
-          notification.type === 'success'
-            ? 'bg-green-50 border-green-200 text-green-800'
-            : notification.type === 'error'
-            ? 'bg-red-50 border-red-200 text-red-800'
-            : 'bg-blue-50 border-blue-200 text-blue-800'
-        }`}>
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">{notification.message}</p>
-            <button
-              onClick={() => setNotification(null)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -125,11 +98,9 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               <p className="text-sm text-gray-600">Candidate Analysis for {job.title}</p>
             </div>
           </div>
-          <div className="text-center flex-1">
-            <div className={`text-3xl font-bold ${getScoreColor(analysis?.overall_score || 0)}`}>
-              {analysis?.overall_score || 0}%
-            </div>
-            <div className="text-xs text-gray-500">Overall Score</div>
+          <div className="text-center flex-1 flex flex-col items-center">
+            <RadialProgress score={analysis?.overall_score || 0} size={96} strokeWidth={10} />
+            <div className="text-xs text-gray-500 mt-2">Overall Score</div>
           </div>
           <div className="flex justify-end flex-1">
             <button
@@ -150,9 +121,9 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
             candidateName={candidate.name}
             onGenerate={(sharepointUrl) => {
               if (sharepointUrl) {
-                showNotification('success', `Resume generated and saved to SharePoint!`);
+                toast.success('Resume generated and saved to SharePoint!');
               } else {
-                showNotification('success', 'Resume generated successfully!');
+                toast.success('Resume generated successfully!');
               }
               setShowTemplateSelector(false);
             }}
@@ -269,9 +240,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                     <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <h4 className="font-semibold text-gray-900 text-sm">{skill.skill}</h4>
-                        <span className={`text-lg font-bold ${getScoreColor(skill.score * 10)}`}>
-                          {skill.score}/10
-                        </span>
+                        <RadialProgress score={skill.score * 10} size={48} strokeWidth={5} />
                       </div>
 
                       <div className="space-y-2 mb-3">

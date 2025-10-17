@@ -9,7 +9,6 @@ from google import genai
 from google.genai import types
 from services.gemini_analyzer import GeminiAnalyzer
 from services.firestore_service import FirestoreService
-from services.gemini_file_processor import GeminiFileProcessor
 from services.monday_service import MondayService
 from services.sharepoint_service import SharePointService
 from services.resume_service import ResumeService
@@ -50,7 +49,6 @@ except Exception as e:
 # Initialize services
 firestore_service = FirestoreService()
 gemini_analyzer = GeminiAnalyzer(os.getenv('GEMINI_API_KEY'))
-gemini_file_processor = GeminiFileProcessor(os.getenv('GEMINI_API_KEY'))
 monday_service = MondayService(os.getenv('MONDAY_API_KEY')) if os.getenv('MONDAY_API_KEY') else None
 resume_service = ResumeService(os.getenv('GEMINI_API_KEY'))
 activity_logger = ActivityLoggerService()
@@ -70,9 +68,9 @@ sharepoint_cache_ttl = int(os.getenv('SHAREPOINT_CACHE_TTL_MINUTES', '15'))
 sharepoint_service = SharePointService(AZURE_CONFIG, cache_ttl_minutes=sharepoint_cache_ttl)
 logger.info(f"SharePoint service initialized with cache TTL: {sharepoint_cache_ttl} minutes")
 
-# Initialize Vertex Search service
-vertex_search_service = VertexSearchService()
-logger.info("Vertex AI Search service initialized")
+# Initialize Vertex Search service with SharePoint service for metadata enrichment
+vertex_search_service = VertexSearchService(sharepoint_service=sharepoint_service)
+logger.info("Vertex AI Search service initialized with SharePoint integration")
 
 
 def build_job_analysis_payload(job_description, extraction_data=None):
@@ -289,12 +287,12 @@ def create_job_from_pdf():
             return jsonify({'error': 'Only PDF files are allowed'}), 400
 
         # Validate and extract structured data using Gemini
-        is_valid, error_msg = gemini_file_processor.validate_file(file)
+        is_valid, error_msg = gemini_analyzer.validate_file(file)
         if not is_valid:
             return jsonify({'error': error_msg}), 400
 
         # Extract structured job information
-        job_extraction = gemini_file_processor.extract_job_info_with_gemini(file)
+        job_extraction = gemini_analyzer.analyze_job_description_from_file(file)
         if not job_extraction or not job_extraction.get('job_title'):
             return jsonify({'error': 'Could not extract job information from PDF'}), 400
 
@@ -479,13 +477,42 @@ def download_sharepoint_file():
         data = request.get_json()
         download_url = data.get('download_url')
         as_binary = data.get('as_binary', False)  # Flag to determine if we need binary content
+        file_id = data.get('file_id')  # File ID for refreshing expired URLs
+        site_id = data.get('site_id')  # Site ID for refreshing expired URLs
+        drive_id = data.get('drive_id')  # Drive ID for refreshing expired URLs
+
+        logger.info(f"Download request - URL: {download_url[:100] if download_url else 'None'}...")
+        logger.info(f"Download metadata - file_id: {file_id}, site_id: {site_id}, drive_id: {drive_id}")
 
         if not download_url:
             return jsonify({'error': 'Download URL required'}), 400
 
+        # If metadata is missing and this is a SharePoint web URL, convert it to a download URL
+        if not file_id and 'sharepoint.com' in download_url:
+            logger.info("Metadata missing - converting SharePoint web URL to download URL")
+            try:
+                # Convert the SharePoint web URL directly to a Graph API download URL
+                fresh_metadata = sharepoint_service.convert_web_url_to_download_url(download_url)
+
+                if fresh_metadata:
+                    download_url = fresh_metadata.get('download_url')
+                    file_id = fresh_metadata.get('file_id')
+                    site_id = fresh_metadata.get('site_id')
+                    drive_id = fresh_metadata.get('drive_id')
+                    logger.info(f"Successfully converted web URL to download URL")
+                else:
+                    logger.warning(f"Could not convert web URL to download URL")
+            except Exception as e:
+                logger.warning(f"Error converting web URL: {e}")
+
         if as_binary:
-            # Get binary content for resume files
-            content = sharepoint_service.get_file_content_as_binary(download_url)
+            # Get binary content for resume files, with support for refreshing expired URLs
+            content = sharepoint_service.get_file_content_as_binary(
+                download_url,
+                file_id=file_id,
+                site_id=site_id,
+                drive_id=drive_id
+            )
             if content is None:
                 return jsonify({'error': 'Failed to download file'}), 500
 
@@ -542,13 +569,11 @@ def process_sharepoint_job_file():
         extraction_data = None
         job_description_text = ''
 
-        if file_name.lower().endswith('.pdf'):
-            extraction_data = gemini_file_processor.extract_job_info_with_gemini(file_content)
+        if file_name.lower().endswith(('.pdf', '.doc', '.docx')):
+            extraction_data = gemini_analyzer.analyze_job_description_from_file(file_content)
             if not extraction_data:
                 return jsonify({'error': 'Failed to extract job information'}), 500
             job_description_text = extraction_data.get('job_description_text', '').strip()
-        elif file_name.lower().endswith(('.doc', '.docx')):
-            job_description_text = gemini_file_processor.extract_text_with_gemini(file_content)
         else:
             return jsonify({'error': 'Unsupported file type'}), 400
 
@@ -617,7 +642,7 @@ def search_potential_candidates(job_id):
         if not search_result.get('success'):
             return jsonify(search_result), 500
 
-        # Save the potential candidates to Firestore
+        # Save the potential candidates to Firestore (including Graph API metadata)
         candidates = search_result.get('candidates', [])
         potential_candidates = []
         for candidate in candidates:
@@ -626,10 +651,14 @@ def search_potential_candidates(job_id):
                     'filename': candidate.get('filename'),
                     'sharepoint_url': candidate.get('sharepoint_url'),
                     'download_url': candidate.get('download_url'),
-                    'original_path': candidate.get('original_path')
+                    'original_path': candidate.get('original_path'),
+                    # Include Graph API metadata for URL refresh
+                    'id': candidate.get('id'),
+                    'site_id': candidate.get('site_id'),
+                    'drive_id': candidate.get('drive_id')
                 })
 
-        logger.info(f"Saving {len(potential_candidates)} potential candidates to Firestore")
+        logger.info(f"Saving {len(potential_candidates)} potential candidates to Firestore (with metadata)")
 
         # Update job with potential candidates, gemini response, and search timestamp
         try:
@@ -676,6 +705,48 @@ def search_potential_candidates(job_id):
             'error': 'Failed to search for potential candidates'
         }), 500
 
+@app.route('/api/jobs/<job_id>/search-by-skill', methods=['POST'])
+@require_auth
+def search_by_skill(job_id):
+    """Search for candidates by a specific skill or requirement"""
+    try:
+        data = request.get_json()
+        skill = data.get('skill', '').strip()
+
+        if not skill:
+            return jsonify({'error': 'Skill or requirement is required'}), 400
+
+        # Get job details (for logging)
+        job = firestore_service.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Search for candidates with this skill
+        search_result = vertex_search_service.search_by_skill(skill)
+
+        if not search_result.get('success'):
+            return jsonify(search_result), 500
+
+        # Log the skill search activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='skill_search',
+            details={
+                'job_title': job.get('title', 'Unknown job'),
+                'skill_searched': skill
+            }
+        )
+
+        return jsonify(search_result)
+
+    except Exception as e:
+        logger.error(f"Search by skill error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to search by skill'
+        }), 500
+
 # Resume upload and analysis routes
 @app.route('/api/jobs/<job_id>/upload-resume', methods=['POST'])
 @require_auth
@@ -693,29 +764,25 @@ def upload_resume(job_id):
         if not job:
             return jsonify({'error': 'Job not found'}), 404
 
-        # Validate and extract text using Gemini
-        is_valid, error_msg = gemini_file_processor.validate_file(file)
+        # Validate file
+        is_valid, error_msg = gemini_analyzer.validate_file(file)
         if not is_valid:
             return jsonify({'error': error_msg}), 400
 
-        resume_text = gemini_file_processor.extract_text_with_gemini(file)
-        if not resume_text:
-            return jsonify({'error': 'Failed to extract text from resume'}), 400
-
-        # Analyze with AI
+        # Analyze resume directly from file - single Gemini call
         analysis_result = gemini_analyzer.analyze_resume(
-            resume_text,
+            file,
             job['description'],
             job.get('skill_weights', {})
         )
 
-        # Save candidate and analysis
+        # Save candidate and analysis (including extracted text for resume improvement)
         candidate_data = {
             'name': analysis_result.get('candidate_name', file.filename.split('.')[0]),
             'email': analysis_result.get('candidate_email', ''),
             'phone': analysis_result.get('candidate_phone', ''),
             'resume_filename': file.filename,
-            'resume_text': resume_text,
+            'resume_text': analysis_result.get('extracted_text', ''),
             'job_id': job_id,
             'analysis': analysis_result,
             'uploaded_by': session['user']['email'],
