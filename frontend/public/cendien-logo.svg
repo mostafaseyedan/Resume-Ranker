@@ -1,0 +1,23 @@
+<svg width="340" height="140" viewBox="0 0 340 140" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<style>
+.logo-color{stroke:#8c1c1f;fill:#8c1c1f}
+.icon-lines{stroke-width:5;stroke-linecap:square;fill:none}
+.text-main{font-family:"Arial", Helvetica, sans-serif;font-weight:bold;font-size:25px;fill:#2d2d2d}
+</style>
+</defs>
+
+<!-- Logo icon - left side -->
+<g id="logo-icon" transform="translate(0 0)">
+<path d="M60 35v100h80V65l-30-30z" class="logo-color icon-lines" stroke-linejoin="square"/>
+<path d="M110 36v30h30" class="logo-color icon-lines" stroke-linejoin="square"/>
+<path stroke-width="5" d="M80 90h50m-50 10h40m-40 10h30" class="logo-color" stroke-linecap="square"/>
+</g>
+
+<!-- Text group - vertically stacked, right of icon -->
+<g id="text-group">
+<text x="160" y="70" class="text-main">Cendien's</text>
+<text x="160" y="95" class="text-main">AI Resume</text>
+<text x="160" y="120" class="text-main">Service</text>
+</g>
+</svg>

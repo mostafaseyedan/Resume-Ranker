@@ -110,10 +110,10 @@ const Dashboard: React.FC = () => {
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white shadow-sm border-b flex-shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto pl-2 pr-4 sm:pl-2 sm:pr-6 lg:pl-2 lg:pr-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Resume Evaluator</h1>
+              <h1 className="text-2xl font-bold text-gray-900">AI Resume Service</h1>
             </div>
             <div className="flex space-x-10 text-sm">
               <a href="http://www.reconrfp.cendien.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800">Recon</a>

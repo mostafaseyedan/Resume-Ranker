@@ -283,7 +283,7 @@ class SharePointService:
             else:
                 folder_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root/children"
 
-            files = self._get_files_recursive(folder_url, headers, recursive)
+            files = self._get_files_recursive(folder_url, headers, recursive, "", site_id, drive_id)
 
             # Cache the results
             self._set_cache(cache_key, files)
@@ -337,6 +337,11 @@ class SharePointService:
                     files.append(file_info)
 
                 elif 'folder' in item and recursive:  # It's a folder and we want to recurse
+                    # Verify we have required IDs before recursing
+                    if not site_id or not drive_id:
+                        logger.error(f"Cannot recurse into subfolder {item_path}: missing site_id or drive_id")
+                        continue
+
                     # Use the Graph API children endpoint directly
                     subfolder_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{item['id']}/children"
                     logger.info(f"Recursing into subfolder: {item_path} (URL: {subfolder_url})")

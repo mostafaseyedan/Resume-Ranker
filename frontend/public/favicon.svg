@@ -1,0 +1,14 @@
+<svg width="600" height="600" viewBox="50 50 120 90" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<style>
+.logo-color{stroke:#8c1c1f;fill:#8c1c1f}
+.icon-lines{stroke-width:4;stroke-linecap:square;fill:none}
+</style>
+</defs>
+  <rect x="50" y="35" width="120" height="120" fill="white"/>
+<g id="logo-icon" transform="translate(10 10)">
+<path d="M60 35v100h80V65l-30-30z" class="logo-color icon-lines" stroke-linejoin="square"/>
+<path d="M110 36v30h30" class="logo-color icon-lines" stroke-linejoin="square"/>
+<path stroke-width="4" d="M80 90h50m-50 10h40m-40 10h30" class="logo-color" stroke-linecap="square"/>
+</g>
+</svg>
