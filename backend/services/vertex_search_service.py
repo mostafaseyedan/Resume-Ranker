@@ -68,6 +68,7 @@ Job Description:
 {job_description}
 
 Please identify candidates whose experience, skills, and qualifications align with this job's requirements.
+If the resume filename conaints "improved_resume_", ignore them as those are AI-generated improved resumes.
 Just retrun of Candidate names in and numbered list format. Format the response in markdown, use bold for candidate names. 
 For each candidate, include the filename that you found them in. 
 State the number of candidates found at the top of the list as "Top x candidates found".

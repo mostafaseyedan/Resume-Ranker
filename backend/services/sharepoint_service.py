@@ -184,14 +184,12 @@ class SharePointService:
     def get_folder_files(self, sharepoint_url: str, recursive: bool = True, job_title: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all files in a SharePoint folder and optionally its subfolders"""
         try:
-            # Generate cache key based on URL, recursive flag, and job title
-            cache_key = self._generate_cache_key('folder_files', sharepoint_url, recursive, job_title)
-
-            # Check cache first
-            cached_files = self._get_from_cache(cache_key)
-            if cached_files is not None:
-                logger.info(f"Returning cached files for SharePoint URL: {sharepoint_url}")
-                return cached_files
+            # Caching disabled - always fetch fresh data
+            # cache_key = self._generate_cache_key('folder_files', sharepoint_url, recursive, job_title)
+            # cached_files = self._get_from_cache(cache_key)
+            # if cached_files is not None:
+            #     logger.info(f"Returning cached files for SharePoint URL: {sharepoint_url}")
+            #     return cached_files
 
             token = self._get_access_token()
             if not token:
@@ -285,9 +283,9 @@ class SharePointService:
 
             files = self._get_files_recursive(folder_url, headers, recursive, "", site_id, drive_id)
 
-            # Cache the results
-            self._set_cache(cache_key, files)
-            logger.info(f"Fetched and cached {len(files)} files from SharePoint")
+            # Caching disabled
+            # self._set_cache(cache_key, files)
+            logger.info(f"Fetched {len(files)} files from SharePoint")
 
             return files
 
