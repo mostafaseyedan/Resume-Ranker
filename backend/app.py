@@ -891,6 +891,19 @@ def improve_resume(candidate_id):
             company_info=company_info
         )
 
+        # Log the resume improvement activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='resume_improved',
+            details={
+                'candidate_name': candidate.get('name', 'Unknown candidate'),
+                'template_used': 'professional',
+                'job_title': job.get('title', 'Unknown job'),
+                'format': 'pdf'
+            }
+        )
+
         # Return PDF as downloadable file
         from flask import make_response
         response = make_response(pdf_bytes)
@@ -934,6 +947,17 @@ def resume_preview(candidate_id):
             candidate_data=candidate,
             job_data=job,
             company_info=company_info
+        )
+
+        # Log the resume preview activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='resume_previewed',
+            details={
+                'candidate_name': candidate.get('name', 'Unknown candidate'),
+                'job_title': job.get('title', 'Unknown job')
+            }
         )
 
         return html_preview, 200, {'Content-Type': 'text/html'}
@@ -1029,6 +1053,20 @@ def generate_and_save_resume(candidate_id):
             content_type = 'application/pdf'
             file_extension = 'pdf'
 
+        # Log the resume generation activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='resume_improved',
+            details={
+                'candidate_name': candidate.get('name', 'Unknown candidate'),
+                'template_used': template.name,
+                'job_title': job.get('title', 'Unknown job'),
+                'format': output_format,
+                'save_to_sharepoint': save_to_sharepoint
+            }
+        )
+
         # Save to SharePoint if requested
         sharepoint_url = None
         sharepoint_link = job.get('monday_metadata', {}).get('sharepoint_link')
@@ -1050,6 +1088,20 @@ def generate_and_save_resume(candidate_id):
             if upload_result:
                 sharepoint_url = upload_result.get('web_url')
                 logger.info(f"Resume saved to SharePoint: {sharepoint_url}")
+
+                # Log successful SharePoint upload
+                activity_logger.log_activity(
+                    user_email=session['user']['email'],
+                    user_name=session['user']['name'],
+                    action='resume_saved_to_sharepoint',
+                    details={
+                        'candidate_name': candidate.get('name', 'Unknown candidate'),
+                        'template_used': template.name,
+                        'job_title': job.get('title', 'Unknown job'),
+                        'sharepoint_url': sharepoint_url,
+                        'format': output_format
+                    }
+                )
             else:
                 logger.warning("Failed to save resume to SharePoint")
         elif save_to_sharepoint and not sharepoint_link:

@@ -156,7 +156,15 @@ class ActivityLoggerService:
         elif action == 'resume_improved':
             candidate_name = details.get('candidate_name', 'Unknown candidate')
             template = details.get('template_used', 'Unknown template')
-            return f"{user_name} improved resume for candidate '{candidate_name}' using template '{template}'"
+            format_type = details.get('format', 'pdf')
+            return f"{user_name} improved resume for candidate '{candidate_name}' using template '{template}' (format: {format_type})"
+        elif action == 'resume_previewed':
+            candidate_name = details.get('candidate_name', 'Unknown candidate')
+            return f"{user_name} previewed resume for candidate '{candidate_name}'"
+        elif action == 'resume_saved_to_sharepoint':
+            candidate_name = details.get('candidate_name', 'Unknown candidate')
+            template = details.get('template_used', 'Unknown template')
+            return f"{user_name} saved improved resume for candidate '{candidate_name}' to SharePoint"
         elif action == 'job_deleted':
             job_title = details.get('job_title', 'Unknown job')
             return f"{user_name} deleted job '{job_title}'"
