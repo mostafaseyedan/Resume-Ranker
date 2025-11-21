@@ -115,6 +115,10 @@ class MondayService:
                     metadata['employment_type'] = col_text
                 elif col_id == 'date_17' and col_text:  # Due date
                     metadata['due_date'] = col_text
+                elif col_id == 'date_mkvyd9rn' and col_text:  # Open Date
+                    metadata['open_date'] = col_text
+                elif col_id == 'date_mkvyd3ye' and col_text:  # Close Date
+                    metadata['close_date'] = col_text
                 elif col_id == 'file_mkw32xnz' and col_text:  # SharePoint link
                     metadata['sharepoint_link'] = col_text
                 elif col_id == 'link_mkvy6wjb' and col_text:

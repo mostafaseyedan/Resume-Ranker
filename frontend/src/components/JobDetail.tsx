@@ -382,9 +382,21 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   {job.monday_metadata.employment_type}
                 </span>
               )}
-              <span className="text-xs text-gray-500">
-                Created: {new Date(job.created_at).toLocaleDateString()}
-              </span>
+              {job.monday_metadata?.open_date && (
+                <span className="text-xs text-gray-500">
+                  Open: {job.monday_metadata.open_date}
+                </span>
+              )}
+              {job.monday_metadata?.close_date && (
+                <span className="text-xs text-gray-500">
+                  Close: {job.monday_metadata.close_date}
+                </span>
+              )}
+              {!job.monday_metadata?.open_date && !job.monday_metadata?.close_date && (
+                <span className="text-xs text-gray-500">
+                  Created: {new Date(job.created_at).toLocaleDateString()}
+                </span>
+              )}
             </div>
           </div>
           <div className="text-right">
