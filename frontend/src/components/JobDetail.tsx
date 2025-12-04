@@ -411,6 +411,21 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         <nav className="-mb-px flex">
           <button
             onClick={() => {
+              setActiveTab('files');
+              if (!sharepointFiles && !loadingSharePoint) {
+                loadSharePointFiles();
+              }
+            }}
+            className={`py-2 px-4 text-sm font-medium ${
+              activeTab === 'files'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Files
+          </button>
+          <button
+            onClick={() => {
               setActiveTab('candidates');
               setSelectedCandidateName(null);
             }}
@@ -440,7 +455,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Potential Candidates
+            Internal Candidates
           </button>
           <button
             onClick={() => {
@@ -456,21 +471,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             }`}
           >
             Job Details
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('files');
-              if (!sharepointFiles && !loadingSharePoint) {
-                loadSharePointFiles();
-              }
-            }}
-            className={`py-2 px-4 text-sm font-medium ${
-              activeTab === 'files'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Files
           </button>
         </nav>
       </div>
@@ -919,18 +919,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     </svg>
                   </div>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Discover Potential Candidates</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Discover Internal Candidates</h3>
                 <p className="text-gray-600 mb-8 max-w-md mx-auto">
                   Let AI search through the knowledge base to find candidates whose skills and experience match this position
                 </p>
                 <button
                   onClick={handleSearchPotentialCandidates}
                   disabled={!job.description}
-                  className="inline-flex items-center px-8 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg hover:shadow-xl"
+                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
                   {!job.description ? 'Add Job Description First' : 'Start AI Search'}
                 </button>
               </div>
@@ -964,7 +961,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 ) : (
                   <div>
                     <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-medium text-gray-900">Potential Candidates</h3>
+                      <h3 className="text-lg font-medium text-gray-900">Internal Candidates</h3>
                       <button
                         onClick={handleSearchPotentialCandidates}
                         className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"

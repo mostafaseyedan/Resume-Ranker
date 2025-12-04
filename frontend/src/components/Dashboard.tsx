@@ -3,6 +3,7 @@ import { Job, apiService } from '../services/apiService';
 import JobList from './JobList';
 import JobDetail from './JobDetail';
 import ActivityLogs from './ActivityLogs';
+import ActivityNotificationDropdown from './ActivityNotificationDropdown';
 import { useAuth } from '../hooks/useAuth';
 import { useMsal } from '@azure/msal-react';
 
@@ -110,23 +111,59 @@ const Dashboard: React.FC = () => {
   return (
     <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
       <header className="bg-white shadow-sm border-b flex-shrink-0">
-        <div className="max-w-7xl mx-auto pl-2 pr-4 sm:pl-2 sm:pr-6 lg:pl-2 lg:pr-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">AI Resume Service</h1>
-            </div>
-            <div className="flex space-x-10 text-sm">
-              <a href="http://www.reconrfp.cendien.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800">Recon</a>
-              <a href="http://sales.cendien.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800">RFP Analyzer</a>
-              <a href="http://rag.cendien.com" target="_blank" rel="noopener noreferrer" className="text-gray-600 hover:text-gray-800">Cendien RAG</a>
-            </div>
+        <div className="flex w-full items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="min-w-0 flex flex-col">
+            <h1 className="text-base font-semibold text-gray-700">TalentWork</h1>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-5">
+            <nav className="flex items-center gap-3 text-sm text-gray-600 sm:gap-5">
+              <a
+                href="https://reconrfp.cendien.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 hover:text-gray-900"
+              >
+                RFPHub
+              </a>
+              <a
+                href="https://sales.cendien.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 hover:text-gray-900"
+              >
+                SalesIQ
+              </a>
+              <a
+                href="https://cendien.monday.com/boards/18004940852"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 hover:text-gray-900"
+              >
+                Monday
+              </a>
+              <a
+                href="https://rag.cendien.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 hover:text-gray-900"
+              >
+                RAG
+              </a>
+            </nav>
+            <ActivityNotificationDropdown onViewAll={handleShowLogs} />
             <button
               onClick={handleLogout}
-              className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              className="inline-flex items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
               title="Logout"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
             </button>
           </div>
@@ -134,8 +171,8 @@ const Dashboard: React.FC = () => {
       </header>
 
       <div className="flex flex-1 min-h-0">
-        {/* Job List Sidebar - Fixed width, flush left */}
-        <div className="w-1/3 bg-white border-r border-gray-200 flex-shrink-0">
+        {/* Job List Sidebar - Responsive width */}
+        <div className="flex-shrink-0 basis-[60%] sm:basis-[52%] md:basis-[42%] lg:flex-[0_0_32%] xl:flex-[0_0_30%] 2xl:flex-[0_0_27%] min-w-[19rem] bg-white border-r border-gray-200">
           <JobList
             jobs={jobs}
             selectedJob={selectedJob}
@@ -145,7 +182,6 @@ const Dashboard: React.FC = () => {
             }}
             onJobCreated={handleJobCreated}
             onJobDeleted={handleJobDeleted}
-            onShowLogs={handleShowLogs}
           />
         </div>
 

@@ -26,7 +26,7 @@ const Login: React.FC = () => {
         <div className="pt-8 pl-2">
           <img
             src="/cendien-logo.svg"
-            alt="Cendien's AI Resume Service"
+            alt="TalentWork - Cendien AI Powered Recruiter Service"
             className="w-[300px] h-auto"
           />
         </div>

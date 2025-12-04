@@ -47,8 +47,7 @@ module.exports = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        'sans': ['Carlito', 'sans-serif'],
-        'carlito': ['Carlito', 'sans-serif'],
+        'sans': ['Figtree', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
     },
   },

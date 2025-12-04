@@ -39,10 +39,19 @@ CORS(app, origins=[os.getenv('FRONTEND_URL', 'http://localhost:3000')],
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Firebase (uses default service account in Cloud Run)
+# Initialize Firebase with explicit project
 try:
-    firebase_admin.initialize_app()
-    logger.info("Firebase initialized successfully")
+    # Check if already initialized (prevents re-initialization errors)
+    try:
+        firebase_admin.get_app()
+        logger.info("Firebase already initialized")
+    except ValueError:
+        # Initialize with explicit project ID
+        cred = credentials.ApplicationDefault()
+        firebase_admin.initialize_app(cred, {
+            'projectId': 'cendien-sales-support-ai',
+        })
+        logger.info("Firebase initialized successfully with project: cendien-sales-support-ai")
 except Exception as e:
     logger.error(f"Firebase initialization failed: {e}")
 
@@ -1154,7 +1163,7 @@ def get_activities():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'healthy', 'message': 'AI Resume Evaluator API is running'})
+    return jsonify({'status': 'healthy', 'message': 'TalentWork API is running'})
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

@@ -8,10 +8,9 @@ interface JobListProps {
   onJobSelect: (job: Job) => void;
   onJobCreated: (job: Job) => void;
   onJobDeleted: (jobId: string) => void;
-  onShowLogs: () => void;
 }
 
-const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJobCreated, onJobDeleted, onShowLogs }) => {
+const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJobCreated, onJobDeleted }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showPDFForm, setShowPDFForm] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -28,6 +27,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     file: null as File | null
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
 
   const normalizeStatus = (status: string) =>
     (status || '')
@@ -56,14 +56,37 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     [jobs]
   );
 
+  const clientOptions = useMemo(
+    () => {
+      const clients = new Set<string>();
+      jobs.forEach((job) => {
+        const client = job.monday_metadata?.client;
+        if (client && client.trim()) {
+          clients.add(client.trim());
+        }
+      });
+      return Array.from(clients).sort((a, b) => a.localeCompare(b));
+    },
+    [jobs]
+  );
+
   const filteredJobs = useMemo(
     () => {
-      if (statusFilter === 'all') {
-        return jobs;
+      let filtered = jobs;
+
+      // Filter by status
+      if (statusFilter !== 'all') {
+        filtered = filtered.filter((job) => normalizeStatus(job.monday_metadata?.status || '') === statusFilter);
       }
-      return jobs.filter((job) => normalizeStatus(job.monday_metadata?.status || '') === statusFilter);
+
+      // Filter by client
+      if (clientFilter !== 'all') {
+        filtered = filtered.filter((job) => job.monday_metadata?.client?.trim() === clientFilter);
+      }
+
+      return filtered;
     },
-    [jobs, statusFilter]
+    [jobs, statusFilter, clientFilter]
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -208,10 +231,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
       <div className="p-4 border-b">
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center flex-wrap gap-2 text-sm text-gray-700">
-            <span className="text-lg font-semibold text-gray-900">
-              {filteredJobs.length} Job{filteredJobs.length !== 1 ? 's' : ''}
-              {statusFilter !== 'all' && ` (of ${jobs.length})`}
-            </span>
             <select
               id="status-filter"
               value={statusFilter}
@@ -222,6 +241,19 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               {statusOptions.map((option) => (
                 <option key={option.key} value={option.key}>
                   {option.label}
+                </option>
+              ))}
+            </select>
+            <select
+              id="client-filter"
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="text-sm border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="all">All clients</option>
+              {clientOptions.map((client) => (
+                <option key={client} value={client}>
+                  {client}
                 </option>
               ))}
             </select>
@@ -239,12 +271,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               ) : (
                 <img src="/monday.svg" alt="" aria-hidden="true" className="h-6 w-6" />
               )}
-            </button>
-            <button
-              onClick={onShowLogs}
-              className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
-            >
-              Logs
             </button>
             <button
               onClick={() => setShowCreateForm(!showCreateForm)}
@@ -378,25 +404,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <h3 className="font-medium text-gray-900 truncate">{job.title}</h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Created: {new Date(job.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="ml-2 flex items-center space-x-1">
-                    <button
-                      onClick={(e) => handleDeleteJob(job.id, e)}
-                      disabled={deletingJobId === job.id}
-                      className="text-red-500 hover:text-red-700 p-1 rounded disabled:opacity-50"
-                      title="Delete job"
-                    >
-                      {deletingJobId === job.id ? (
-                        <div className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full"></div>
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                      )}
-                    </button>
                   </div>
                 </div>
 
@@ -423,15 +430,34 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                     </span>
                   )}
 
+                  {/* Client Tag */}
+                  {job.monday_metadata?.client && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {job.monday_metadata.client}
+                    </span>
+                  )}
+
                 </div>
 
-                <div className="mt-2 text-sm text-gray-600">
-                  <div className="line-clamp-2">
-                    {job.description.length > 100
-                      ? `${job.description.substring(0, 100)}...`
-                      : job.description
-                    }
-                  </div>
+                {/* Created Date and Delete Button */}
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-xs text-gray-500">
+                    Created: {new Date(job.created_at).toLocaleDateString()}
+                  </p>
+                  <button
+                    onClick={(e) => handleDeleteJob(job.id, e)}
+                    disabled={deletingJobId === job.id}
+                    className="text-gray-400 hover:text-red-600 p-1 rounded disabled:opacity-50"
+                    title="Delete job"
+                  >
+                    {deletingJobId === job.id ? (
+                      <div className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full"></div>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
             ))}

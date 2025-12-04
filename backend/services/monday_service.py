@@ -97,6 +97,10 @@ class MondayService:
                 col_id = col.get('id', '')
                 col_text = col.get('text', '')
 
+                # Debug log to find column IDs
+                if col_text and col_id not in ['name', 'subitems', 'mirror']:
+                    logger.info(f"Column ID: {col_id} | Text: {col_text}")
+
                 # Map specific columns
                 if col_id == 'color_mkvy85b7' and col_text:  # Req Status
                     metadata['status'] = col_text
@@ -123,8 +127,8 @@ class MondayService:
                     metadata['sharepoint_link'] = col_text
                 elif col_id == 'link_mkvy6wjb' and col_text:
                     metadata['job_post_link'] = col_text
-                elif col_id == 'text_mkw3tw0e' and col_text:
-                    metadata['job_location'] = col_text
+                elif col_id == 'text_mkw3tw0e' and col_text:  # Client column
+                    metadata['client'] = col_text
 
                 # Store all column values for reference
                 if col_text:
