@@ -1163,7 +1163,7 @@ def get_activities():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'healthy', 'message': 'TalentWork API is running'})
+    return jsonify({'status': 'healthy', 'message': 'TalentMax API is running'})
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
