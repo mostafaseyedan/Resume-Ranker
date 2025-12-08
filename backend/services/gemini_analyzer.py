@@ -165,25 +165,24 @@ class GeminiAnalyzer:
     def analyze_job_description(self, job_description):
         """Analyze job description to extract requirements and assign skill weights"""
         try:
-            prompt = f"""
-            As an expert technical recruiter, analyze this job description and extract structured information.
-
-            Job Description:
-            {job_description}
-
-            Instructions:
-            1. Assign weights (0-10) based on importance in the job description
-            2. Higher weights for skills mentioned multiple times or marked as "required"
-            3. Consider the seniority level when assigning weights
-            4. Extract both technical and soft skills
-            """
-
             response = self.client.models.generate_content(
                 model="gemini-flash-latest",
-                contents=prompt,
+                contents=f"""
+            Job Description:
+            {job_description}
+            """,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=JobAnalysis,
+                    system_instruction="""
+                    As an expert technical recruiter, analyze the provided job description and extract structured information.
+
+                    Instructions:
+                    1. Assign weights (0-10) based on importance in the job description
+                    2. Higher weights for skills mentioned multiple times or marked as "required"
+                    3. Consider the seniority level when assigning weights
+                    4. Extract both technical and soft skills
+                    """,
                     thinking_config=types.ThinkingConfig(
                         thinking_budget=-1  # Dynamic thinking
                     )
@@ -204,19 +203,22 @@ class GeminiAnalyzer:
             # Extract text using PDF processor service
             job_description_text = self._extract_text_with_processor(file)
 
-            prompt = f"""
-            Analyze this job description text and extract all relevant information including the job title, complete description text, required and preferred skills, experience requirements, education requirements, certifications, responsibilities, soft skills, and any other important details.
-
-            Job Description:
-            {job_description_text}
-            """
-
             response = self.client.models.generate_content(
                 model="gemini-flash-latest",
-                contents=prompt,
+                contents=f"Job Description:\n{job_description_text}",
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=JobExtraction
+                    response_schema=JobExtraction,
+                    system_instruction="""
+                    You are an expert technical recruiter. Analyze the provided job description text and extract all relevant information including the job title, complete description text, required and preferred skills, experience requirements, education requirements, certifications, responsibilities, soft skills, and any other important details.
+
+                    CRITICAL FORMATTING INSTRUCTION:
+                    For the 'job_description_text' field, you MUST rewrite the text into clean, readable Markdown.
+                    - Use '## ' for section headers (e.g., '## Responsibilities').
+                    - YOU MUST PUT TWO NEWLINES BEFORE EVERY HEADER. (e.g., '\\n\\n## Header').
+                    - Fix any run-on text or glued headers.
+                    - Use bullet points for lists.
+                    """
                 )
             )
 
@@ -252,15 +254,21 @@ SKILL IMPORTANCE WEIGHTS (0-10 scale from job analysis):
 Use these weights when evaluating skills in the skill_analysis section. Each skill's weight field should match the importance from this list.
 """
 
-            prompt = f"""
-As an expert technical recruiter with 20+ years of experience, analyze this candidate's resume against the job requirements.
-
+            response = self.client.models.generate_content(
+                model="gemini-flash-latest",
+                contents=f"""
 RESUME TEXT:
 {resume_text}
 
 JOB DESCRIPTION:
 {job_description}
 {skill_weights_text}
+""",
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ResumeAnalysis,
+                    system_instruction="""
+As an expert technical recruiter with 20+ years of experience, analyze the candidate's resume against the job requirements.
 
 SCORING METHODOLOGY:
 You must calculate the overall_score (0-100) using this weighted formula:
@@ -331,13 +339,6 @@ SCORING GUIDELINES:
 - Give credit for skills demonstrated through project descriptions and accomplishments, not just listed skills
 - Consider the overall package - strong alignment across multiple areas should result in high scores
 """
-
-            response = self.client.models.generate_content(
-                model="gemini-flash-latest",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=ResumeAnalysis
                 )
             )
 

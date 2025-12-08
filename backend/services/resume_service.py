@@ -42,10 +42,10 @@ class ResumeService:
             schema = ResumeModel.model_json_schema()
 
             # Step 2: Create comprehensive prompt for Gemini
-            prompt = self._create_improvement_prompt(candidate_data, job_data, schema)
+            prompt, system_instruction = self._create_improvement_prompt(candidate_data, job_data, schema)
 
             # Step 3: Get structured output from Gemini
-            improved_data = self._get_gemini_structured_output(prompt, schema)
+            improved_data = self._get_gemini_structured_output(prompt, schema, system_instruction)
 
             # Step 4: Add company branding
             if company_info:
@@ -82,10 +82,10 @@ class ResumeService:
             schema = ResumeModel.model_json_schema()
 
             # Step 2: Create comprehensive prompt for Gemini
-            prompt = self._create_improvement_prompt(candidate_data, job_data, schema)
+            prompt, system_instruction = self._create_improvement_prompt(candidate_data, job_data, schema)
 
             # Step 3: Get structured output from Gemini
-            improved_data = self._get_gemini_structured_output(prompt, schema)
+            improved_data = self._get_gemini_structured_output(prompt, schema, system_instruction)
 
             # Step 4: Add company branding
             if company_info:
@@ -104,8 +104,11 @@ class ResumeService:
             logger.error(f"Error in improve_and_generate_docx: {e}")
             raise Exception(f"Failed to generate improved resume: {str(e)}")
 
-    def _create_improvement_prompt(self, candidate_data: Dict, job_data: Dict, schema: Dict) -> str:
-        """Create comprehensive prompt for Gemini to improve resume"""
+    def _create_improvement_prompt(self, candidate_data: Dict, job_data: Dict, schema: Dict) -> tuple[str, str]:
+        """
+        Create comprehensive prompt for Gemini to improve resume
+        Returns: (user_prompt, system_instruction)
+        """
 
         # Extract the original resume text
         resume_text = candidate_data.get('resume_text', 'No original resume content available')
@@ -132,8 +135,10 @@ You MUST:
 - For any skill with weight 9-10, provide at least 3-4 pieces of evidence across different sections
 """
 
+        system_instruction = "You are an expert resume writer and career coach with 20+ years of experience. Your goal is to create an improved version of a resume that is perfectly tailored to the job description."
+
         prompt = f"""
-As an expert resume writer and career coach with 20+ years of experience, create an improved version of this resume that is perfectly tailored to the job description.
+Create an improved version of this resume that is perfectly tailored to the job description.
 
 **ORIGINAL RESUME:**
 {resume_text}
@@ -237,7 +242,7 @@ Please generate the resume data following this JSON schema exactly:
 
 Ensure all fields are properly formatted and the response is valid JSON that matches the schema.
 """
-        return prompt
+        return prompt, system_instruction, system_instruction
 
     def _format_strengths(self, strengths: list) -> str:
         """Format strengths for prompt"""
@@ -276,16 +281,17 @@ Ensure all fields are properly formatted and the response is valid JSON that mat
 
         return "\n".join(formatted) if formatted else "No specific skills analysis available."
 
-    def _get_gemini_structured_output(self, prompt: str, schema: Dict) -> Dict:
+    def _get_gemini_structured_output(self, prompt: str, schema: Dict, system_instruction: str = None) -> Dict:
         """Get structured JSON output from Gemini"""
         try:
             # Generate content with structured JSON output
             response = self.client.models.generate_content(
-                model="gemini-flash-latest",
+                model="gemini-3-pro-preview",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=ResumeModel,
+                    system_instruction=system_instruction,
                     thinking_config=types.ThinkingConfig(
                         thinking_budget=-1  # Dynamic thinking
                     )
@@ -422,8 +428,8 @@ Ensure all fields are properly formatted and the response is valid JSON that mat
         try:
             # Generate improved data (same as PDF but return HTML)
             schema = ResumeModel.model_json_schema()
-            prompt = self._create_improvement_prompt(candidate_data, job_data, schema)
-            improved_data = self._get_gemini_structured_output(prompt, schema)
+            prompt, system_instruction = self._create_improvement_prompt(candidate_data, job_data, schema)
+            improved_data = self._get_gemini_structured_output(prompt, schema, system_instruction)
 
             if company_info:
                 improved_data = self._add_company_branding(improved_data, company_info)

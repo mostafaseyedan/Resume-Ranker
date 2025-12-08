@@ -12,7 +12,15 @@ export default defineConfig({
   plugins: [react()],
   envDir: localEnvDir,
   server: {
-    port: 3000
+    port: 3000,
+    host: true, // Expose to all IPs
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
   build: {
     outDir: 'dist'

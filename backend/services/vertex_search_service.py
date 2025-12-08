@@ -62,25 +62,24 @@ class VertexSearchService:
             )
 
             # Construct search prompt
-            prompt = f"""Based on the job description below, check all resumes and CVs in the knowledge base, then identify candidates that would be a good match for this position.
-
-Job Description:
-{job_description}
-
-Please identify candidates whose experience, skills, and qualifications align with this job's requirements.
-If the resume filename conaints "improved_resume_", ignore them as those are AI-generated improved resumes.
-Just retrun of Candidate names in and numbered list format. Format the response in markdown, use bold for candidate names. 
-For each candidate, include the filename that you found them in. 
-State the number of candidates found at the top of the list as "Top x candidates found".
-Sort the list by best match first. Provide reasoning for each candidate selection and their ranking.
-Do not include any other additional commentary or explanation."""
-
             # Generate grounded response
             response = self.client.models.generate_content(
                 model="gemini-flash-latest",
-                contents=prompt,
+                contents=f"Based on the job description below, check all resumes and CVs in the knowledge base, then identify candidates that would be a good match for this position.\n\nJob Description:\n{job_description}",
                 config=GenerateContentConfig(
                     tools=[tool],
+                    system_instruction="""
+                    You are an expert technical recruiter. Identify candidates whose experience, skills, and qualifications align with the job requirements.
+                    
+                    Rules:
+                    1. If the resume filename contains "improved_resume_", ignore them.
+                    2. Return ONLY a numbered list of Candidate names.
+                    3. Format the response in Markdown, use bold for candidate names (e.g., **Name**).
+                    4. For each candidate, include the filename found.
+                    5. State "Top x candidates found" at the top.
+                    6. Sort by best match first. Provide reasoning for each selection.
+                    7. Do not include any other additional commentary.
+                    """
                 ),
             )
 
@@ -219,24 +218,24 @@ Do not include any other additional commentary or explanation."""
             )
 
             # Construct search prompt - focused on just names and filenames
-            prompt = f"""Check all resumes and CVs in the knowledge base that have "{skill_or_requirement}".
-
-Return only the candidate names and their filenames in this format:
-**Candidate Name** - filename.pdf
-
-Keep it brief, maximum 5 candidates. 
-Try to find at least 2 unique match. Usually you should be able to find at least 1 resume with relevance to that skill or requirement or certification.
-**Never invent candidate names.**
-If no candidates are found with that skill (or requirement or certification), just respond with "No candidates found for {skill_or_requirement}".
-**Make sure to look everywhere in the knowledge base before concluding no candidates exist.**
-Do not include any other commentary or explanation."""
-
             # Generate grounded response
             response = self.client.models.generate_content(
                 model="gemini-flash-latest",
-                contents=prompt,
+                contents=f"Check all resumes and CVs in the knowledge base that have \"{skill_or_requirement}\".",
                 config=GenerateContentConfig(
                     tools=[tool],
+                    system_instruction=f"""
+                    You are an expert recruiter searching for candidates with specific skills.
+                    
+                    Rules:
+                    1. Return only the candidate names and their filenames in this format: **Candidate Name** - filename.pdf
+                    2. Keep it brief, maximum 5 candidates.
+                    3. Try to find at least 2 unique matches.
+                    4. Never invent candidate names.
+                    5. If no candidates are found, respond with "No candidates found for {skill_or_requirement}".
+                    6. Look everywhere in the knowledge base before concluding.
+                    7. Do not include any other commentary.
+                    """
                 ),
             )
 

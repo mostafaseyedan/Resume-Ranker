@@ -23,13 +23,6 @@ const Login: React.FC = () => {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="flex flex-col">
-        <div className="pt-8 pl-2">
-          <img
-            src="/cendien-logo.svg"
-            alt="TalentWork - Cendien AI Powered Recruiter Service"
-            className="w-[300px] h-auto"
-          />
-        </div>
         <div className="flex flex-1 items-center justify-center p-6">
           <div className="w-full max-w-xs">
             <div className="flex flex-col gap-6">

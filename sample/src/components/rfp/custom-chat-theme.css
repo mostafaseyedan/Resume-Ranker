@@ -1,0 +1,60 @@
+.nlux-theme-nova {
+  --nlux-FontFamily: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --nlux-FontSize: 14px;
+  --nlux-AiMessage--FontSize: 14px;
+  --nlux-HumanMessage--FontSize: 14px;
+  --nlux-PromptInput--FontSize: 14px;
+  --nlux-PromptInput--FontFamily: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+
+  font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.nlux-theme-nova * {
+  font-family: inherit !important;
+}
+
+.nlux-theme-nova[data-color-scheme='dark'] {
+  --nlux-FontFamily: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --nlux-FontSize: 14px;
+  --nlux-AiMessage--FontSize: 14px;
+  --nlux-HumanMessage--FontSize: 14px;
+  --nlux-PromptInput--FontSize: 14px;
+  --nlux-PromptInput--FontFamily: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+
+  font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Align dark scheme backgrounds with app neutrals */
+/* Prefer overriding NLUX variables for consistent theming */
+.dark .nlux-AiChat-root.nlux-theme-nova[data-color-scheme='dark'] {
+  --nlux-ChatRoom--BackgroundColor: #292f4c;
+  --nlux-ChatRoom--BorderColor: transparent;
+  --nlux-ChatRoom--TextColor: #d5d8df;
+  --nlux-ChatRoom-Divider--Color: #797e93;
+
+  /* Bubbles: user slightly different, AI matches background */
+  --nlux-HumanMessage--BackgroundColor: #4b4e69;
+  --nlux-HumanMessage--TextColor: #ffffff;
+  /* Darken AI bubble for better contrast */
+  --nlux-AiMessage--BackgroundColor: #141a32;
+  --nlux-AiMessage--TextColor: #ffffff;
+
+  /* Composer/input on same surface */
+  --nlux-PromptInput--BackgroundColor: #292f4c;
+  --nlux-PromptInput--TextColor: #d5d8df;
+  --nlux-PromptInput-Placeholder--TextColor: #9699a6;
+  --nlux-PromptInput--BorderColor: #797e93;
+  --nlux-PromptInput-Active--BorderColor: #69a7ef;
+
+  --nlux-SubmitButton--TextColor: #d5d8df;
+}

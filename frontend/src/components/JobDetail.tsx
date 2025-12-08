@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Job, JobExtractedData, Candidate, apiService } from '../services/apiService';
+import { Job, Candidate, apiService } from '../services/apiService';
 import ResumeUpload from './ResumeUpload';
 import CandidateList from './CandidateList';
 import CandidateDetail from './CandidateDetail';
@@ -49,7 +49,7 @@ const getReqStatusColor = (status: string) => {
 const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
-  const [selectedCandidateName, setSelectedCandidateName] = useState<string | null>(null);
+  const [selectedGroupCandidates, setSelectedGroupCandidates] = useState<Candidate[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates'>('candidates');
@@ -59,7 +59,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [processingFileType, setProcessingFileType] = useState<'job' | 'resume' | null>(null);
   const [fileProgress, setFileProgress] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [potentialCandidates, setPotentialCandidates] = useState<Array<{filename: string; sharepoint_url: string | null; download_url: string | null}>>([]);
+  const [potentialCandidates, setPotentialCandidates] = useState<Array<{ filename: string; sharepoint_url: string | null; download_url: string | null }>>([]);
   const [searchingCandidates, setSearchingCandidates] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<string | null>(null);
@@ -67,7 +67,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   useEffect(() => {
     loadCandidates();
     setSelectedCandidate(null); // Reset selected candidate when job changes
-    setSelectedCandidateName(null); // Reset selected candidate name when job changes
+    setSelectedGroupCandidates(null); // Reset selected group when job changes
     setSharepointFiles(null);
     setSuccessMessage(null);
     setProcessingFile(null);
@@ -114,8 +114,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     setSelectedCandidate(candidate);
   };
 
-  const handleCandidateNameSelect = (candidateName: string) => {
-    setSelectedCandidateName(candidateName);
+  const handleCandidateGroupSelect = (groupCandidates: Candidate[]) => {
+    setSelectedGroupCandidates(groupCandidates);
   };
 
   const handleBackToCandidates = () => {
@@ -123,7 +123,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   };
 
   const handleBackToCandidatesList = () => {
-    setSelectedCandidateName(null);
+    setSelectedGroupCandidates(null);
   };
 
   const handleCandidateDeleted = (candidateId: string) => {
@@ -238,8 +238,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
       }
 
       const mimeType = fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' :
-                      fileName.toLowerCase().endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
-                      fileName.toLowerCase().endsWith('.doc') ? 'application/msword' : 'application/pdf';
+        fileName.toLowerCase().endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+          fileName.toLowerCase().endsWith('.doc') ? 'application/msword' : 'application/pdf';
 
       const blob = new Blob([bytes], { type: mimeType });
       const file = new File([blob], fileName, { type: mimeType });
@@ -323,7 +323,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  p: ({children, ...props}) => (
+                  p: ({ children, ...props }) => (
                     <p className="my-1 whitespace-pre-wrap" {...props}>
                       {children}
                     </p>
@@ -365,9 +365,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             <div className="flex items-center mt-2 space-x-4">
               {(job.monday_metadata?.status || job.status) && (
                 <span
-                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    getReqStatusColor(job.monday_metadata?.status || job.status || '')
-                  }`}
+                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getReqStatusColor(job.monday_metadata?.status || job.status || '')
+                    }`}
                 >
                   {job.monday_metadata?.status || job.status}
                 </span>
@@ -416,44 +415,40 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 loadSharePointFiles();
               }
             }}
-            className={`py-2 px-4 text-sm font-medium ${
-              activeTab === 'files'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-2 px-4 text-sm font-medium ${activeTab === 'files'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Files
           </button>
           <button
             onClick={() => {
               setActiveTab('candidates');
-              setSelectedCandidateName(null);
+              setSelectedGroupCandidates(null);
             }}
-            className={`py-2 px-4 text-sm font-medium ${
-              activeTab === 'candidates'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-2 px-4 text-sm font-medium ${activeTab === 'candidates'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Candidates
           </button>
           <button
             onClick={() => setActiveTab('resumes')}
-            className={`py-2 px-4 text-sm font-medium ${
-              activeTab === 'resumes'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-2 px-4 text-sm font-medium ${activeTab === 'resumes'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Resumes ({candidates.length})
           </button>
           <button
             onClick={() => setActiveTab('potential-candidates')}
-            className={`py-2 px-4 text-sm font-medium ${
-              activeTab === 'potential-candidates'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-2 px-4 text-sm font-medium ${activeTab === 'potential-candidates'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Internal Candidates
           </button>
@@ -464,11 +459,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 loadSharePointFiles();
               }
             }}
-            className={`py-2 px-4 text-sm font-medium ${
-              activeTab === 'job-details'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-2 px-4 text-sm font-medium ${activeTab === 'job-details'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Job Details
           </button>
@@ -494,7 +488,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   Retry
                 </button>
               </div>
-            ) : selectedCandidateName ? (
+            ) : selectedGroupCandidates ? (
               <div>
                 <button
                   onClick={handleBackToCandidatesList}
@@ -505,13 +499,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   </svg>
                   Back to Candidates
                 </button>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  Resumes for {selectedCandidateName}
-                </h3>
                 <CandidateList
-                  candidates={candidates.filter(c =>
-                    (c.name || '').toLowerCase().trim() === selectedCandidateName.toLowerCase().trim()
-                  )}
+                  candidates={selectedGroupCandidates}
                   onCandidateSelect={handleCandidateSelect}
                   onCandidateDeleted={handleCandidateDeleted}
                   sharepointFiles={sharepointFiles}
@@ -520,7 +509,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             ) : (
               <CandidatesGroupedList
                 candidates={candidates}
-                onCandidateSelect={handleCandidateNameSelect}
+                onCandidateSelect={handleCandidateGroupSelect}
               />
             )}
           </div>
@@ -676,11 +665,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           <div className="space-y-6">
             {/* Success/Error Message */}
             {successMessage && (
-              <div className={`p-4 rounded-lg border ${
-                successMessage.startsWith('Failed')
-                  ? 'bg-red-50 border-red-200 text-red-800'
-                  : 'bg-green-50 border-green-200 text-green-800'
-              }`}>
+              <div className={`p-4 rounded-lg border ${successMessage.startsWith('Failed')
+                ? 'bg-red-50 border-red-200 text-red-800'
+                : 'bg-green-50 border-green-200 text-green-800'
+                }`}>
                 <p className="text-sm font-medium">{successMessage}</p>
               </div>
             )}
@@ -690,7 +678,50 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               <h3 className="text-lg font-medium text-gray-900 mb-3"> Job Description</h3>
               <div className="prose prose-sm max-w-none">
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="whitespace-pre-wrap text-gray-700">{job.description}</p>
+                  <div className="prose prose-sm max-w-none text-gray-700">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        ol: ({ ...props }) => (
+                          <ol className="list-decimal list-outside ml-6 space-y-4 my-4" {...props} />
+                        ),
+                        ul: ({ ...props }) => (
+                          <ul className="list-disc list-outside ml-6 space-y-2 my-4" {...props} />
+                        ),
+                        li: ({ ...props }) => (
+                          <li className="pl-2" {...props} />
+                        ),
+                        p: ({ ...props }) => (
+                          <p className="my-2 whitespace-pre-wrap" {...props} />
+                        ),
+                        strong: ({ ...props }) => (
+                          <strong className="font-bold text-gray-900" {...props} />
+                        ),
+                        table: ({ ...props }) => (
+                          <div className="overflow-x-auto my-4">
+                            <table className="min-w-full divide-y divide-gray-300 border border-gray-300" {...props} />
+                          </div>
+                        ),
+                        thead: ({ ...props }) => (
+                          <thead className="bg-gray-100" {...props} />
+                        ),
+                        tbody: ({ ...props }) => (
+                          <tbody className="divide-y divide-gray-200 bg-white" {...props} />
+                        ),
+                        tr: ({ ...props }) => (
+                          <tr className="hover:bg-gray-50" {...props} />
+                        ),
+                        th: ({ ...props }) => (
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0" {...props} />
+                        ),
+                        td: ({ ...props }) => (
+                          <td className="px-4 py-2 text-sm text-gray-700 border-r border-gray-300 last:border-r-0" {...props} />
+                        ),
+                      }}
+                    >
+                      {job.description || ''}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               </div>
             </div>
@@ -980,39 +1011,39 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
-                              ol: ({node, ...props}) => (
+                              ol: ({ ...props }) => (
                                 <ol className="list-decimal list-outside ml-6 space-y-4 my-4" {...props} />
                               ),
-                              ul: ({node, ...props}) => (
+                              ul: ({ ...props }) => (
                                 <ul className="list-disc list-outside ml-6 space-y-2 my-4" {...props} />
                               ),
-                              li: ({node, ...props}) => (
+                              li: ({ ...props }) => (
                                 <li className="pl-2" {...props} />
                               ),
-                              p: ({node, ...props}) => (
+                              p: ({ ...props }) => (
                                 <p className="my-2" {...props} />
                               ),
-                              strong: ({node, ...props}) => (
+                              strong: ({ ...props }) => (
                                 <strong className="font-bold text-gray-900" {...props} />
                               ),
-                              table: ({node, ...props}) => (
+                              table: ({ ...props }) => (
                                 <div className="overflow-x-auto my-4">
                                   <table className="min-w-full divide-y divide-gray-300 border border-gray-300" {...props} />
                                 </div>
                               ),
-                              thead: ({node, ...props}) => (
+                              thead: ({ ...props }) => (
                                 <thead className="bg-gray-100" {...props} />
                               ),
-                              tbody: ({node, ...props}) => (
+                              tbody: ({ ...props }) => (
                                 <tbody className="divide-y divide-gray-200 bg-white" {...props} />
                               ),
-                              tr: ({node, ...props}) => (
+                              tr: ({ ...props }) => (
                                 <tr className="hover:bg-gray-50" {...props} />
                               ),
-                              th: ({node, ...props}) => (
+                              th: ({ ...props }) => (
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0" {...props} />
                               ),
-                              td: ({node, ...props}) => (
+                              td: ({ ...props }) => (
                                 <td className="px-4 py-2 text-sm text-gray-700 border-r border-gray-300 last:border-r-0" {...props} />
                               ),
                             }}
