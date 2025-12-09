@@ -73,14 +73,14 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
   const isImprovedResume = (candidate.resume_filename || '').toLowerCase().includes('improved');
 
   return (
-    <div className="bg-white rounded-lg shadow max-w-6xl mx-auto">
+    <div className="bg-white shadow max-w-6xl mx-auto">
       {/* Header */}
       <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3 flex-1">
             <button
               onClick={onBack}
-              className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -90,7 +90,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               <h2 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
                 <span>{candidate.name}</span>
                 {isImprovedResume && (
-                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800">
                     Improved
                   </span>
                 )}
@@ -105,7 +105,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
           <div className="flex justify-end flex-1">
             <button
               onClick={() => setShowTemplateSelector(!showTemplateSelector)}
-              className="bg-blue-600 text-white px-4 py-1 text-sm rounded hover:bg-blue-700 flex items-center space-x-2"
+              className="bg-blue-600 text-white px-4 py-1 text-sm hover:bg-blue-700 flex items-center space-x-2"
             >
               <span>{showTemplateSelector ? 'Hide Templates' : 'Improve'}</span>
             </button>
@@ -155,7 +155,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
         {analysis?.summary && (
           <div className="mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-2">Summary</h3>
-            <div className="bg-blue-50 rounded-lg p-4">
+            <div className="bg-blue-50 p-4">
               <p className="text-gray-700">{analysis.summary}</p>
             </div>
           </div>
@@ -189,10 +189,10 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               </h3>
               <div className="space-y-3">
                 {analysis?.strengths?.map((strength, index) => (
-                  <div key={index} className="border border-green-200 rounded-lg p-3 bg-green-50">
+                  <div key={index} className="border border-green-200 p-3 bg-green-50">
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-medium text-green-900">{strength.strength}</h4>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getRelevanceColor(strength.relevance)}`}>
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium ${getRelevanceColor(strength.relevance)}`}>
                         {strength.relevance}
                       </span>
                     </div>
@@ -210,15 +210,15 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               </h3>
               <div className="space-y-3">
                 {analysis?.weaknesses?.map((weakness, index) => (
-                  <div key={index} className="border border-red-200 rounded-lg p-3 bg-red-50">
+                  <div key={index} className="border border-red-200 p-3 bg-red-50">
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-medium text-red-900">{weakness.weakness}</h4>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getImportanceColor(weakness.importance)}`}>
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-medium ${getImportanceColor(weakness.importance)}`}>
                         {weakness.importance}
                       </span>
                     </div>
                     <p className="text-sm text-red-700 mb-2">{weakness.impact}</p>
-                    <div className="bg-red-100 rounded p-2">
+                    <div className="bg-red-100 p-2">
                       <p className="text-xs text-red-800">
                         <strong>Recommendation:</strong> {weakness.recommendation}
                       </p>
@@ -237,7 +237,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               {analysis?.skill_analysis && analysis.skill_analysis.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {analysis.skill_analysis.map((skill, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+                    <div key={index} className="border border-gray-200 p-4 bg-white hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <h4 className="font-semibold text-gray-900 text-sm">{skill.skill}</h4>
                         <RadialProgress score={skill.score * 10} size={48} strokeWidth={5} />
@@ -255,7 +255,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                       </div>
 
                       {skill.evidence && (
-                        <div className="bg-gray-50 rounded p-2">
+                        <div className="bg-gray-50 p-2">
                           <p className="text-xs text-gray-600 leading-relaxed">{skill.evidence}</p>
                         </div>
                       )}
@@ -275,7 +275,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               </h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {analysis?.experience_match && (
-                  <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="bg-gray-50 p-4">
                     <h4 className="font-medium text-gray-900 mb-2">Experience Match</h4>
                     <div className="space-y-2 text-sm">
                       <div>Total Experience: <span className="font-medium">{analysis.experience_match.total_years} years</span></div>
@@ -288,7 +288,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                 )}
 
                 {analysis?.education_match && (
-                  <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="bg-gray-50 p-4">
                     <h4 className="font-medium text-gray-900 mb-2">Education Match</h4>
                     <div className="space-y-2 text-sm">
                       <div>Degree Relevance: <span className={`font-medium ${getRelevanceColor(analysis.education_match.degree_relevance).replace('bg-', 'text-').replace('-100', '-600')}`}>

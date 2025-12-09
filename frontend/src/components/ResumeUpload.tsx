@@ -128,7 +128,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div
-          className={`relative border-2 border-dashed rounded-lg p-6 transition-colors ${
+          className={`relative border-2 border-dashed p-6 transition-colors ${
             dragActive
               ? 'border-blue-400 bg-blue-50'
               : selectedFile
@@ -192,7 +192,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
             <button
               type="submit"
               disabled={uploading}
-              className="flex-1 bg-blue-600 text-white py-1 px-4 text-sm rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-blue-600 text-white py-1 px-4 text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? (
                 <div className="flex items-center justify-center">

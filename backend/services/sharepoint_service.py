@@ -615,8 +615,13 @@ class SharePointService:
             ] or file['name'].lower().endswith(('.pdf', '.docx', '.doc'))
         ]
 
+        job_files = [
+            file for file in processable_files
+            if not file['name'].lower().startswith('improved_resume_')
+        ]
+
         return {
-            'job_files': processable_files,
+            'job_files': job_files,
             'resume_files': processable_files
         }
 

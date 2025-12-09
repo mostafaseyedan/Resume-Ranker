@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
+import { Label } from '@vibe/core';
+import '@vibe/core/tokens';
 import { Job, apiService, CreateJobRequest } from '../services/apiService';
 
 interface JobListProps {
@@ -28,6 +30,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [clientFilter, setClientFilter] = useState<string>('all');
+  const [resumeCounts, setResumeCounts] = useState<Record<string, number>>({});
 
   const normalizeStatus = (status: string) =>
     (status || '')
@@ -60,7 +63,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     () => {
       const clients = new Set<string>();
       jobs.forEach((job) => {
-        const client = job.monday_metadata?.client;
+        const client = (job.monday_metadata as any)?.client;
         if (client && client.trim()) {
           clients.add(client.trim());
         }
@@ -81,7 +84,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
 
       // Filter by client
       if (clientFilter !== 'all') {
-        filtered = filtered.filter((job) => job.monday_metadata?.client?.trim() === clientFilter);
+        filtered = filtered.filter((job) => (job.monday_metadata as any)?.client?.trim() === clientFilter);
       }
 
       return filtered;
@@ -125,7 +128,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
       setCreatingFromPDF(true);
       const response = await apiService.createJobFromPDF(
         pdfFormData.title,
-        '',
         pdfFormData.file
       );
       if (response.success) {
@@ -193,41 +195,293 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     return 'text-red-600';
   };
 
-  const getReqStatusColor = (status: string) => {
-    const normalizedStatus = (status || '')
-      .toLowerCase()
-      .replace(/_/g, ' ')
-      .replace(/-/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+  // Map Monday.com var_name colors to Vibe Label colors (copied from RFPList.tsx)
+  const MONDAY_TO_VIBE_COLOR_MAP: Record<string, string> = {
+    // Green variants (done/success)
+    'green-shadow': 'done-green',
+    'grass-green': 'grass_green',
+    'lime-green': 'saladish',
 
-    const matchableStatus = (() => {
-      if (normalizedStatus.includes('open')) return 'open';
-      if (normalizedStatus.includes('submit')) return 'submitted';
-      if (normalizedStatus.includes('interview')) return 'interviewing';
-      if (normalizedStatus.includes('not pursuing')) return 'not pursuing';
-      if (normalizedStatus.includes('closed')) return 'closed';
-      return normalizedStatus;
-    })();
+    // Orange/Yellow variants (working/in-progress)
+    'orange': 'working_orange',
+    'dark-orange': 'dark-orange',
+    'yellow': 'egg_yolk',
+    'mustered': 'tan',
 
-    switch (matchableStatus) {
-      case 'open':
-        return 'bg-blue-100 text-blue-800';
-      case 'submitted':
-        return 'bg-green-100 text-green-800';
-      case 'interviewing':
-        return 'bg-pink-100 text-pink-800';
-      case 'not pursuing':
-        return 'bg-gray-100 text-gray-800';
-      case 'closed':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+    // Red variants (stuck/error)
+    'red-shadow': 'stuck-red',
+    'dark-red': 'dark-red',
+
+    // Pink variants
+    'dark-pink': 'sofia_pink',
+    'light-pink': 'pink',
+
+    // Purple/Indigo variants
+    'dark-purple': 'dark_purple',
+    'dark_indigo': 'dark_indigo',
+    'purple': 'purple',
+
+    // Blue variants
+    'bright-blue': 'bright-blue',
+    'blue-links': 'river',
+    'sky': 'sky',
+    'navy': 'navy',
+    'australia': 'aquamarine',
+
+    // Gray/Neutral variants
+    'grey': 'american_gray',
+    'trolley-grey': 'american_gray',
+    'soft-black': 'blackish',
+    'dark-grey': 'american_gray',
+    'gray': 'american_gray',
+    'wolf-gray': 'american_gray',
+    'stone': 'american_gray',
+
+    // Special colors
+    'sunset': 'sunset',
+    'winter': 'winter',     // Will override hex
+    'sail': 'winter',       // Map sail to winter as well? Or pick another.
+    'eden': 'teal',
+    'old_rose': 'berry'     // Map old_rose to berry
   };
 
+  // Define which Monday vars map to which Vibe tokens that we want to OVERRIDE with exact hexes
+  // This keeps standard colors standard, but overrides specific ones for exact matching
+  const COLOR_OVERRIDES: Record<string, string> = {
+    'grey': 'american_gray',       // #c4c4c4
+    'trolley-grey': 'steel',       // #757575 (Distinct from grey!)
+    'winter': 'winter',            // #9aadbd
+    'purple_gray': 'lavender',     // #9d99b9
+    'old_rose': 'berry',           // #cd9282
+    'dark-purple': 'royal',        // #784bd1
+    'red-shadow': 'stuck-red',     // #df2f4a
+    'green-shadow': 'done-green',  // #00c875
+    'blue-links': 'river',         // #007eb5
+    'sky': 'sky',                  // #216edf
+    'orange': 'working_orange'     // #fdab3d
+  };
+
+  const getVibeLabelColor = (text: string, dynamicVarName?: string): string => {
+    // 1. Try dynamic var_name from backend
+    if (dynamicVarName) {
+      const normalizedVar = dynamicVarName.toLowerCase().replace(/_/g, '-');
+      // Check overrides first for exact replacements
+      if (COLOR_OVERRIDES[normalizedVar]) return COLOR_OVERRIDES[normalizedVar];
+      if (MONDAY_TO_VIBE_COLOR_MAP[normalizedVar]) return MONDAY_TO_VIBE_COLOR_MAP[normalizedVar];
+    }
+
+    // 2. Try static fallback based on text content (using STATIC_VAR_NAME_MAP)
+    if (!text) return 'american_gray';
+    const normalizedText = text.toLowerCase().trim();
+
+    // Direct match in static map?
+    let varName = STATIC_VAR_NAME_MAP[normalizedText];
+
+    // Partial matches
+    if (!varName) {
+      if (normalizedText.includes('open')) varName = 'sky';
+      else if (normalizedText.includes('submit')) varName = 'green-shadow';
+      else if (normalizedText.includes('won') && !normalizedText.includes('not')) varName = 'lime-green';
+      else if (normalizedText.includes('interview')) varName = 'light-pink';
+      else if (normalizedText.includes('hold')) varName = 'grey';
+      else if (normalizedText.includes('not pursuing')) varName = 'trolley-grey';
+      else if (normalizedText.includes('closed')) varName = 'old_rose';
+    }
+
+    if (varName) {
+      if (COLOR_OVERRIDES[varName]) return COLOR_OVERRIDES[varName];
+      if (MONDAY_TO_VIBE_COLOR_MAP[varName]) return MONDAY_TO_VIBE_COLOR_MAP[varName];
+    }
+
+    return 'american_gray';
+  };
+
+  // Component to inject CSS variables for custom colors based on job metadata
+  const CustomColorStyles = ({ jobs }: { jobs: Job[] }) => {
+    // Collect all unique colors from jobs to override
+    const overrides = jobs.reduce((acc, job) => {
+      const process = (varName?: string, hex?: string) => {
+        if (varName && hex) {
+          const normalized = varName.toLowerCase().replace(/_/g, '-');
+          const token = COLOR_OVERRIDES[normalized];
+          if (token) {
+            acc[token] = hex;
+          }
+        }
+      };
+
+      if (job.monday_metadata) {
+        process(job.monday_metadata.status, undefined); // This won't work without var_name prop in metadata? Use fallback hex map?
+        // Wait, metadata has _color which is now var_name. We need the HEX to set the variable.
+        // Actually, we configured the backend to store var_name in _color field. 
+        // We DON'T have the hex in the frontend metadata anymore!
+        // We need to use our STATIC HEX MAP for the variable values?
+        // Or just hardcode the known Monday Hexes here since they don't change often.
+      }
+      return acc;
+    }, {} as Record<string, string>);
+
+    // Hardcoded Monday Hexes for the overrides we care about
+    const MONDAY_HEXES: Record<string, string> = {
+      'grey': '#c4c4c4',
+      'trolley-grey': '#757575',
+      'winter': '#9aadbd',
+      'purple_gray': '#9d99b9',
+      'old_rose': '#cd9282',
+      'royal': '#784bd1', // mapped from dark-purple
+      'stuck-red': '#df2f4a',
+      'done-green': '#00c875',
+      'river': '#007eb5',
+      'sky': '#216edf',
+      'working_orange': '#fdab3d',
+      'berry': '#cd9282'
+    };
+
+    // Generate CSS
+    const css = Object.entries(COLOR_OVERRIDES).map(([varName, token]) => {
+      // Find hex for this var_name
+      let hex = MONDAY_HEXES[varName];
+      // Or mapping
+      if (!hex && MONDAY_HEXES[token]) hex = MONDAY_HEXES[token];
+
+      if (hex) {
+        return `--color-${token}: ${hex}; --color-${token}-hover: ${hex}; --color-${token}-selected: ${hex};`;
+      }
+      return '';
+    }).join('\n');
+
+    return (
+      <style dangerouslySetInnerHTML={{
+        __html: `
+            :root {
+                ${css}
+            }
+        `}} />
+    );
+  };
+
+  // Static fallback MAPPING from text to Monday var_name (not hex)
+  // This ensures we simulate what the backend WOULD return via var_name
+  const STATIC_VAR_NAME_MAP: Record<string, string> = {
+    // Statuses
+    'open': 'sky',
+    'submitted': 'green-shadow',
+    'won': 'lime-green',
+    'in progress': 'orange',
+    'interviewing': 'light-pink',
+    'analysis': 'dark-purple',
+    'closed - filled': 'red-shadow',
+    'closed': 'old_rose',
+    'hold': 'grey',
+    'not pursuing': 'trolley-grey',
+    'not won': 'dark-orange',
+    'monitor': 'sunset',
+
+    // Work Mode
+    'onsite': 'orange',
+    'remote': 'green-shadow',
+    'hybrid': 'purple',
+    'uk': 'blue-links',
+    'europe': 'australia',
+    'latin america': 'grass-green',
+
+    // Employment Type
+    'part-time': 'blue-links',
+    'consultant': 'grey',
+    'full-time': 'winter',
+    'contract-to-hire': 'purple'
+  };
+
+
+
+  const hasJobDetails = (job: Job) => Boolean((job as any).extracted_data || job.description);
+  const hasResumeAnalysis = (job: Job) => {
+    if (resumeCounts[job.id] > 0) {
+      return true;
+    }
+    const anyJob = job as any;
+    const numericKeys = [
+      'candidate_count',
+      'candidates_count',
+      'total_candidates',
+      'resume_count',
+      'resume_files_count',
+      'resumes_count'
+    ];
+
+    for (const key of numericKeys) {
+      const val = anyJob[key];
+      if (typeof val === 'number' && val > 0) {
+        return true;
+      }
+      if (typeof val === 'string' && Number(val) > 0) {
+        return true;
+      }
+    }
+
+    const arrayKeys = ['candidates', 'resumes', 'resume_files'];
+    for (const key of arrayKeys) {
+      const val = anyJob[key];
+      if (Array.isArray(val) && val.length > 0) {
+        return true;
+      }
+    }
+
+    // Some APIs return summarized analysis for the latest resume
+    const hasAnalysisFields =
+      Boolean(anyJob.overall_score) ||
+      Boolean(anyJob.analysis) ||
+      Boolean(anyJob.latest_candidate) ||
+      Boolean(anyJob.latest_resume);
+    return hasAnalysisFields;
+  };
+
+  // Fetch candidate counts for visible jobs to drive the R badge
+  useEffect(() => {
+    const missingJobIds = filteredJobs
+      .map((job) => job.id)
+      .filter((id) => resumeCounts[id] === undefined);
+
+    if (missingJobIds.length === 0) return;
+
+    let cancelled = false;
+
+    const fetchCounts = async () => {
+      try {
+        const results = await Promise.all(
+          missingJobIds.map(async (jobId) => {
+            try {
+              const res = await apiService.getJobCandidates(jobId);
+              return { jobId, count: res.candidates ? res.candidates.length : 0 };
+            } catch (_err) {
+              return { jobId, count: 0 };
+            }
+          })
+        );
+
+        if (!cancelled) {
+          const updates: Record<string, number> = {};
+          results.forEach(({ jobId, count }) => {
+            updates[jobId] = count;
+          });
+          setResumeCounts((prev) => ({ ...prev, ...updates }));
+        }
+      } catch (_e) {
+        // Swallow errors; counts will remain unset.
+      }
+    };
+
+    fetchCounts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredJobs, resumeCounts]);
+
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex flex-col h-full bg-white shadow-sm border border-gray-200">
+      <CustomColorStyles jobs={jobs} />
+      {/* Header Section */}
       <div className="p-4 border-b">
         <div className="flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center flex-wrap gap-2 text-sm text-gray-700">
@@ -235,7 +489,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               id="status-filter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-sm border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-sm border border-gray-300 px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All statuses</option>
               {statusOptions.map((option) => (
@@ -248,7 +502,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               id="client-filter"
               value={clientFilter}
               onChange={(e) => setClientFilter(e.target.value)}
-              className="text-sm border border-gray-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="text-sm border border-gray-300 px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All clients</option>
               {clientOptions.map((client) => (
@@ -264,7 +518,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               disabled={syncingMonday}
               title={syncingMonday ? 'Syncing...' : 'Sync Monday jobs'}
               aria-label={syncingMonday ? 'Syncing Monday jobs' : 'Sync Monday jobs'}
-              className="h-9 w-9 bg-white rounded hover:bg-gray-100 disabled:opacity-50 flex items-center justify-center"
+              className="h-9 w-9 bg-white hover:bg-gray-100 disabled:opacity-50 flex items-center justify-center"
             >
               {syncingMonday ? (
                 <div className="animate-spin h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full"></div>
@@ -274,7 +528,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
             </button>
             <button
               onClick={() => setShowCreateForm(!showCreateForm)}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700"
             >
               + New Job
             </button>
@@ -291,7 +545,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="e.g. Senior Frontend Developer"
                 required
               />
@@ -302,7 +556,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={4}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="Enter detailed job description including required skills, experience, and responsibilities..."
                 required
               />
@@ -311,7 +565,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               <button
                 type="submit"
                 disabled={creating}
-                className="px-4 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-1 bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-50"
               >
                 {creating ? 'Creating...' : 'Create Job'}
               </button>
@@ -321,14 +575,14 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                   setShowPDFForm(true);
                   setShowCreateForm(false);
                 }}
-                className="px-4 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                className="px-4 py-1 bg-blue-600 text-white text-sm hover:bg-blue-700"
               >
-                 From PDF
+                From PDF
               </button>
               <button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
-                className="px-4 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                className="px-4 py-1 bg-gray-300 text-gray-700 text-sm hover:bg-gray-400"
               >
                 Cancel
               </button>
@@ -346,7 +600,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 type="text"
                 value={pdfFormData.title}
                 onChange={(e) => setPdfFormData({ ...pdfFormData, title: e.target.value })}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
                 placeholder="Leave empty to auto-extract from PDF"
               />
               <p className="text-xs text-gray-500 mt-1">Optional - The system will extract job title from PDF if not provided</p>
@@ -357,7 +611,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 type="file"
                 accept=".pdf"
                 onChange={(e) => setPdfFormData({ ...pdfFormData, file: e.target.files?.[0] || null })}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
                 required
               />
               <p className="text-xs text-gray-500 mt-1">Upload a PDF file containing the job description</p>
@@ -366,14 +620,14 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               <button
                 type="submit"
                 disabled={creatingFromPDF}
-                className="px-4 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-1 bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-50"
               >
                 {creatingFromPDF ? 'Creating...' : 'Create from PDF'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowPDFForm(false)}
-                className="px-4 py-1 bg-gray-300 text-gray-700 text-sm rounded hover:bg-gray-400"
+                className="px-4 py-1 bg-gray-300 text-gray-700 text-sm hover:bg-gray-400"
               >
                 Cancel
               </button>
@@ -408,56 +662,73 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 </div>
 
                 {/* Tags Section */}
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {/* Req Status Tag */}
-                  {job.monday_metadata?.status && (
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getReqStatusColor(job.monday_metadata.status)}`}>
-                      {job.monday_metadata.status}
-                    </span>
-                  )}
+                <div className="mt-2 flex flex-wrap gap-1 items-center justify-between">
+                  <div className="flex flex-wrap gap-1">
+                    {/* Employment Type Tag */}
+                    {job.monday_metadata?.employment_type && (
+                      <Label
+                        id={`employment-${job.id}`}
+                        text={job.monday_metadata.employment_type}
+                        size="small"
+                        color={getVibeLabelColor(job.monday_metadata.employment_type, job.monday_metadata.employment_type_color) as any}
+                      />
+                    )}
 
-                  {/* Work Mode Tag */}
-                  {job.monday_metadata?.work_mode && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {job.monday_metadata.work_mode}
-                    </span>
-                  )}
+                    {/* Req Status Tag */}
+                    {job.monday_metadata?.status && (
+                      <Label
+                        id={`status-${job.id}`}
+                        text={job.monday_metadata.status}
+                        size="small"
+                        color={getVibeLabelColor(job.monday_metadata.status, job.monday_metadata.status_color) as any}
+                      />
+                    )}
 
-                  {/* Employment Type Tag */}
-                  {job.monday_metadata?.employment_type && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                      {job.monday_metadata.employment_type}
-                    </span>
-                  )}
+                    {/* Work Mode Tag */}
+                    {job.monday_metadata?.work_mode && (
+                      <Label
+                        id={`workmode-${job.id}`}
+                        text={job.monday_metadata.work_mode}
+                        size="small"
+                        color={getVibeLabelColor(job.monday_metadata.work_mode, job.monday_metadata.work_mode_color) as any}
+                      />
+                    )}
 
-                  {/* Client Tag */}
-                  {job.monday_metadata?.client && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {job.monday_metadata.client}
-                    </span>
-                  )}
+                    {/* Client Tag */}
+                  </div>
 
+                  <div className="flex items-center gap-1">
+                    {hasJobDetails(job) && (
+                      <Label
+                        id={`jobdetails-${job.id}`}
+                        text="J"
+                        size="small"
+                        color="positive"
+                        className="!min-w-0"
+                      />
+                    )}
+                    {hasResumeAnalysis(job) && (
+                      <Label
+                        id={`resume-${job.id}`}
+                        text="R"
+                        size="small"
+                        color="bright-blue"
+                        className="!min-w-0"
+                      />
+                    )}
+                  </div>
                 </div>
 
-                {/* Created Date and Delete Button */}
+                {/* Created Date */}
                 <div className="flex justify-between items-center mt-2">
                   <p className="text-xs text-gray-500">
+                    {(job.monday_metadata as any)?.client && (
+                      <span className="font-medium mr-1">
+                        {(job.monday_metadata as any).client} •
+                      </span>
+                    )}
                     Created: {new Date(job.created_at).toLocaleDateString()}
                   </p>
-                  <button
-                    onClick={(e) => handleDeleteJob(job.id, e)}
-                    disabled={deletingJobId === job.id}
-                    className="text-gray-400 hover:text-red-600 p-1 rounded disabled:opacity-50"
-                    title="Delete job"
-                  >
-                    {deletingJobId === job.id ? (
-                      <div className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full"></div>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                      </svg>
-                    )}
-                  </button>
                 </div>
               </div>
             ))}
@@ -467,5 +738,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     </div>
   );
 };
+
 
 export default JobList;

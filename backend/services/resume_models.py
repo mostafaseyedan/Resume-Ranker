@@ -59,7 +59,6 @@ class ResumeModel(BaseModel):
     education: List[EducationEntry]
     certifications: Optional[List[CertificationEntry]] = None
     projects: Optional[List[ExperienceEntry]] = None
-    languages: Optional[List[str]] = None
     logo_path: Optional[str] = None
     logo_file_path: Optional[str] = None
     footer: Optional[str] = None

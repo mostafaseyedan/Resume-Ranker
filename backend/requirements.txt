@@ -14,3 +14,4 @@ email-validator==2.2.0
 html-for-docx==1.0.10
 google-cloud-firestore
 Jinja2
+openai>=1.60.0

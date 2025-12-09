@@ -159,7 +159,7 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
             <div
               key={candidate.name}
               onClick={() => onCandidateSelect(candidate.resumes)}
-              className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col self-start"
+              className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col self-start"
             >
               {/* Header Info */}
               <div>
@@ -178,11 +178,11 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
                   <div className="flex flex-col items-end">
                     <div className="flex items-center space-x-1">
                       {candidate.scoreImprovement !== null && candidate.scoreImprovement > 0 && (
-                        <span className="text-xs font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">
+                        <span className="text-xs font-bold text-green-600 bg-green-50 px-1.5 py-0.5 border border-green-100">
                           +{candidate.scoreImprovement}
                         </span>
                       )}
-                      <div className={`px-2 py-1 rounded-md text-sm font-bold ${getScoreColor(candidate.bestScore)}`}>
+                      <div className={`px-2 py-1 text-sm font-bold ${getScoreColor(candidate.bestScore)}`}>
                         {candidate.bestScore}%
                       </div>
                     </div>
@@ -208,7 +208,7 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
                   {candidate.resumes.map((resume) => {
                     const isImproved = (resume.resume_filename || '').toLowerCase().includes('improved');
                     return (
-                      <div key={resume.id} className="flex justify-between items-center text-xs p-1.5 hover:bg-gray-50 rounded">
+                      <div key={resume.id} className="flex justify-between items-center text-xs p-1.5 hover:bg-gray-50">
                         <div className="flex items-center space-x-2 truncate">
                           <div className={`w-1.5 h-1.5 rounded-full ${isImproved ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                           <span className={`truncate ${isImproved ? 'text-green-700 font-medium' : 'text-gray-600'}`}>

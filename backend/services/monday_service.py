@@ -1,6 +1,7 @@
 import requests
 import logging
 import os
+import json
 from typing import List, Dict, Optional
 from google.cloud import firestore
 
@@ -16,9 +17,9 @@ class MondayService:
             "Content-Type": "application/json"
         }
 
-    def get_job_requisitions(self, board_id: Optional[str] = None) -> List[Dict]:
+    def get_board_data(self, board_id: Optional[str] = None) -> Dict:
         """
-        Fetch job requisitions from Monday.com board
+        Fetch board data including items and columns settings (for colors)
         """
         try:
             # Use instance board_id if not provided
@@ -27,6 +28,10 @@ class MondayService:
             query = """
             query {
                 boards (ids: %s) {
+                    columns {
+                        id
+                        settings_str
+                    }
                     items_page {
                         cursor
                         items {
@@ -57,26 +62,63 @@ class MondayService:
 
             if 'errors' in data:
                 logger.error(f"Monday.com API errors: {data['errors']}")
-                return []
+                return {}
 
             boards = data.get('data', {}).get('boards', [])
             if not boards:
                 logger.warning("No boards found")
-                return []
-
-            items = boards[0].get('items_page', {}).get('items', [])
-            logger.info(f"Retrieved {len(items)} job requisitions from Monday.com")
-
-            return items
+                return {}
+            
+            return boards[0]
 
         except requests.RequestException as e:
             logger.error(f"Error fetching from Monday.com: {e}")
-            return []
+            return {}
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
-            return []
+            return {}
 
-    def parse_job_item(self, item: Dict) -> Dict:
+    def parse_column_colors(self, columns: List[Dict]) -> Dict[str, Dict[str, str]]:
+        """
+        Parse column settings to get text-to-color mapping.
+        Returns: { column_id: { label_text: hex_color } }
+        """
+        color_map = {}
+        for col in columns:
+            try:
+                if not col.get('settings_str'):
+                    continue
+                    
+                settings = json.loads(col['settings_str'])
+                if 'labels' in settings and 'labels_colors' in settings:
+                    col_map = {}
+                    labels = settings['labels']
+                    colors = settings['labels_colors']
+                    
+                    # labels is dict of { index: label_text }
+                    # labels_colors is dict of { index: { color: hex, ... } }
+                    for idx, label_text in labels.items():
+                        if idx in colors and 'var_name' in colors[idx]:
+                            col_map[label_text] = colors[idx]['var_name']
+                        elif idx in colors and 'color' in colors[idx]:
+                             # Fallback to color if var_name missing (though less useful for Vibe)
+                             col_map[label_text] = colors[idx]['color']
+                    
+                    if col_map:
+                        color_map[col['id']] = col_map
+            except Exception as e:
+                logger.warning(f"Failed to parse settings for column {col.get('id')}: {e}")
+                
+        return color_map
+
+    def get_job_requisitions(self, board_id: Optional[str] = None) -> List[Dict]:
+        """
+        Legacy wrapper for backward compatibility or simple item fetching
+        """
+        data = self.get_board_data(board_id)
+        return data.get('items_page', {}).get('items', [])
+
+    def parse_job_item(self, item: Dict, color_map: Dict[str, Dict[str, str]] = None) -> Dict:
         """
         Parse a Monday.com job item into our job format
         """
@@ -104,6 +146,9 @@ class MondayService:
                 # Map specific columns
                 if col_id == 'color_mkvy85b7' and col_text:  # Req Status
                     metadata['status'] = col_text
+                    if color_map and col_id in color_map and col_text in color_map[col_id]:
+                        metadata['status_color'] = color_map[col_id][col_text]
+                        
                     # Map Monday status to job status for compatibility
                     status_mapping = {
                         'Open': 'active',
@@ -115,8 +160,12 @@ class MondayService:
                     job_data['status'] = status_mapping.get(col_text, 'active')
                 elif col_id == 'color_mkw33brw' and col_text:  # Work Mode
                     metadata['work_mode'] = col_text
+                    if color_map and col_id in color_map and col_text in color_map[col_id]:
+                        metadata['work_mode_color'] = color_map[col_id][col_text]
                 elif col_id == 'color_mkvym9qm' and col_text:  # Employment Type
                     metadata['employment_type'] = col_text
+                    if color_map and col_id in color_map and col_text in color_map[col_id]:
+                        metadata['employment_type_color'] = color_map[col_id][col_text]
                 elif col_id == 'date_17' and col_text:  # Due date
                     metadata['due_date'] = col_text
                 elif col_id == 'date_mkvyd9rn' and col_text:  # Open Date
@@ -147,8 +196,16 @@ class MondayService:
         Sync jobs from Monday.com to Firestore
         """
         try:
-            # Fetch job requisitions from Monday.com
-            monday_items = self.get_job_requisitions()
+            # Fetch board data
+            board_data = self.get_board_data()
+            if not board_data:
+                return {'success': False, 'message': 'No data found in Monday.com'}
+            
+            monday_items = board_data.get('items_page', {}).get('items', [])
+            columns = board_data.get('columns', [])
+            
+            # Parse colors
+            color_map = self.parse_column_colors(columns)
 
             if not monday_items:
                 return {'success': False, 'message': 'No jobs found in Monday.com'}
@@ -158,7 +215,7 @@ class MondayService:
 
             for item in monday_items:
                 try:
-                    job_data = self.parse_job_item(item)
+                    job_data = self.parse_job_item(item, color_map)
 
                     if not job_data:
                         errors.append(f"Failed to parse item {item.get('id', 'unknown')}")

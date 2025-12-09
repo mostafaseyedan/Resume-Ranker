@@ -54,14 +54,21 @@ export interface Job {
   monday_metadata?: {
     group: string;
     status?: string;
+    status_color?: string;
     due_date?: string;
     sharepoint_link?: string;
     work_mode?: string;
+    work_mode_color?: string;
     employment_type?: string;
+    employment_type_color?: string;
     column_values: any;
   };
   created_by: string;
   created_at: string;
+  reviewed_by?: string;
+  review_provider?: string;
+  reviewed_at?: string;
+  source_filename?: string;
 }
 
 export interface Candidate {
@@ -193,13 +200,23 @@ export const apiService = {
     return response.data;
   },
 
-  async processSharePointJobFile(downloadUrl: string, fileName: string, jobId: string): Promise<{ success: boolean; job_info: any }> {
-    const response = await apiClient.post('/sharepoint/process-job-file', { download_url: downloadUrl, file_name: fileName, job_id: jobId });
+  async processSharePointJobFile(
+    downloadUrl: string,
+    fileName: string,
+    jobId: string,
+    provider: 'gemini' | 'openai' = 'gemini'
+  ): Promise<{ success: boolean; job_info: any }> {
+    const response = await apiClient.post('/sharepoint/process-job-file', {
+      download_url: downloadUrl,
+      file_name: fileName,
+      job_id: jobId,
+      provider
+    });
     return response.data;
   },
 
   // Vertex AI Search for potential candidates
-  async searchPotentialCandidates(jobId: string): Promise<{ success: boolean; candidates: Array<{filename: string; sharepoint_url: string | null}>; error?: string }> {
+  async searchPotentialCandidates(jobId: string): Promise<{ success: boolean; candidates: Array<{ filename: string; sharepoint_url: string | null; download_url: string | null; id?: string; site_id?: string; drive_id?: string }>; response_text?: string; error?: string }> {
     const response = await apiClient.post(`/jobs/${jobId}/search-potential-candidates`);
     return response.data;
   },
@@ -211,9 +228,10 @@ export const apiService = {
   },
 
   // Candidates
-  async uploadResume(jobId: string, file: File): Promise<any> {
+  async uploadResume(jobId: string, file: File, provider: 'gemini' | 'openai' = 'gemini'): Promise<any> {
     const formData = new FormData();
     formData.append('resume', file);
+    formData.append('provider', provider);
 
     const response = await apiClient.post(`/jobs/${jobId}/upload-resume`, formData, {
       headers: {

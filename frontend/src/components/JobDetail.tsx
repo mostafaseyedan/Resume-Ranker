@@ -7,43 +7,180 @@ import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
+import { SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label } from '@vibe/core';
+import '@vibe/core/tokens';
+import { AiOutlineFile } from 'react-icons/ai';
+import { BsFiletypePdf, BsFiletypeDocx, BsFiletypeXlsx, BsCheck } from 'react-icons/bs';
 
 interface JobDetailProps {
   job: Job;
   onJobUpdated?: (updatedJob: Job) => void;
 }
 
-const getReqStatusColor = (status: string) => {
-  const normalizedStatus = (status || '')
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .replace(/-/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+// Map Monday.com var_name colors to Vibe Label colors (copied from JobList.tsx)
+const MONDAY_TO_VIBE_COLOR_MAP: Record<string, string> = {
+  // Green variants (done/success)
+  'green-shadow': 'done-green',
+  'grass-green': 'grass_green',
+  'lime-green': 'saladish',
 
-  const matchableStatus = (() => {
-    if (normalizedStatus.includes('open')) return 'open';
-    if (normalizedStatus.includes('submit')) return 'submitted';
-    if (normalizedStatus.includes('interview')) return 'interviewing';
-    if (normalizedStatus.includes('not pursuing')) return 'not pursuing';
-    if (normalizedStatus.includes('closed')) return 'closed';
-    return normalizedStatus;
-  })();
+  // Orange/Yellow variants (working/in-progress)
+  'orange': 'working_orange',
+  'dark-orange': 'dark-orange',
+  'yellow': 'egg_yolk',
+  'mustered': 'tan',
 
-  switch (matchableStatus) {
-    case 'open':
-      return 'bg-blue-100 text-blue-800';
-    case 'submitted':
-      return 'bg-green-100 text-green-800';
-    case 'interviewing':
-      return 'bg-pink-100 text-pink-800';
-    case 'not pursuing':
-      return 'bg-gray-100 text-gray-800';
-    case 'closed':
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
+  // Red variants (stuck/error)
+  'red-shadow': 'stuck-red',
+  'dark-red': 'dark-red',
+
+  // Pink variants
+  'dark-pink': 'sofia_pink',
+  'light-pink': 'pink',
+
+  // Purple/Indigo variants
+  'dark-purple': 'dark_purple',
+  'dark_indigo': 'dark_indigo',
+  'purple': 'purple',
+
+  // Blue variants
+  'bright-blue': 'bright-blue',
+  'blue-links': 'river',
+  'sky': 'sky',
+  'navy': 'navy',
+  'australia': 'aquamarine',
+
+  // Gray/Neutral variants
+  'grey': 'american_gray',
+  'trolley-grey': 'american_gray',
+  'soft-black': 'blackish',
+  'dark-grey': 'american_gray',
+  'gray': 'american_gray',
+  'wolf-gray': 'american_gray',
+  'stone': 'american_gray',
+
+  // Special colors
+  'sunset': 'sunset',
+  'winter': 'winter',
+  'sail': 'winter',
+  'eden': 'teal',
+  'old_rose': 'berry'
+};
+
+const COLOR_OVERRIDES: Record<string, string> = {
+  'grey': 'american_gray',
+  'trolley-grey': 'steel',
+  'winter': 'winter',
+  'purple_gray': 'lavender',
+  'old_rose': 'berry',
+  'dark-purple': 'royal',
+  'red-shadow': 'stuck-red',
+  'green-shadow': 'done-green',
+  'blue-links': 'river',
+  'sky': 'sky',
+  'orange': 'working_orange'
+};
+
+const STATIC_VAR_NAME_MAP: Record<string, string> = {
+  // Statuses
+  'open': 'sky',
+  'submitted': 'green-shadow',
+  'won': 'lime-green',
+  'in progress': 'orange',
+  'interviewing': 'light-pink',
+  'analysis': 'dark-purple',
+  'closed - filled': 'red-shadow',
+  'closed': 'old_rose',
+  'hold': 'grey',
+  'not pursuing': 'trolley-grey',
+  'not won': 'dark-orange',
+  'monitor': 'sunset',
+
+  // Work Mode
+  'onsite': 'orange',
+  'remote': 'green-shadow',
+  'hybrid': 'purple',
+  'uk': 'blue-links',
+  'europe': 'australia',
+  'latin america': 'grass-green',
+
+  // Employment Type
+  'part-time': 'blue-links',
+  'consultant': 'grey',
+  'full-time': 'winter',
+  'contract-to-hire': 'purple'
+};
+
+const getVibeLabelColor = (text: string, dynamicVarName?: string): string => {
+  // 1. Try dynamic var_name from backend
+  if (dynamicVarName) {
+    const normalizedVar = dynamicVarName.toLowerCase().replace(/_/g, '-');
+    if (COLOR_OVERRIDES[normalizedVar]) return COLOR_OVERRIDES[normalizedVar];
+    if (MONDAY_TO_VIBE_COLOR_MAP[normalizedVar]) return MONDAY_TO_VIBE_COLOR_MAP[normalizedVar];
   }
+
+  // 2. Try static fallback based on text content
+  if (!text) return 'american_gray';
+  const normalizedText = text.toLowerCase().trim();
+
+  let varName = STATIC_VAR_NAME_MAP[normalizedText];
+
+  // Partial matches
+  if (!varName) {
+    if (normalizedText.includes('open')) varName = 'sky';
+    else if (normalizedText.includes('submit')) varName = 'green-shadow';
+    else if (normalizedText.includes('won') && !normalizedText.includes('not')) varName = 'lime-green';
+    else if (normalizedText.includes('interview')) varName = 'light-pink';
+    else if (normalizedText.includes('hold')) varName = 'grey';
+    else if (normalizedText.includes('not pursuing')) varName = 'trolley-grey';
+    else if (normalizedText.includes('closed')) varName = 'old_rose';
+  }
+
+  if (varName) {
+    if (COLOR_OVERRIDES[varName]) return COLOR_OVERRIDES[varName];
+    if (MONDAY_TO_VIBE_COLOR_MAP[varName]) return MONDAY_TO_VIBE_COLOR_MAP[varName];
+  }
+
+  return 'american_gray';
+};
+
+// Component to inject CSS variables for custom colors
+const CustomColorStyles = () => {
+  // Hardcoded Monday Hexes for the overrides we care about
+  const MONDAY_HEXES: Record<string, string> = {
+    'grey': '#c4c4c4',
+    'trolley-grey': '#757575',
+    'winter': '#9aadbd',
+    'purple_gray': '#9d99b9',
+    'old_rose': '#cd9282',
+    'royal': '#784bd1',
+    'stuck-red': '#df2f4a',
+    'done-green': '#00c875',
+    'river': '#007eb5',
+    'sky': '#216edf',
+    'working_orange': '#fdab3d',
+    'berry': '#cd9282'
+  };
+
+  // Generate CSS
+  const css = Object.entries(COLOR_OVERRIDES).map(([varName, token]) => {
+    let hex = MONDAY_HEXES[varName];
+    if (!hex && MONDAY_HEXES[token]) hex = MONDAY_HEXES[token];
+
+    if (hex) {
+      return `--color-${token}: ${hex}; --color-${token}-hover: ${hex}; --color-${token}-selected: ${hex};`;
+    }
+    return '';
+  }).join('\n');
+
+  return (
+    <style dangerouslySetInnerHTML={{
+      __html: `
+        :root {
+          ${css}
+        }
+      `}} />
+  );
 };
 
 const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
@@ -54,6 +191,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates'>('candidates');
   const [sharepointFiles, setSharepointFiles] = useState<{ job_files: any[]; resume_files: any[]; sharepoint_link: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [loadingSharePoint, setLoadingSharePoint] = useState(false);
   const [processingFile, setProcessingFile] = useState<string | null>(null);
   const [processingFileType, setProcessingFileType] = useState<'job' | 'resume' | null>(null);
@@ -63,6 +201,27 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [searchingCandidates, setSearchingCandidates] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<string | null>(null);
+
+  // Files Tab State
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [resumeProvider, setResumeProvider] = useState<'gemini' | 'openai'>('gemini');
+  const [jobProvider, setJobProvider] = useState<'gemini' | 'openai'>('gemini');
+  const [batchProcessing, setBatchProcessing] = useState(false);
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
+
+  // Job Details Sub-tabs state
+  type JobDetailSection = 'description' | 'requirements' | 'additional' | 'weights';
+  const [activeJobDetailSection, setActiveJobDetailSection] = useState<JobDetailSection>('description');
+
+  const JOB_DETAIL_SECTIONS: { key: JobDetailSection; label: string }[] = [
+    { key: 'description', label: 'Job Description' },
+    { key: 'requirements', label: 'Requirements Analysis' },
+    { key: 'additional', label: 'Additional Information' },
+    { key: 'weights', label: 'Skill Importance Weights' },
+  ];
+
+  // Internal Candidates Tab selection state
+  const [selectedPotentialFiles, setSelectedPotentialFiles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadCandidates();
@@ -90,6 +249,17 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     if ((job as any).monday_metadata?.sharepoint_link) {
       loadSharePointFiles();
     }
+
+    // Load current user
+    const loadUser = async () => {
+      try {
+        const user = await apiService.getUser();
+        setCurrentUser(user);
+      } catch (err) {
+        console.error('Failed to load user:', err);
+      }
+    };
+    loadUser();
   }, [job.id]);
 
   const loadCandidates = async () => {
@@ -173,7 +343,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         setFileProgress(prev => Math.min(prev + 2, 90));
       }, 500);
 
-      const response = await apiService.processSharePointJobFile(downloadUrl, fileName, job.id);
+      const response = await apiService.processSharePointJobFile(
+        downloadUrl,
+        fileName,
+        job.id,
+        jobProvider
+      );
 
       if (progressInterval) clearInterval(progressInterval);
       setFileProgress(100);
@@ -245,7 +420,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
       const file = new File([blob], fileName, { type: mimeType });
 
       // Upload as resume
-      const uploadResponse = await apiService.uploadResume(job.id, file);
+      const uploadResponse = await apiService.uploadResume(job.id, file, resumeProvider);
 
       if (progressInterval) clearInterval(progressInterval);
       setFileProgress(100);
@@ -345,6 +520,211 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     }
   };
 
+  const handleDeleteJob = async (jobId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!confirm('Are you sure you want to delete this job? This will also delete all associated candidates.')) {
+      return;
+    }
+    try {
+      setDeletingJobId(jobId);
+      await apiService.deleteJob(jobId);
+      toast.success('Job deleted successfully');
+      // After deletion, navigate away by clearing selection
+      if (onJobUpdated) {
+        onJobUpdated({ ...job, id: jobId } as any);
+      }
+    } catch (error: any) {
+      console.error('Failed to delete job:', error);
+      toast.error('Failed to delete job. Please try again.');
+    } finally {
+      setDeletingJobId(null);
+    }
+  };
+
+  // Helper to get unique files
+  const getUniqueFiles = () => {
+    if (!sharepointFiles) return [];
+    const allFiles = [
+      ...(sharepointFiles.job_files || []),
+      ...(sharepointFiles.resume_files || [])
+    ];
+    // Remove duplicates based on file name
+    return allFiles.filter((file, index, self) =>
+      index === self.findIndex((f) => f.name === file.name)
+    );
+  };
+
+  const handleFileToggle = (fileName: string) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileName)) {
+        newSet.delete(fileName);
+      } else {
+        newSet.add(fileName);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const uniqueFiles = getUniqueFiles();
+    if (selectedFiles.size === uniqueFiles.length) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(uniqueFiles.map(f => f.name)));
+    }
+  };
+
+  const handleBatchResume = async () => {
+    if (selectedFiles.size === 0) return;
+    setBatchProcessing(true);
+    toast.info(`Starting batch resume analysis for ${selectedFiles.size} files...`);
+
+    const uniqueFiles = getUniqueFiles();
+    const filesToProcess = uniqueFiles.filter(f => selectedFiles.has(f.name));
+
+    try {
+      for (const file of filesToProcess) {
+        // We await each one to avoid overwhelming the server, or we could Promise.all for parallel
+        // Sequential is safer for now given the complexity of analysis
+        await handleProcessResumeFile(file.download_url, file.name, file.id, file.site_id, file.drive_id);
+      }
+      toast.success("Batch resume analysis completed!");
+      setSelectedFiles(new Set());
+    } catch (err) {
+      console.error("Batch processing error:", err);
+      toast.error("Some files failed to process.");
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
+  const handleBatchJob = async () => {
+    if (selectedFiles.size === 0) return;
+    setBatchProcessing(true);
+    toast.info(`Updating job description from ${selectedFiles.size} files...`);
+
+    const uniqueFiles = getUniqueFiles();
+    const filesToProcess = uniqueFiles.filter(f => selectedFiles.has(f.name));
+
+    try {
+      for (const file of filesToProcess) {
+        await handleProcessJobFile(file.download_url, file.name);
+      }
+      toast.success("Job description updated!");
+      setSelectedFiles(new Set());
+    } catch (err) {
+      console.error("Batch processing error:", err);
+      toast.error("Failed to update job description.");
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    const iconProps = { className: "w-5 h-5 flex-shrink-0" };
+
+    switch (ext) {
+      case 'pdf':
+        return <BsFiletypePdf {...iconProps} className="w-5 h-5 text-red-600" />;
+      case 'doc':
+      case 'docx':
+        return <BsFiletypeDocx {...iconProps} className="w-5 h-5 text-blue-600" />;
+      case 'xls':
+      case 'xlsx':
+        return <BsFiletypeXlsx {...iconProps} className="w-5 h-5 text-green-600" />;
+      default:
+        return <AiOutlineFile {...iconProps} className="w-5 h-5 text-gray-400" />;
+    }
+  };
+
+  // Helper for Internal Candidates selection
+  const handlePotentialFileToggle = (fileName: string) => {
+    setSelectedPotentialFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileName)) {
+        newSet.delete(fileName);
+      } else {
+        newSet.add(fileName);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllPotential = () => {
+    if (selectedPotentialFiles.size === potentialCandidates.length) {
+      setSelectedPotentialFiles(new Set());
+    } else {
+      setSelectedPotentialFiles(new Set(potentialCandidates.map(c => c.filename)));
+    }
+  };
+
+  const handleBatchPotentialResume = async () => {
+    if (selectedPotentialFiles.size === 0) return;
+    setBatchProcessing(true);
+    toast.info(`Starting batch analysis for ${selectedPotentialFiles.size} candidates...`);
+
+    const filesToProcess = potentialCandidates.filter(c => selectedPotentialFiles.has(c.filename));
+
+    try {
+      for (const file of filesToProcess) {
+        if (!file.download_url) continue;
+        await handleProcessResumeFile(
+          file.download_url,
+          file.filename,
+          (file as any).id,
+          (file as any).site_id,
+          (file as any).drive_id
+        );
+      }
+      toast.success("Batch analysis completed!");
+      setSelectedPotentialFiles(new Set());
+    } catch (err) {
+      console.error("Batch processing error:", err);
+      toast.error("Some files failed to process.");
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
+  // Helper to calculate unique candidates (grouping by name)
+  // This logic mirrors CandidatesGroupedList grouping to ensure consistent counts
+  const getUniqueCandidateCount = () => {
+    const grouped = new Set<string>();
+
+    candidates.forEach(candidate => {
+      const originalName = candidate.name || 'Unnamed Candidate';
+      const normalizedName = originalName.toLowerCase().trim();
+
+      // Simple exact match logic for now, or match on name parts if we want to be fancy.
+      // For the tab count, a set of normalized names is a good approximation of unique "people".
+      // Note: CandidatesGroupedList has more complex logic (checking overlapping name parts).
+      // If we want exact parity without duplicating code, we might need to hoist that logic.
+      // But for a tab label, grouping by exact normalized name is usually sufficient "uniqueness".
+      // Let's use a slightly better heuristic:
+
+      let foundGroup = false;
+      // Check if this name is already represented
+      for (const existingGroup of Array.from(grouped)) {
+        // If the existing group name contains this name or vice versa (e.g. "John Smith" and "John")
+        if (existingGroup.includes(normalizedName) || normalizedName.includes(existingGroup)) {
+          foundGroup = true;
+          break;
+        }
+      }
+
+      if (!foundGroup) {
+        grouped.add(normalizedName);
+      }
+    });
+
+    return grouped.size;
+  };
+
   if (selectedCandidate) {
     return (
       <CandidateDetail
@@ -356,58 +736,55 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="bg-white shadow">
+      <CustomColorStyles />
       {/* Header */}
       <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex justify-between items-start">
           <div>
             <h2 className="text-xl font-bold text-gray-900">{job.title}</h2>
-            <div className="flex items-center mt-2 space-x-4">
-              {(job.monday_metadata?.status || job.status) && (
-                <span
-                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getReqStatusColor(job.monday_metadata?.status || job.status || '')
-                    }`}
-                >
-                  {job.monday_metadata?.status || job.status}
-                </span>
-              )}
-              {job.monday_metadata?.work_mode && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {job.monday_metadata.work_mode}
-                </span>
-              )}
+            <div className="flex flex-wrap gap-1 items-center mt-2">
+              {/* Employment Type Tag */}
               {job.monday_metadata?.employment_type && (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  {job.monday_metadata.employment_type}
-                </span>
+                <Label
+                  id={`employment-${job.id}`}
+                  text={job.monday_metadata.employment_type}
+                  size="small"
+                  color={getVibeLabelColor(job.monday_metadata.employment_type, job.monday_metadata.employment_type_color) as any}
+                />
               )}
-              {job.monday_metadata?.open_date && (
-                <span className="text-xs text-gray-500">
-                  Open: {job.monday_metadata.open_date}
-                </span>
+
+              {/* Req Status Tag */}
+              {job.monday_metadata?.status && (
+                <Label
+                  id={`status-${job.id}`}
+                  text={job.monday_metadata.status}
+                  size="small"
+                  color={getVibeLabelColor(job.monday_metadata.status, job.monday_metadata.status_color) as any}
+                />
               )}
-              {job.monday_metadata?.close_date && (
-                <span className="text-xs text-gray-500">
-                  Close: {job.monday_metadata.close_date}
-                </span>
-              )}
-              {!job.monday_metadata?.open_date && !job.monday_metadata?.close_date && (
-                <span className="text-xs text-gray-500">
-                  Created: {new Date(job.created_at).toLocaleDateString()}
-                </span>
+
+              {/* Work Mode Tag */}
+              {job.monday_metadata?.work_mode && (
+                <Label
+                  id={`workmode-${job.id}`}
+                  text={job.monday_metadata.work_mode}
+                  size="small"
+                  color={getVibeLabelColor(job.monday_metadata.work_mode, job.monday_metadata.work_mode_color) as any}
+                />
               )}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-blue-600">{candidates.length}</div>
-            <div className="text-sm text-gray-500">Candidate{candidates.length !== 1 ? 's' : ''}</div>
+            <div className="text-2xl font-bold text-blue-600">{getUniqueCandidateCount()}</div>
+            <div className="text-sm text-gray-500">Candidate{getUniqueCandidateCount() !== 1 ? 's' : ''}</div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex">
+        <nav className="-mb-px flex items-center justify-between">
           <button
             onClick={() => {
               setActiveTab('files');
@@ -432,7 +809,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
           >
-            Candidates
+            Candidates ({getUniqueCandidateCount()})
           </button>
           <button
             onClick={() => setActiveTab('resumes')}
@@ -466,13 +843,27 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           >
             Job Details
           </button>
+          <button
+            onClick={(e) => handleDeleteJob(job.id, e as any)}
+            className="ml-auto mr-2 text-gray-400 hover:text-red-600 p-2"
+            title="Delete job"
+            aria-label="Delete job"
+          >
+            {deletingJobId === job.id ? (
+              <div className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full"></div>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            )}
+          </button>
         </nav>
       </div>
 
       {/* Tab Content */}
-      <div className="p-6">
+      <div className="">
         {activeTab === 'candidates' && (
-          <div>
+          <div className="p-6">
             {loading ? (
               <div className="text-center py-8">
                 <div className="text-lg">Loading candidates...</div>
@@ -483,7 +874,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 <div>{error}</div>
                 <button
                   onClick={loadCandidates}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700"
                 >
                   Retry
                 </button>
@@ -516,7 +907,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         )}
 
         {activeTab === 'resumes' && (
-          <div>
+          <div className="p-6">
             {loading ? (
               <div className="text-center py-8">
                 <div className="text-lg">Loading resumes...</div>
@@ -527,7 +918,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 <div>{error}</div>
                 <button
                   onClick={loadCandidates}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700"
                 >
                   Retry
                 </button>
@@ -544,7 +935,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         )}
 
         {activeTab === 'files' && (
-          <div className="space-y-6">
+          <div className="space-y-6 p-6">
             {/* SharePoint Files Section */}
             {(job as any).monday_metadata?.sharepoint_link && (
               <div>
@@ -557,89 +948,161 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   </div>
                 ) : sharepointFiles ? (
                   <div className="space-y-4">
-                    {/* All Files - Single List */}
-                    {(() => {
-                      const allFiles = [
-                        ...(sharepointFiles.job_files || []),
-                        ...(sharepointFiles.resume_files || [])
-                      ];
+                    {/* Action Bar */}
+                    <div className="flex flex-wrap items-start justify-between gap-3 bg-gray-50 p-3 border border-gray-200">
+                      <div className="flex items-center space-x-4 text-sm mt-1">
+                        <button
+                          onClick={handleSelectAll}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          {selectedFiles.size === getUniqueFiles().length ? 'Deselect All' : 'Select All'}
+                        </button>
+                        <span className="text-gray-600">
+                          {selectedFiles.size} selected
+                        </span>
+                      </div>
 
-                      // Remove duplicates based on file name
-                      const uniqueFiles = allFiles.filter((file, index, self) =>
-                        index === self.findIndex((f) => f.name === file.name)
-                      );
+                      <div className="flex items-center gap-2">
+                        {/* Resume Split Button */}
+                        <SplitButton
+                          id="resume-split-button"
+                          ariaLabel="Analyze Resume split button"
+                          onClick={handleBatchResume}
+                          disabled={selectedFiles.size === 0 || batchProcessing || processingFile !== null}
+                          size="small"
+                          kind="primary"
+                          secondaryDialogPosition="bottom-start"
+                          secondaryDialogContent={
+                            <SplitButtonMenu id="resume-menu">
+                              <MenuItem
+                                id="resume-gemini"
+                                title="Gemini Flash"
+                                onClick={() => setResumeProvider('gemini')}
+                                rightIcon={resumeProvider === 'gemini' ? () => <BsCheck /> : undefined}
+                              />
+                              <MenuItem
+                                id="resume-openai"
+                                title="ChatGPT 5.1"
+                                onClick={() => setResumeProvider('openai')}
+                                rightIcon={resumeProvider === 'openai' ? () => <BsCheck /> : undefined}
+                              />
+                            </SplitButtonMenu>
+                          }
+                        >
+                          {batchProcessing ? 'Processing...' : 'Analyze Resume'}
+                        </SplitButton>
+
+                        {/* Job Description Split Button */}
+                        <SplitButton
+                          id="job-split-button"
+                          ariaLabel="Review Job split button"
+                          onClick={handleBatchJob}
+                          disabled={selectedFiles.size === 0 || batchProcessing || processingFile !== null}
+                          size="small"
+                          kind="primary"
+                          color="positive"
+                          secondaryDialogPosition="bottom-start"
+                          secondaryDialogContent={
+                            <SplitButtonMenu id="job-menu">
+                              <MenuItem
+                                id="job-gemini"
+                                title="Gemini Flash"
+                                onClick={() => setJobProvider('gemini')}
+                                rightIcon={jobProvider === 'gemini' ? () => <BsCheck /> : undefined}
+                              />
+                              <MenuItem
+                                id="job-openai"
+                                title="ChatGPT 5.1"
+                                onClick={() => setJobProvider('openai')}
+                                rightIcon={jobProvider === 'openai' ? () => <BsCheck /> : undefined}
+                              />
+                            </SplitButtonMenu>
+                          }
+                        >
+                          {batchProcessing ? 'Processing...' : 'Review Job'}
+                        </SplitButton>
+                      </div>
+                    </div>
+
+                    {/* File List */}
+                    {(() => {
+                      const uniqueFiles = getUniqueFiles();
 
                       return uniqueFiles.length > 0 ? (
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <h4 className="font-medium text-gray-900 mb-3">SharePoint Files</h4>
-                          <div className="space-y-2">
-                            {uniqueFiles.map((file, index) => (
-                              <div key={index} className="flex items-center justify-between bg-white p-3 rounded border">
-                                <div className="flex items-center space-x-2 flex-1">
-                                  <span className="text-gray-600"></span>
-                                  <div className="flex-1">
-                                    <a
-                                      href={file.web_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                                    >
-                                      {file.name}
-                                    </a>
-                                    <div className="text-xs text-gray-500">
-                                      {file.path} • {Math.round(file.size / 1024)} KB
+
+                        <div className="bg-white border border-gray-200 overflow-hidden">
+                          {uniqueFiles.map((file, index) => {
+                            const isSelected = selectedFiles.has(file.name);
+                            return (
+                              <div
+                                key={index}
+                                onClick={() => handleFileToggle(file.name)}
+                                className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                                  }`}
+                              >
+                                <div className="flex items-center space-x-3 flex-1 overflow-hidden">
+                                  <div className="flex-shrink-0 pointer-events-none">
+                                    <Checkbox
+                                      checked={isSelected}
+                                    // onChange is handled by row click
+                                    />
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <a
+                                        href={file.web_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline truncate"
+                                        title={file.name}
+                                      >
+                                        {file.name}
+                                      </a>
+                                      {getFileIcon(file.name)}
+                                    </div>
+                                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                                      <span>{file.path}</span>
+                                      <span>•</span>
+                                      <span>{Math.round(file.size / 1024)} KB</span>
                                     </div>
                                   </div>
                                 </div>
+
                                 <div className="flex items-center space-x-2 ml-4">
-                                  {processingFile === file.name ? (
-                                    <div className={`flex items-center rounded px-3 py-1 space-x-2 ${processingFileType === 'job' ? 'bg-green-600' : 'bg-blue-600'}`} style={{ minWidth: '200px' }}>
-                                      <div className={`flex-1 rounded overflow-hidden ${processingFileType === 'job' ? 'bg-green-600' : 'bg-blue-600'}`} style={{ height: '8px' }}>
+                                  {processingFile === file.name && (
+                                    <div className={`flex items-center rounded px-3 py-1 space-x-2 ${processingFileType === 'job' ? 'bg-green-600' : 'bg-blue-600'}`} style={{ minWidth: '140px' }}>
+                                      <div className="flex-1 rounded overflow-hidden bg-black/20" style={{ height: '6px' }}>
                                         <div
                                           className="h-full bg-white transition-all duration-500"
                                           style={{ width: `${fileProgress}%` }}
                                         />
                                       </div>
-                                      <div className="text-xs text-white whitespace-nowrap">{fileProgress}%</div>
+                                      <div className="text-xs text-white whitespace-nowrap font-medium">{fileProgress}%</div>
                                     </div>
-                                  ) : (
-                                    <>
-                                      <button
-                                        onClick={() => handleProcessJobFile(file.download_url, file.name)}
-                                        disabled={processingFile !== null}
-                                        className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-                                      >
-                                        <span>Job Description</span>
-                                      </button>
-                                      <button
-                                        onClick={() => handleProcessResumeFile(file.download_url, file.name, file.id, file.site_id, file.drive_id)}
-                                        disabled={processingFile !== null}
-                                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-                                      >
-                                        <span>Resume</span>
-                                      </button>
-                                    </>
                                   )}
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
                       ) : (
-                        <div className="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
+                        <div className="bg-gray-50 p-8 text-center text-gray-500 border border-dashed border-gray-300">
                           No files found in SharePoint folder
                         </div>
                       );
                     })()}
 
-                    <div className="text-xs text-gray-500 mt-2">
-                      <a href={sharepointFiles.sharepoint_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    <div className="text-xs text-gray-500 mt-2 text-right">
+                      <a href={sharepointFiles.sharepoint_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">
                         Open SharePoint folder
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                       </a>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="bg-gray-50 p-4">
                     <button
                       onClick={loadSharePointFiles}
                       className="text-blue-600 hover:text-blue-800 text-sm"
@@ -662,277 +1125,422 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         )}
 
         {activeTab === 'job-details' && (
-          <div className="space-y-6">
-            {/* Success/Error Message */}
-            {successMessage && (
-              <div className={`p-4 rounded-lg border ${successMessage.startsWith('Failed')
-                ? 'bg-red-50 border-red-200 text-red-800'
-                : 'bg-green-50 border-green-200 text-green-800'
-                }`}>
-                <p className="text-sm font-medium">{successMessage}</p>
-              </div>
-            )}
+          <div className="flex flex-col">
 
-            {/* Job Description */}
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-3"> Job Description</h3>
-              <div className="prose prose-sm max-w-none">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="prose prose-sm max-w-none text-gray-700">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        ol: ({ ...props }) => (
-                          <ol className="list-decimal list-outside ml-6 space-y-4 my-4" {...props} />
-                        ),
-                        ul: ({ ...props }) => (
-                          <ul className="list-disc list-outside ml-6 space-y-2 my-4" {...props} />
-                        ),
-                        li: ({ ...props }) => (
-                          <li className="pl-2" {...props} />
-                        ),
-                        p: ({ ...props }) => (
-                          <p className="my-2 whitespace-pre-wrap" {...props} />
-                        ),
-                        strong: ({ ...props }) => (
-                          <strong className="font-bold text-gray-900" {...props} />
-                        ),
-                        table: ({ ...props }) => (
-                          <div className="overflow-x-auto my-4">
-                            <table className="min-w-full divide-y divide-gray-300 border border-gray-300" {...props} />
-                          </div>
-                        ),
-                        thead: ({ ...props }) => (
-                          <thead className="bg-gray-100" {...props} />
-                        ),
-                        tbody: ({ ...props }) => (
-                          <tbody className="divide-y divide-gray-200 bg-white" {...props} />
-                        ),
-                        tr: ({ ...props }) => (
-                          <tr className="hover:bg-gray-50" {...props} />
-                        ),
-                        th: ({ ...props }) => (
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0" {...props} />
-                        ),
-                        td: ({ ...props }) => (
-                          <td className="px-4 py-2 text-sm text-gray-700 border-r border-gray-300 last:border-r-0" {...props} />
-                        ),
-                      }}
-                    >
-                      {job.description || ''}
-                    </ReactMarkdown>
-                  </div>
+            {/* Context Header (between tabs) */}
+            <div className="border-b border-gray-200 py-3 px-6 flex items-start justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">
+                  {job.source_filename || sharepointFiles?.job_files?.[0]?.name}
+                </h2>
+                <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
+                  <span>
+                    {(() => {
+                      // 1. Try SharePoint file creator (standard Graph API structure)
+                      const fileCreator = sharepointFiles?.job_files?.[0]?.createdBy?.user?.displayName;
+                      if (fileCreator) return fileCreator;
+
+                      // 2. Try Job Creator (if not system account)
+                      if (job.created_by && job.created_by !== 'monday_sync') {
+                        return job.created_by;
+                      }
+
+                      // 3. Fallback
+                      return 'AI Assistant';
+                    })()}
+                  </span>
+                  <span>•</span>
+                  <span>{new Date(job.created_at).toLocaleDateString()}</span>
+                  {job.reviewed_by && (
+                    <>
+                      <span>•</span>
+                      <span>Reviewed by {job.reviewed_by}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Provider Badge */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 shadow-sm">
+                  <span className="text-xs font-medium text-gray-600">Analysis by</span>
+                  {job.review_provider === 'openai' ? (
+                    <img
+                      src="/chatgpt.png"
+                      alt="ChatGPT"
+                      className="h-5 w-auto"
+                      title="Analyzed with ChatGPT"
+                    />
+                  ) : (
+                    <img
+                      src="/gemini-icon.svg"
+                      alt="Gemini Pro"
+                      className="h-5 w-auto"
+                      title="Analyzed with Google Gemini"
+                    />
+                  )}
                 </div>
               </div>
             </div>
 
+            {/* Secondary Tabs Navigation */}
+            <div className="border-b border-gray-200 px-6">
+              <nav className="flex w-full items-center gap-6" aria-label="Job Detail Sections">
+                {JOB_DETAIL_SECTIONS.map((section) => (
+                  <button
+                    key={section.key}
+                    onClick={() => setActiveJobDetailSection(section.key)}
+                    className={`whitespace-nowrap py-3 text-sm font-medium border-b-2 transition-colors ${activeJobDetailSection === section.key
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                  >
+                    {section.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
 
-            {/* Structured Data from PDF Extraction */}
-            {job.extracted_data && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="pt-6 px-6">
+              {/* Success/Error Message */}
+              {successMessage && (
+                <div className={`mb-6 p-4 rounded-lg border ${successMessage.startsWith('Failed')
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'bg-green-50 border-green-200 text-green-800'
+                  }`}>
+                  <p className="text-sm font-medium">{successMessage}</p>
+                </div>
+              )}
 
-                {/* Required Skills */}
-                {job.extracted_data.required_skills && job.extracted_data.required_skills.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      Required Skills
-                    </h3>
-                    <div className="bg-red-50 p-4 rounded-lg">
-                      <div className="flex flex-wrap gap-2">
-                        {job.extracted_data.required_skills.map((skill, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSkillClick(skill)}
-                            className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full hover:bg-red-200 hover:shadow-sm transition-all cursor-pointer"
-                          >
-                            {skill}
-                          </button>
-                        ))}
-                      </div>
+              {/* Content Sections */}
+              {activeJobDetailSection === 'description' && (
+                <div>
+                  <div style={{
+                    border: '1px solid #ddd',
+                    borderRadius: '0px',
+                    padding: '16px',
+                    marginBottom: '12px',
+                    background: '#f9fafb',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}>
+
+                    <div className="prose prose-sm max-w-none" style={{ fontSize: '14px', lineHeight: '1.6', color: '#555' }}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          ol: ({ ...props }) => (
+                            <ol className="list-decimal list-outside ml-6 space-y-4 my-4" {...props} />
+                          ),
+                          ul: ({ ...props }) => (
+                            <ul className="list-disc list-outside ml-6 space-y-2 my-4" {...props} />
+                          ),
+                          li: ({ ...props }) => (
+                            <li className="pl-2" {...props} />
+                          ),
+                          p: ({ ...props }) => (
+                            <p className="my-2 whitespace-pre-wrap" {...props} />
+                          ),
+                          strong: ({ ...props }) => (
+                            <strong className="font-bold text-gray-900" {...props} />
+                          ),
+                          table: ({ ...props }) => (
+                            <div className="overflow-x-auto my-4">
+                              <table className="min-w-full divide-y divide-gray-300 border border-gray-300" {...props} />
+                            </div>
+                          ),
+                          thead: ({ ...props }) => (
+                            <thead className="bg-gray-100" {...props} />
+                          ),
+                          tbody: ({ ...props }) => (
+                            <tbody className="divide-y divide-gray-200 bg-white" {...props} />
+                          ),
+                          tr: ({ ...props }) => (
+                            <tr className="hover:bg-gray-50" {...props} />
+                          ),
+                          th: ({ ...props }) => (
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0" {...props} />
+                          ),
+                          td: ({ ...props }) => (
+                            <td className="px-4 py-2 text-sm text-gray-700 border-r border-gray-300 last:border-r-0" {...props} />
+                          ),
+                        }}
+                      >
+                        {job.description || ''}
+                      </ReactMarkdown>
                     </div>
-                  </div>
-                )}
-
-                {/* Preferred Skills */}
-                {job.extracted_data.preferred_skills && job.extracted_data.preferred_skills.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      Preferred Skills
-                    </h3>
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <div className="flex flex-wrap gap-2">
-                        {job.extracted_data.preferred_skills.map((skill, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSkillClick(skill)}
-                            className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full hover:bg-blue-200 hover:shadow-sm transition-all cursor-pointer"
-                          >
-                            {skill}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Experience Requirements */}
-                {job.extracted_data.experience_requirements && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      Experience Requirements
-                    </h3>
-                    <div
-                      className="bg-green-50 p-4 rounded-lg cursor-pointer hover:bg-green-100 hover:shadow-sm transition-all"
-                      onClick={() => handleSkillClick(job.extracted_data.experience_requirements)}
-                    >
-                      <p className="text-gray-700">{job.extracted_data.experience_requirements}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Education Requirements */}
-                {job.extracted_data.education_requirements && job.extracted_data.education_requirements.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      Education Requirements
-                    </h3>
-                    <div className="bg-purple-50 p-4 rounded-lg">
-                      <ul className="list-disc list-inside space-y-1">
-                        {job.extracted_data.education_requirements.map((edu, index) => (
-                          <li
-                            key={index}
-                            onClick={() => handleSkillClick(edu)}
-                            className="text-gray-700 cursor-pointer hover:text-purple-800 hover:font-medium transition-all"
-                          >
-                            {edu}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-
-                {/* Certifications */}
-                {job.extracted_data.certifications && job.extracted_data.certifications.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      Certifications
-                    </h3>
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <div className="flex flex-wrap gap-2">
-                        {job.extracted_data.certifications.map((cert, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSkillClick(cert)}
-                            className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full hover:bg-yellow-200 hover:shadow-sm transition-all cursor-pointer"
-                          >
-                            {cert}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Key Responsibilities */}
-                {job.extracted_data.key_responsibilities && job.extracted_data.key_responsibilities.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      Key Responsibilities
-                    </h3>
-                    <div className="bg-indigo-50 p-4 rounded-lg">
-                      <ul className="list-disc list-inside space-y-2">
-                        {job.extracted_data.key_responsibilities.map((responsibility, index) => (
-                          <li key={index} className="text-gray-700">{responsibility}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-
-                {/* Soft Skills */}
-                {job.extracted_data.soft_skills && job.extracted_data.soft_skills.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      Soft Skills
-                    </h3>
-                    <div className="bg-pink-50 p-4 rounded-lg">
-                      <div className="flex flex-wrap gap-2">
-                        {job.extracted_data.soft_skills.map((skill, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-pink-100 text-pink-800 text-sm font-medium rounded-full"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Other Information */}
-                {job.extracted_data.other && job.extracted_data.other.length > 0 && (
-                  <div className="lg:col-span-2">
-                    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-                      Additional Information
-                    </h3>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <ul className="list-disc list-inside space-y-1">
-                        {job.extracted_data.other.map((item, index) => (
-                          <li key={index} className="text-gray-700">{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            )}
-
-            {/* AI Generated Analysis */}
-            <div className="border-t pt-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Analysis</h2>
-
-              {/* Traditional Requirements */}
-              {job.requirements && Object.keys(job.requirements).length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Requirements Analysis</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                    {Object.entries(job.requirements).map(([key, value]) => (
-                      <div key={key} className="flex flex-col sm:flex-row">
-                        <span className="font-medium text-gray-600 capitalize sm:w-32 mb-1 sm:mb-0">
-                          {key.replace('_', ' ')}:
-                        </span>
-                        <span className="text-gray-700">
-                          {Array.isArray(value) ? value.join(', ') : String(value)}
-                        </span>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Skill Weights */}
-              {job.skill_weights && Object.keys(job.skill_weights).length > 0 && (
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Skill Importance Weights</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {Object.entries(job.skill_weights).map(([skill, weight]) => (
-                      <div key={skill} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                        <span className="text-sm font-medium text-gray-700">{skill}</span>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-20 bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${(Number(weight) / 10) * 100}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-xs font-bold text-gray-600 min-w-[40px]">{weight}/10</span>
-                        </div>
+              {activeJobDetailSection === 'requirements' && (
+                <div className="space-y-6">
+                  {/* Requirements Analysis from job.requirements */}
+                  {job.requirements && Object.keys(job.requirements).length > 0 && (
+                    <div style={{
+                      border: '1px solid #ddd',
+                      borderRadius: '0px',
+                      padding: '16px',
+                      marginBottom: '12px',
+                      background: '#f9fafb',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}>
+                      <div style={{ marginBottom: '12px' }}>
+                        <h3 style={{ margin: 0, fontWeight: 600, color: '#333' }}>Analysis Summary</h3>
                       </div>
-                    ))}
-                  </div>
+                      <div className="space-y-2" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                        {Object.entries(job.requirements).map(([key, value]) => (
+                          <div key={key} className="flex flex-col sm:flex-row">
+                            <span className="font-medium text-gray-600 capitalize sm:w-32 mb-1 sm:mb-0">
+                              {key.replace('_', ' ')}:
+                            </span>
+                            <span style={{ color: '#555' }}>
+                              {Array.isArray(value) ? value.join(', ') : String(value)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {job.extracted_data && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Required Skills */}
+                      {job.extracted_data.required_skills && job.extracted_data.required_skills.length > 0 && (
+                        <div style={{
+                          border: '1px solid #feb2b2',
+                          borderRadius: '0px',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          background: '#fff5f5',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                        }}>
+                          <div style={{ marginBottom: '12px' }}>
+                            <h3 style={{ margin: 0, fontWeight: 600, color: '#742a2a' }}>Required Skills</h3>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {job.extracted_data.required_skills.map((skill, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleSkillClick(skill)}
+                                className="px-3 py-1 bg-white border border-red-200 text-red-800 text-sm font-medium hover:bg-red-50 hover:shadow-sm transition-all cursor-pointer"
+                              >
+                                {skill}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Preferred Skills */}
+                      {job.extracted_data.preferred_skills && job.extracted_data.preferred_skills.length > 0 && (
+                        <div style={{
+                          border: '1px solid #90cdf4',
+                          borderRadius: '0px',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          background: '#ebf8ff',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                        }}>
+                          <div style={{ marginBottom: '12px' }}>
+                            <h3 style={{ margin: 0, fontWeight: 600, color: '#2c5282' }}>Preferred Skills</h3>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {job.extracted_data.preferred_skills.map((skill, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleSkillClick(skill)}
+                                className="px-3 py-1 bg-white border border-blue-200 text-blue-800 text-sm font-medium hover:bg-blue-50 hover:shadow-sm transition-all cursor-pointer"
+                              >
+                                {skill}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Experience Requirements */}
+                      {job.extracted_data.experience_requirements && (
+                        <div
+                          style={{
+                            border: '1px solid #9ae6b4',
+                            borderRadius: '0px',
+                            padding: '16px',
+                            marginBottom: '12px',
+                            background: '#f0fff4',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => handleSkillClick(job.extracted_data.experience_requirements)}
+                        >
+                          <div style={{ marginBottom: '12px' }}>
+                            <h3 style={{ margin: 0, fontWeight: 600, color: '#22543d' }}>Experience Requirements</h3>
+                          </div>
+                          <p style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                            {job.extracted_data.experience_requirements}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Education Requirements */}
+                      {job.extracted_data.education_requirements && job.extracted_data.education_requirements.length > 0 && (
+                        <div style={{
+                          border: '1px solid #d6bcfa',
+                          borderRadius: '0px',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          background: '#faf5ff',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                        }}>
+                          <div style={{ marginBottom: '12px' }}>
+                            <h3 style={{ margin: 0, fontWeight: 600, color: '#44337a' }}>Education Requirements</h3>
+                          </div>
+                          <ul className="list-disc list-inside space-y-1" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                            {job.extracted_data.education_requirements.map((edu, index) => (
+                              <li
+                                key={index}
+                                onClick={() => handleSkillClick(edu)}
+                                className="cursor-pointer hover:text-purple-800 hover:font-medium transition-all"
+                              >
+                                {edu}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Certifications */}
+                      {job.extracted_data.certifications && job.extracted_data.certifications.length > 0 && (
+                        <div style={{
+                          border: '1px solid #fbd38d',
+                          borderRadius: '0px',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          background: '#fffaf0',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                        }}>
+                          <div style={{ marginBottom: '12px' }}>
+                            <h3 style={{ margin: 0, fontWeight: 600, color: '#744210' }}>Certifications</h3>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {job.extracted_data.certifications.map((cert, index) => (
+                              <button
+                                key={index}
+                                onClick={() => handleSkillClick(cert)}
+                                className="px-3 py-1 bg-white border border-yellow-200 text-yellow-800 text-sm font-medium hover:bg-yellow-50 hover:shadow-sm transition-all cursor-pointer"
+                              >
+                                {cert}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Key Responsibilities */}
+                      {job.extracted_data.key_responsibilities && job.extracted_data.key_responsibilities.length > 0 && (
+                        <div style={{
+                          border: '1px solid #a3bffa',
+                          borderRadius: '0px',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          background: '#ebf4ff',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                        }}>
+                          <div style={{ marginBottom: '12px' }}>
+                            <h3 style={{ margin: 0, fontWeight: 600, color: '#3c366b' }}>Key Responsibilities</h3>
+                          </div>
+                          <ul className="list-disc list-inside space-y-2" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                            {job.extracted_data.key_responsibilities.map((responsibility, index) => (
+                              <li key={index}>{responsibility}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Soft Skills */}
+                      {job.extracted_data.soft_skills && job.extracted_data.soft_skills.length > 0 && (
+                        <div style={{
+                          border: '1px solid #fbb6ce',
+                          borderRadius: '0px',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          background: '#fff5f7',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                        }}>
+                          <div style={{ marginBottom: '12px' }}>
+                            <h3 style={{ margin: 0, fontWeight: 600, color: '#702459' }}>Soft Skills</h3>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {job.extracted_data.soft_skills.map((skill, index) => (
+                              <span
+                                key={index}
+                                className="px-3 py-1 bg-white border border-pink-200 text-pink-800 text-sm font-medium"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeJobDetailSection === 'additional' && (
+                <div>
+                  {job.extracted_data && job.extracted_data.other && job.extracted_data.other.length > 0 ? (
+                    <div style={{
+                      border: '1px solid #ddd',
+                      borderRadius: '0px',
+                      padding: '16px',
+                      marginBottom: '12px',
+                      background: '#f9fafb',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}>
+
+                      <ul className="list-disc list-inside space-y-1" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                        {job.extracted_data.other.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 italic">No additional information extracted.</div>
+                  )}
+                </div>
+              )}
+
+              {activeJobDetailSection === 'weights' && (
+                <div>
+                  {job.skill_weights && Object.keys(job.skill_weights).length > 0 ? (
+                    <div style={{
+                      border: '1px solid #ddd',
+                      borderRadius: '0px',
+                      padding: '16px',
+                      marginBottom: '12px',
+                      background: '#f9fafb',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {Object.entries(job.skill_weights).map(([skill, weight]) => (
+                          <div key={skill} className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100">
+                            <span className="text-sm font-medium text-gray-700">{skill}</span>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-20 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${(Number(weight) / 10) * 100}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-xs font-bold text-gray-600 min-w-[40px]">{weight}/10</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 italic">No skill weights available.</div>
+                  )}
                 </div>
               )}
             </div>
@@ -940,7 +1548,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         )}
 
         {activeTab === 'potential-candidates' && (
-          <div>
+          <div className="p-6">
             {potentialCandidates.length === 0 && !searchingCandidates && !searchError ? (
               <div className="text-center py-16 px-4">
                 <div className="mb-6">
@@ -957,7 +1565,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 <button
                   onClick={handleSearchPotentialCandidates}
                   disabled={!job.description}
-                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {!job.description ? 'Add Job Description First' : 'Start AI Search'}
                 </button>
@@ -979,11 +1587,11 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   </div>
                 ) : searchError ? (
                   <div className="text-center py-12">
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+                    <div className="bg-red-50 border border-red-200 p-6 max-w-md mx-auto">
                       <p className="text-red-800 mb-4">{searchError}</p>
                       <button
                         onClick={handleSearchPotentialCandidates}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700"
                       >
                         Try Again
                       </button>
@@ -992,10 +1600,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 ) : (
                   <div>
                     <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-medium text-gray-900">Internal Candidates</h3>
+                      <h3 className="text-base font-semibold text-gray-900">Internal Candidates</h3>
                       <button
                         onClick={handleSearchPotentialCandidates}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors"
                         title="Refresh search"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1006,8 +1614,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     </div>
 
                     {geminiResponse && (
-                      <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <div className="prose prose-sm max-w-none text-gray-700">
+                      <div style={{
+                        border: '1px solid #ddd',
+                        borderRadius: '0px',
+                        padding: '16px',
+                        marginBottom: '24px',
+                        background: '#f9fafb',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                      }}>
+                        <div className="prose prose-sm max-w-none" style={{ fontSize: '14px', lineHeight: '1.6', color: '#555' }}>
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
@@ -1054,52 +1669,111 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       </div>
                     )}
 
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <div className="space-y-2">
-                        {potentialCandidates.map((candidate, index) => (
-                          <div key={index} className="flex items-center justify-between bg-white p-3 rounded border">
-                            <div className="flex items-center space-x-2 flex-1">
-                              <span className="text-gray-600"></span>
-                              <div className="flex-1">
-                                {candidate.sharepoint_url ? (
-                                  <a
-                                    href={candidate.sharepoint_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                                  >
-                                    {candidate.filename}
-                                  </a>
-                                ) : (
-                                  <span className="text-sm font-medium text-gray-700">{candidate.filename}</span>
-                                )}
+                    <div className="space-y-4">
+                      {/* Action Bar */}
+                      <div className="flex flex-wrap items-start justify-between gap-3 bg-gray-50 p-3 border border-gray-200">
+                        <div className="flex items-center space-x-4 text-sm mt-1">
+                          <button
+                            onClick={handleSelectAllPotential}
+                            className="text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            {selectedPotentialFiles.size === potentialCandidates.length && potentialCandidates.length > 0 ? 'Deselect All' : 'Select All'}
+                          </button>
+                          <span className="text-gray-600">
+                            {selectedPotentialFiles.size} selected
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <SplitButton
+                            id="potential-resume-split-button"
+                            ariaLabel="Analyze Resume split button"
+                            onClick={handleBatchPotentialResume}
+                            disabled={selectedPotentialFiles.size === 0 || batchProcessing || processingFile !== null}
+                            size="small"
+                            kind="primary"
+                            secondaryDialogPosition="bottom-start"
+                            secondaryDialogContent={
+                              <SplitButtonMenu id="potential-resume-menu">
+                                <MenuItem
+                                  id="potential-resume-gemini"
+                                  title="Gemini Flash"
+                                  onClick={() => setResumeProvider('gemini')}
+                                  rightIcon={resumeProvider === 'gemini' ? () => <BsCheck /> : undefined}
+                                />
+                                <MenuItem
+                                  id="potential-resume-openai"
+                                  title="ChatGPT 5.1"
+                                  onClick={() => setResumeProvider('openai')}
+                                  rightIcon={resumeProvider === 'openai' ? () => <BsCheck /> : undefined}
+                                />
+                              </SplitButtonMenu>
+                            }
+                          >
+                            {batchProcessing ? 'Processing...' : 'Analyze Resume'}
+                          </SplitButton>
+                        </div>
+                      </div>
+
+                      {/* File List */}
+                      <div className="bg-white border border-gray-200 overflow-hidden">
+                        {potentialCandidates.map((candidate, index) => {
+                          const isSelected = selectedPotentialFiles.has(candidate.filename);
+                          return (
+                            <div
+                              key={index}
+                              onClick={() => handlePotentialFileToggle(candidate.filename)}
+                              className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                            >
+                              <div className="flex items-center space-x-3 flex-1 overflow-hidden">
+                                <div className="flex-shrink-0 pointer-events-none">
+                                  <Checkbox
+                                    checked={isSelected}
+                                  // onChange is handled by row click
+                                  />
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    {candidate.sharepoint_url ? (
+                                      <a
+                                        href={candidate.sharepoint_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline truncate"
+                                        title={candidate.filename}
+                                      >
+                                        {candidate.filename}
+                                      </a>
+                                    ) : (
+                                      <span className="text-sm font-medium text-gray-900 truncate" title={candidate.filename}>{candidate.filename}</span>
+                                    )}
+                                    {getFileIcon(candidate.filename)}
+                                  </div>
+                                  {/* Placeholder for metadata to match height/spacing if needed, or actual metadata if we have it */}
+                                  <div className="text-xs text-gray-500 flex items-center gap-2">
+                                    <span>Potential Match</span>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-center space-x-2 ml-4">
-                              {candidate.download_url && (
-                                processingFile === candidate.filename ? (
-                                  <div className="flex items-center rounded px-3 py-1 space-x-2 bg-blue-600" style={{ minWidth: '200px' }}>
-                                    <div className="flex-1 rounded overflow-hidden bg-blue-600" style={{ height: '8px' }}>
+
+                              <div className="flex items-center space-x-2 ml-4">
+                                {candidate.download_url && processingFile === candidate.filename && (
+                                  <div className="flex items-center rounded px-3 py-1 space-x-2 bg-blue-600" style={{ minWidth: '140px' }}>
+                                    <div className="flex-1 rounded overflow-hidden bg-black/20" style={{ height: '6px' }}>
                                       <div
                                         className="h-full bg-white transition-all duration-500"
                                         style={{ width: `${fileProgress}%` }}
                                       />
                                     </div>
-                                    <div className="text-xs text-white whitespace-nowrap">{fileProgress}%</div>
+                                    <div className="text-xs text-white whitespace-nowrap font-medium">{fileProgress}%</div>
                                   </div>
-                                ) : (
-                                  <button
-                                    onClick={() => handleProcessResumeFile(candidate.download_url!, candidate.filename, (candidate as any).id, (candidate as any).site_id, (candidate as any).drive_id)}
-                                    disabled={processingFile !== null}
-                                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-                                  >
-                                    <span>Analyze</span>
-                                  </button>
-                                )
-                              )}
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>

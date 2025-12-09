@@ -14,6 +14,7 @@ from services.sharepoint_service import SharePointService
 from services.resume_service import ResumeService
 from services.activity_logger_service import ActivityLoggerService
 from services.vertex_search_service import VertexSearchService
+from services.openai_analyzer import OpenAIAnalyzer
 import logging
 import base64
 import json
@@ -58,6 +59,7 @@ except Exception as e:
 # Initialize services
 firestore_service = FirestoreService()
 gemini_analyzer = GeminiAnalyzer(os.getenv('GEMINI_API_KEY'))
+openai_analyzer = OpenAIAnalyzer(os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
 monday_service = MondayService(os.getenv('MONDAY_API_KEY')) if os.getenv('MONDAY_API_KEY') else None
 resume_service = ResumeService(os.getenv('GEMINI_API_KEY'))
 activity_logger = ActivityLoggerService()
@@ -82,12 +84,17 @@ vertex_search_service = VertexSearchService(sharepoint_service=sharepoint_servic
 logger.info("Vertex AI Search service initialized with SharePoint integration")
 
 
-def build_job_analysis_payload(job_description, extraction_data=None):
+def build_job_analysis_payload(job_description, extraction_data=None, analyzer=None):
     job_description = (job_description or '').strip()
+    
+    # Default to Gemini if no analyzer provided (backward compatibility)
+    if analyzer is None:
+        analyzer = gemini_analyzer
 
     job_analysis = {}
     if job_description:
-        job_analysis = gemini_analyzer.analyze_job_description(job_description) or {}
+        # Use the provided analyzer
+        job_analysis = analyzer.analyze_job_description(job_description) or {}
 
     requirements = {}
     if job_analysis:
@@ -244,6 +251,7 @@ def create_job():
             return jsonify({'error': 'Missing required fields'}), 400
 
         # Use AI to extract job requirements and assign weights
+        # Explicitly use Gemini for direct job creation for now
         job_analysis = gemini_analyzer.analyze_job_description(data['description'])
 
         # Construct requirements object from flattened job analysis
@@ -318,7 +326,7 @@ def create_job_from_pdf():
         # Use the full job description text from extraction
         job_description = job_extraction.get('job_description_text', '')
 
-        analysis_payload = build_job_analysis_payload(job_description, job_extraction)
+        analysis_payload = build_job_analysis_payload(job_description, job_extraction, analyzer=gemini_analyzer)
 
         job_data = {
             'title': title,
@@ -554,6 +562,7 @@ def process_sharepoint_job_file():
         download_url = data.get('download_url')
         file_name = data.get('file_name')
         job_id = data.get('job_id')  # Add job_id parameter
+        provider = (data.get('provider') or 'gemini').lower()
 
         if not download_url or not file_name or not job_id:
             return jsonify({'error': 'Download URL, file name, and job ID required'}), 400
@@ -575,11 +584,17 @@ def process_sharepoint_job_file():
 
         file_content = FileWithName(response.content, file_name)
 
+
         extraction_data = None
         job_description_text = ''
 
         if file_name.lower().endswith(('.pdf', '.doc', '.docx')):
-            extraction_data = gemini_analyzer.analyze_job_description_from_file(file_content)
+            if provider == 'openai':
+                if not openai_analyzer:
+                    return jsonify({'error': 'OpenAI provider not configured'}), 400
+                extraction_data = openai_analyzer.analyze_job_description_from_file(file_content)
+            else:
+                extraction_data = gemini_analyzer.analyze_job_description_from_file(file_content)
             if not extraction_data:
                 return jsonify({'error': 'Failed to extract job information'}), 500
             job_description_text = extraction_data.get('job_description_text', '').strip()
@@ -589,11 +604,17 @@ def process_sharepoint_job_file():
         if not job_description_text:
             return jsonify({'error': 'Failed to extract job description text'}), 500
 
-        analysis_payload = build_job_analysis_payload(job_description_text, extraction_data)
+        # Select the correct analyzer instance
+        active_analyzer = openai_analyzer if provider == 'openai' else gemini_analyzer
+        
+        analysis_payload = build_job_analysis_payload(job_description_text, extraction_data, analyzer=active_analyzer)
 
         update_data = {
             'source': 'sharepoint',
-            'source_filename': file_name
+            'source_filename': file_name,
+            'reviewed_by': session['user']['name'],
+            'review_provider': provider,
+            'reviewed_at': firestore.SERVER_TIMESTAMP
         }
         update_data.update(analysis_payload)
 
@@ -647,6 +668,20 @@ def search_potential_candidates(job_id):
 
         # Search for candidates using Vertex AI Search
         search_result = vertex_search_service.search_candidates(job_description)
+
+        # Log Gemini's raw response text for observability
+        response_text = search_result.get('response_text')
+        if response_text:
+            logger.info(
+                "Gemini potential candidates response | job_id=%s | response=%s",
+                job_id,
+                response_text
+            )
+        else:
+            logger.info(
+                "Gemini potential candidates response | job_id=%s | response=<empty>",
+                job_id
+            )
 
         if not search_result.get('success'):
             return jsonify(search_result), 500
@@ -783,6 +818,7 @@ def upload_resume(job_id):
         file = request.files['resume']
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
+        provider = (request.form.get('provider') or 'gemini').lower()
 
         # Get job details
         job = firestore_service.get_job(job_id)
@@ -795,11 +831,20 @@ def upload_resume(job_id):
             return jsonify({'error': error_msg}), 400
 
         # Analyze resume directly from file - single Gemini call
-        analysis_result = gemini_analyzer.analyze_resume(
-            file,
-            job['description'],
-            job.get('skill_weights', {})
-        )
+        if provider == 'openai':
+            if not openai_analyzer:
+                return jsonify({'error': 'OpenAI provider not configured'}), 400
+            analysis_result = openai_analyzer.analyze_resume(
+                file,
+                job['description'],
+                job.get('skill_weights', {})
+            )
+        else:
+            analysis_result = gemini_analyzer.analyze_resume(
+                file,
+                job['description'],
+                job.get('skill_weights', {})
+            )
 
         # Save candidate and analysis (including extracted text for resume improvement)
         candidate_data = {

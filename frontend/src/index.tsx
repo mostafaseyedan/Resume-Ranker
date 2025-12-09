@@ -7,6 +7,17 @@ import reportWebVitals from './reportWebVitals';
 // Import Sonner toast styles
 import 'sonner/dist/styles.css';
 
+// Initialize theme before rendering
+(() => {
+  try {
+    // Default to light mode for now to match Vibe requirements
+    document.body.classList.add('light-app-theme');
+    document.body.classList.remove('dark-app-theme');
+  } catch {
+    // noop
+  }
+})();
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );

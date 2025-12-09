@@ -79,9 +79,15 @@ class VertexSearchService:
                     5. State "Top x candidates found" at the top.
                     6. Sort by best match first. Provide reasoning for each selection.
                     7. Do not include any other additional commentary.
+                    8. Only use information retrieved from Vertex AI Search grounding. If no results are retrieved, answer exactly "No matching candidates found."
                     """
                 ),
             )
+
+            response_text = response.text if hasattr(response, 'text') else None
+
+            # Log grounding metadata to verify datastore usage
+            self._log_grounding_metadata(response)
 
             # Extract filenames from grounding metadata
             filenames = self._extract_filenames_from_response(response)
@@ -93,7 +99,8 @@ class VertexSearchService:
                 return {
                     'success': True,
                     'candidates': [],
-                    'message': 'No matching candidates found in the knowledge base'
+                    'message': 'No matching candidates found in the knowledge base',
+                    'response_text': response_text
                 }
 
             # Transform GCS paths to SharePoint URLs
@@ -106,7 +113,7 @@ class VertexSearchService:
             return {
                 'success': True,
                 'candidates': candidates,
-                'response_text': response.text if hasattr(response, 'text') else None
+                'response_text': response_text
             }
 
         except Exception as e:
@@ -115,6 +122,42 @@ class VertexSearchService:
                 'success': False,
                 'error': f'Failed to search for candidates: {str(e)}'
             }
+
+    def _log_grounding_metadata(self, response) -> None:
+        """Log key grounding metadata fields so we can see whether Vertex AI Search was used."""
+        try:
+            if not response.candidates:
+                logger.warning("No candidates returned from Gemini response")
+                return
+
+            metadata = getattr(response.candidates[0], 'grounding_metadata', None)
+            if not metadata:
+                logger.warning("No grounding metadata returned from Gemini response")
+                return
+
+            chunk_count = len(metadata.grounding_chunks or [])
+            support_count = len(metadata.grounding_supports or [])
+            queries = metadata.retrieval_queries or []
+            logger.info(
+                "Grounding metadata | chunks=%s | supports=%s | retrieval_queries=%s",
+                chunk_count,
+                support_count,
+                queries
+            )
+
+            # Log the first few chunks for verification
+            for idx, chunk in enumerate((metadata.grounding_chunks or [])[:5]):
+                ctx = getattr(chunk, 'retrieved_context', None)
+                if ctx:
+                    logger.info(
+                        "Grounding chunk %s | title=%s | uri=%s | document_name=%s",
+                        idx,
+                        getattr(ctx, 'title', None),
+                        getattr(ctx, 'uri', None),
+                        getattr(ctx, 'document_name', None)
+                    )
+        except Exception as log_err:
+            logger.warning(f"Failed to log grounding metadata: {log_err}")
 
     def _extract_filenames_from_response(self, response) -> List[str]:
         """Extract all file URIs referenced in the grounding metadata"""
@@ -134,12 +177,16 @@ class VertexSearchService:
                         context = chunk.retrieved_context
 
                         # Try to get the URI first (full GCS path), fallback to title
-                        uri = getattr(context, 'uri', '')
-                        title = getattr(context, 'title', '')
+                        uri = getattr(context, 'uri', '') or ''
+                        title = getattr(context, 'title', '') or ''
+                        document_name = getattr(context, 'document_name', '') or ''
 
                         # Prefer URI as it has the full path
                         if uri:
                             file_uris.append(uri)
+                        elif document_name:
+                            # Document name is the Vertex AI Search doc resource. Keep for debugging.
+                            file_uris.append(document_name)
                         elif title:
                             # Fallback to title if URI not available
                             file_uris.append(title)
@@ -169,8 +216,12 @@ class VertexSearchService:
                 # Extract filename from path
                 filename = gcs_path.split('/')[-1] if '/' in gcs_path else gcs_path
 
-                # Transform GCS path to SharePoint URL
-                sharepoint_url = self._gcs_to_sharepoint_url(gcs_path)
+                # If this is a Vertex AI Search document name (projects/.../documents/xyz), we can't map to SharePoint
+                if gcs_path.startswith('projects/'):
+                    sharepoint_url = None
+                else:
+                    # Transform GCS path to SharePoint URL
+                    sharepoint_url = self._gcs_to_sharepoint_url(gcs_path)
 
                 candidates.append({
                     'filename': filename,
@@ -303,4 +354,3 @@ class VertexSearchService:
         except Exception as e:
             logger.error(f"Error converting GCS path to SharePoint URL: {e}")
             return None
-

@@ -142,7 +142,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
             <div
               key={candidate.id}
               onClick={() => onCandidateSelect(candidate)}
-              className="bg-white border border-gray-200 rounded-lg p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col self-start"
+              className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col self-start"
             >
               {/* Header: Name and Score */}
               <div>
@@ -153,7 +153,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                     </h4>
                     <div className="flex items-center gap-2 mt-1">
                       {isImproved && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                        <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-800">
                           Improved
                         </span>
                       )}
@@ -163,7 +163,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <div className={`px-2 py-1 rounded-md text-sm font-bold ${getScoreColor(score)}`}>
+                    <div className={`px-2 py-1 text-sm font-bold ${getScoreColor(score)}`}>
                       {score !== undefined ? `${score}%` : 'N/A'}
                     </div>
                   </div>
@@ -194,7 +194,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                   </div>
                   <button
                     onClick={(e) => toggleExpand(candidate.id, e)}
-                    className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-colors"
+                    className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 transition-colors"
                   >
                     <svg
                       className={`w-4 h-4 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
@@ -226,7 +226,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                         <div className="text-xs text-gray-500 mb-1">Top Strengths:</div>
                         <div className="space-y-1">
                           {candidate.strengths.slice(0, 2).map((s, i) => (
-                            <div key={i} className="px-2 py-1 rounded text-xs bg-green-50 text-green-700 border border-green-200 truncate max-w-full">
+                            <div key={i} className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 truncate max-w-full">
                               {s.strength}
                             </div>
                           ))}
@@ -240,7 +240,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                         <div className="text-xs text-gray-500 mb-1">Areas for Improvement:</div>
                         <div className="space-y-1">
                           {candidate.weaknesses.slice(0, 2).map((w, i) => (
-                            <div key={i} className="px-2 py-1 rounded text-xs bg-red-50 text-red-700 border border-red-200 truncate max-w-full">
+                            <div key={i} className="px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 truncate max-w-full">
                               {w.weakness}
                             </div>
                           ))}
@@ -260,7 +260,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                             <div className="text-xs text-gray-500 mb-1">Skill Gaps:</div>
                             <div className="flex flex-wrap gap-1">
                               {lowSkills.slice(0, 2).map((s, i) => (
-                                <span key={i} className="inline-flex px-2 py-0.5 rounded text-[10px] bg-orange-50 text-orange-700 border border-orange-100 truncate max-w-full">
+                                <span key={i} className="inline-flex px-2 py-0.5 text-[10px] bg-orange-50 text-orange-700 border border-orange-100 truncate max-w-full">
                                   {s.skill} ({s.score * 10}%)
                                 </span>
                               ))}
@@ -282,7 +282,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                   <button
                     onClick={(e) => handleDeleteCandidate(candidate.id, candidate.name || 'Unnamed', e)}
                     disabled={deletingCandidateId === candidate.id}
-                    className="text-gray-400 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
+                    className="text-gray-400 hover:text-red-500 p-1.5 hover:bg-red-50 transition-colors disabled:opacity-50"
                     title="Delete candidate"
                   >
                     {deletingCandidateId === candidate.id ? (
