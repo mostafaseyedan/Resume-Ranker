@@ -69,6 +69,8 @@ export interface Job {
   review_provider?: string;
   reviewed_at?: string;
   source_filename?: string;
+  gemini_analysis?: any;
+  openai_analysis?: any;
 }
 
 export interface Candidate {

@@ -54,21 +54,51 @@ const ActivityLogs: React.FC = () => {
   };
 
 
-  const getActionColor = (action: string): string => {
+  const getActionIcon = (action: string): JSX.Element => {
     switch (action) {
       case 'login':
-        return 'bg-blue-50 border-blue-200';
+        return (
+          <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        );
       case 'job_created':
-        return 'bg-green-50 border-green-200';
+        return (
+          <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        );
       case 'candidate_analyzed':
-        return 'bg-purple-50 border-purple-200';
+        return (
+          <svg className="h-4 w-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
       case 'resume_improved':
-        return 'bg-yellow-50 border-yellow-200';
+        return (
+          <svg className="h-4 w-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'potential_candidates_search':
+        return (
+          <svg className="h-4 w-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        );
       case 'job_deleted':
       case 'candidate_deleted':
-        return 'bg-red-50 border-red-200';
+        return (
+          <svg className="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        );
       default:
-        return 'bg-gray-50 border-gray-200';
+        return (
+          <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
     }
   };
 
@@ -104,7 +134,7 @@ const ActivityLogs: React.FC = () => {
           <div className="text-gray-600 mb-4">{error}</div>
           <button
             onClick={loadActivities}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700"
           >
             Retry
           </button>
@@ -114,12 +144,13 @@ const ActivityLogs: React.FC = () => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white shadow p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Activity Logs</h2>
+        <h2 className="text-xl font-bold text-gray-900">Activity Logs</h2>
         <button
           onClick={loadActivities}
-          className="text-sm text-gray-600 hover:text-gray-900"
+          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+          title="Refresh"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -134,23 +165,21 @@ const ActivityLogs: React.FC = () => {
           <p>User activities will appear here</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="border-t border-gray-200">
           {activities.map((activity) => (
             <div
               key={activity.id}
-              className={`p-4 rounded-lg border ${getActionColor(activity.action)} transition-all hover:shadow-sm`}
+              className="flex items-center gap-3 py-3 px-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
             >
-              <div className="flex items-start space-x-3">
-
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900 font-medium">
-                    {formatActivityMessage(activity)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {formatTimestamp(activity.timestamp)}
-                  </p>
-                </div>
+              <div className="flex-shrink-0">
+                {getActionIcon(activity.action)}
               </div>
+              <span className="flex-1 text-sm text-gray-700">
+                {formatActivityMessage(activity)}
+              </span>
+              <span className="text-xs text-gray-500 whitespace-nowrap">
+                {formatTimestamp(activity.timestamp)}
+              </span>
             </div>
           ))}
         </div>

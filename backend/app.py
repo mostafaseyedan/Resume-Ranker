@@ -618,14 +618,20 @@ def process_sharepoint_job_file():
         }
         update_data.update(analysis_payload)
 
+        # Save to provider-specific slot as well
+        if provider == 'openai':
+            update_data['openai_analysis'] = analysis_payload
+        else:
+            update_data['gemini_analysis'] = analysis_payload
+
         # Note: We don't update the job title to preserve mapping with SharePoint and Monday.com
         # if extraction_data and extraction_data.get('job_title'):
         #     update_data['title'] = extraction_data.get('job_title')
 
         try:
             firestore_service.update_job(job_id, update_data)
-            logger.info(f"Updated job {job_id} with extracted job information")
-
+            logger.info(f"Updated job {job_id} with extracted job information (Provider: {provider})")
+            
             # Log the job update activity
             job = firestore_service.get_job(job_id)
             if job:

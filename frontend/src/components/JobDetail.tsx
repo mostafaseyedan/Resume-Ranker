@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Job, Candidate, apiService } from '../services/apiService';
 import ResumeUpload from './ResumeUpload';
 import CandidateList from './CandidateList';
@@ -208,6 +208,25 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [jobProvider, setJobProvider] = useState<'gemini' | 'openai'>('gemini');
   const [batchProcessing, setBatchProcessing] = useState(false);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
+
+  // Preview Provider State (null = default/root job data)
+  const [previewProvider, setPreviewProvider] = useState<string | null>(null);
+
+  // Derived job object to display based on selection
+  const displayedJob = useMemo(() => {
+    if (previewProvider === 'gemini' && (job as any).gemini_analysis) {
+      return { ...job, ...(job as any).gemini_analysis };
+    }
+    if (previewProvider === 'openai' && (job as any).openai_analysis) {
+      return { ...job, ...(job as any).openai_analysis };
+    }
+    return job; // Default to root (most recent)
+  }, [job, previewProvider]);
+
+  // Sync previewProvider with job's current provider when job loads/changes
+  useEffect(() => {
+    setPreviewProvider(job.review_provider || null);
+  }, [job.id, job.review_provider]);
 
   // Job Details Sub-tabs state
   type JobDetailSection = 'description' | 'requirements' | 'additional' | 'weights';
@@ -845,14 +864,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           </button>
           <button
             onClick={(e) => handleDeleteJob(job.id, e as any)}
-            className="ml-auto mr-2 text-gray-400 hover:text-red-600 p-2"
+            className="ml-auto mr-4 text-gray-400 hover:text-red-600 p-2"
             title="Delete job"
             aria-label="Delete job"
           >
             {deletingJobId === job.id ? (
-              <div className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full"></div>
+              <div className="animate-spin h-5 w-5 border-2 border-red-500 border-t-transparent rounded-full"></div>
             ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
               </svg>
             )}
@@ -1128,55 +1147,50 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           <div className="flex flex-col">
 
             {/* Context Header (between tabs) */}
-            <div className="border-b border-gray-200 py-3 px-6 flex items-start justify-between">
+            <div className="border-b border-gray-200 py-3 px-6 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-semibold text-gray-900">
                   {job.source_filename || sharepointFiles?.job_files?.[0]?.name}
                 </h2>
-                <div className="flex items-center gap-2 mt-1 text-sm text-gray-500">
-                  <span>
-                    {(() => {
-                      // 1. Try SharePoint file creator (standard Graph API structure)
-                      const fileCreator = sharepointFiles?.job_files?.[0]?.createdBy?.user?.displayName;
-                      if (fileCreator) return fileCreator;
-
-                      // 2. Try Job Creator (if not system account)
-                      if (job.created_by && job.created_by !== 'monday_sync') {
-                        return job.created_by;
-                      }
-
-                      // 3. Fallback
-                      return 'AI Assistant';
-                    })()}
-                  </span>
-                  <span>•</span>
-                  <span>{new Date(job.created_at).toLocaleDateString()}</span>
-                  {job.reviewed_by && (
-                    <>
-                      <span>•</span>
-                      <span>Reviewed by {job.reviewed_by}</span>
-                    </>
-                  )}
-                </div>
+                {job.reviewed_by && (
+                  <div className="flex items-center gap-2 mt-1 text-gray-500" style={{ fontSize: '12px' }}>
+                    <span>{job.reviewed_by}</span>
+                    <span>•</span>
+                    <span>Updated {(job as any).updated_at ? new Date((job as any).updated_at).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-3">
-                {/* Provider Badge */}
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 shadow-sm">
-                  <span className="text-xs font-medium text-gray-600">Analysis by</span>
-                  {job.review_provider === 'openai' ? (
-                    <img
-                      src="/chatgpt.png"
-                      alt="ChatGPT"
-                      className="h-5 w-auto"
-                      title="Analyzed with ChatGPT"
-                    />
-                  ) : (
-                    <img
-                      src="/gemini-icon.svg"
-                      alt="Gemini Pro"
-                      className="h-5 w-auto"
-                      title="Analyzed with Google Gemini"
-                    />
+              <div className="flex items-center justify-end">
+                {/* Provider Toggles */}
+                <div className="flex items-center gap-2">
+                  {/* Gemini Toggle */}
+                  {((job as any).gemini_analysis || (!job.review_provider || job.review_provider === 'gemini')) && (
+                    <button
+                      onClick={() => setPreviewProvider('gemini')}
+                      className={`transition-opacity ${previewProvider === 'gemini' ? 'opacity-100' : 'opacity-40 hover:opacity-100 grayscale'}`}
+                      title="View Gemini Analysis"
+                    >
+                      <img
+                        src="/gemini-icon.svg"
+                        alt="Gemini"
+                        className="h-6 w-auto"
+                      />
+                    </button>
+                  )}
+
+                  {/* OpenAI Toggle */}
+                  {((job as any).openai_analysis || job.review_provider === 'openai') && (
+                    <button
+                      onClick={() => setPreviewProvider('openai')}
+                      className={`transition-opacity ${previewProvider === 'openai' ? 'opacity-100' : 'opacity-40 hover:opacity-100 grayscale'}`}
+                      title="View ChatGPT Analysis"
+                    >
+                      <img
+                        src="/chatgpt.png"
+                        alt="ChatGPT"
+                        className="h-5 w-auto"
+                      />
+                    </button>
                   )}
                 </div>
               </div>
@@ -1264,7 +1278,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                           ),
                         }}
                       >
-                        {job.description || ''}
+                        {displayedJob.description || ''}
                       </ReactMarkdown>
                     </div>
                   </div>
@@ -1274,7 +1288,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               {activeJobDetailSection === 'requirements' && (
                 <div className="space-y-6">
                   {/* Requirements Analysis from job.requirements */}
-                  {job.requirements && Object.keys(job.requirements).length > 0 && (
+                  {displayedJob.requirements && Object.keys(displayedJob.requirements).length > 0 && (
                     <div style={{
                       border: '1px solid #ddd',
                       borderRadius: '0px',
@@ -1287,7 +1301,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                         <h3 style={{ margin: 0, fontWeight: 600, color: '#333' }}>Analysis Summary</h3>
                       </div>
                       <div className="space-y-2" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
-                        {Object.entries(job.requirements).map(([key, value]) => (
+                        {Object.entries(displayedJob.requirements).map(([key, value]) => (
                           <div key={key} className="flex flex-col sm:flex-row">
                             <span className="font-medium text-gray-600 capitalize sm:w-32 mb-1 sm:mb-0">
                               {key.replace('_', ' ')}:
@@ -1301,10 +1315,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     </div>
                   )}
 
-                  {job.extracted_data && (
+                  {displayedJob.extracted_data && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Required Skills */}
-                      {job.extracted_data.required_skills && job.extracted_data.required_skills.length > 0 && (
+                      {displayedJob.extracted_data.required_skills && displayedJob.extracted_data.required_skills.length > 0 && (
                         <div style={{
                           border: '1px solid #feb2b2',
                           borderRadius: '0px',
@@ -1317,7 +1331,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             <h3 style={{ margin: 0, fontWeight: 600, color: '#742a2a' }}>Required Skills</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {job.extracted_data.required_skills.map((skill, index) => (
+                            {displayedJob.extracted_data.required_skills.map((skill: string, index: number) => (
                               <button
                                 key={index}
                                 onClick={() => handleSkillClick(skill)}
@@ -1331,7 +1345,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       )}
 
                       {/* Preferred Skills */}
-                      {job.extracted_data.preferred_skills && job.extracted_data.preferred_skills.length > 0 && (
+                      {displayedJob.extracted_data.preferred_skills && displayedJob.extracted_data.preferred_skills.length > 0 && (
                         <div style={{
                           border: '1px solid #90cdf4',
                           borderRadius: '0px',
@@ -1344,7 +1358,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             <h3 style={{ margin: 0, fontWeight: 600, color: '#2c5282' }}>Preferred Skills</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {job.extracted_data.preferred_skills.map((skill, index) => (
+                            {displayedJob.extracted_data.preferred_skills.map((skill: string, index: number) => (
                               <button
                                 key={index}
                                 onClick={() => handleSkillClick(skill)}
@@ -1358,7 +1372,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       )}
 
                       {/* Experience Requirements */}
-                      {job.extracted_data.experience_requirements && (
+                      {displayedJob.extracted_data.experience_requirements && (
                         <div
                           style={{
                             border: '1px solid #9ae6b4',
@@ -1369,19 +1383,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                             cursor: 'pointer'
                           }}
-                          onClick={() => handleSkillClick(job.extracted_data.experience_requirements)}
+                          onClick={() => handleSkillClick(displayedJob.extracted_data.experience_requirements!)}
                         >
                           <div style={{ marginBottom: '12px' }}>
                             <h3 style={{ margin: 0, fontWeight: 600, color: '#22543d' }}>Experience Requirements</h3>
                           </div>
                           <p style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
-                            {job.extracted_data.experience_requirements}
+                            {displayedJob.extracted_data.experience_requirements}
                           </p>
                         </div>
                       )}
 
                       {/* Education Requirements */}
-                      {job.extracted_data.education_requirements && job.extracted_data.education_requirements.length > 0 && (
+                      {displayedJob.extracted_data && displayedJob.extracted_data.education_requirements && displayedJob.extracted_data.education_requirements.length > 0 && (
                         <div style={{
                           border: '1px solid #d6bcfa',
                           borderRadius: '0px',
@@ -1394,7 +1408,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             <h3 style={{ margin: 0, fontWeight: 600, color: '#44337a' }}>Education Requirements</h3>
                           </div>
                           <ul className="list-disc list-inside space-y-1" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
-                            {job.extracted_data.education_requirements.map((edu, index) => (
+                            {displayedJob.extracted_data.education_requirements.map((edu: string, index: number) => (
                               <li
                                 key={index}
                                 onClick={() => handleSkillClick(edu)}
@@ -1408,7 +1422,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       )}
 
                       {/* Certifications */}
-                      {job.extracted_data.certifications && job.extracted_data.certifications.length > 0 && (
+                      {displayedJob.extracted_data.certifications && displayedJob.extracted_data.certifications.length > 0 && (
                         <div style={{
                           border: '1px solid #fbd38d',
                           borderRadius: '0px',
@@ -1421,7 +1435,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             <h3 style={{ margin: 0, fontWeight: 600, color: '#744210' }}>Certifications</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {job.extracted_data.certifications.map((cert, index) => (
+                            {displayedJob.extracted_data.certifications.map((cert: string, index: number) => (
                               <button
                                 key={index}
                                 onClick={() => handleSkillClick(cert)}
@@ -1435,7 +1449,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       )}
 
                       {/* Key Responsibilities */}
-                      {job.extracted_data.key_responsibilities && job.extracted_data.key_responsibilities.length > 0 && (
+                      {displayedJob.extracted_data.key_responsibilities && displayedJob.extracted_data.key_responsibilities.length > 0 && (
                         <div style={{
                           border: '1px solid #a3bffa',
                           borderRadius: '0px',
@@ -1448,7 +1462,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             <h3 style={{ margin: 0, fontWeight: 600, color: '#3c366b' }}>Key Responsibilities</h3>
                           </div>
                           <ul className="list-disc list-inside space-y-2" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
-                            {job.extracted_data.key_responsibilities.map((responsibility, index) => (
+                            {displayedJob.extracted_data.key_responsibilities.map((responsibility: string, index: number) => (
                               <li key={index}>{responsibility}</li>
                             ))}
                           </ul>
@@ -1456,7 +1470,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       )}
 
                       {/* Soft Skills */}
-                      {job.extracted_data.soft_skills && job.extracted_data.soft_skills.length > 0 && (
+                      {displayedJob.extracted_data.soft_skills && displayedJob.extracted_data.soft_skills.length > 0 && (
                         <div style={{
                           border: '1px solid #fbb6ce',
                           borderRadius: '0px',
@@ -1469,7 +1483,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             <h3 style={{ margin: 0, fontWeight: 600, color: '#702459' }}>Soft Skills</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {job.extracted_data.soft_skills.map((skill, index) => (
+                            {displayedJob.extracted_data.soft_skills.map((skill: string, index: number) => (
                               <span
                                 key={index}
                                 className="px-3 py-1 bg-white border border-pink-200 text-pink-800 text-sm font-medium"
@@ -1487,7 +1501,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
               {activeJobDetailSection === 'additional' && (
                 <div>
-                  {job.extracted_data && job.extracted_data.other && job.extracted_data.other.length > 0 ? (
+                  {displayedJob.extracted_data && displayedJob.extracted_data.other && displayedJob.extracted_data.other.length > 0 ? (
                     <div style={{
                       border: '1px solid #ddd',
                       borderRadius: '0px',
@@ -1498,7 +1512,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     }}>
 
                       <ul className="list-disc list-inside space-y-1" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
-                        {job.extracted_data.other.map((item, index) => (
+                        {displayedJob.extracted_data.other.map((item: string, index: number) => (
                           <li key={index}>{item}</li>
                         ))}
                       </ul>
@@ -1511,7 +1525,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
               {activeJobDetailSection === 'weights' && (
                 <div>
-                  {job.skill_weights && Object.keys(job.skill_weights).length > 0 ? (
+                  {displayedJob.skill_weights && Object.keys(displayedJob.skill_weights).length > 0 ? (
                     <div style={{
                       border: '1px solid #ddd',
                       borderRadius: '0px',
@@ -1522,7 +1536,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     }}>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {Object.entries(job.skill_weights).map(([skill, weight]) => (
+                        {Object.entries(displayedJob.skill_weights).map(([skill, weight]) => (
                           <div key={skill} className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100">
                             <span className="text-sm font-medium text-gray-700">{skill}</span>
                             <div className="flex items-center space-x-3">
@@ -1532,7 +1546,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                   style={{ width: `${(Number(weight) / 10) * 100}%` }}
                                 ></div>
                               </div>
-                              <span className="text-xs font-bold text-gray-600 min-w-[40px]">{weight}/10</span>
+                              <div className="text-lg font-bold text-gray-900">{Number(displayedJob.skill_weights![skill] || 0)}%</div>
                             </div>
                           </div>
                         ))}
