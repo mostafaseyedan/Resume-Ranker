@@ -7,7 +7,7 @@ import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
-import { SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label } from '@vibe/core';
+import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label } from '@vibe/core';
 import '@vibe/core/tokens';
 import { AiOutlineFile } from 'react-icons/ai';
 import { BsFiletypePdf, BsFiletypeDocx, BsFiletypeXlsx, BsCheck } from 'react-icons/bs';
@@ -229,7 +229,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   }, [job.id, job.review_provider]);
 
   // Job Details Sub-tabs state
-  type JobDetailSection = 'description' | 'requirements' | 'additional' | 'weights';
+  type JobDetailSection = 'description' | 'requirements' | 'additional' | 'weights' | 'questions';
   const [activeJobDetailSection, setActiveJobDetailSection] = useState<JobDetailSection>('description');
 
   const JOB_DETAIL_SECTIONS: { key: JobDetailSection; label: string }[] = [
@@ -237,6 +237,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     { key: 'requirements', label: 'Requirements Analysis' },
     { key: 'additional', label: 'Additional Information' },
     { key: 'weights', label: 'Skill Importance Weights' },
+    { key: 'questions', label: 'Questions for Candidate' },
   ];
 
   // Internal Candidates Tab selection state
@@ -315,12 +316,23 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     setSelectedGroupCandidates(null);
   };
 
-  const handleCandidateDeleted = (candidateId: string) => {
+  const handleCandidateDeleted = async (candidateId: string) => {
+    await apiService.deleteCandidate(candidateId);
     setCandidates(prevCandidates => prevCandidates.filter(candidate => candidate.id !== candidateId));
     // Clear selected candidate if it was deleted
     if (selectedCandidate?.id === candidateId) {
       setSelectedCandidate(null);
     }
+    // Also clear from grouped candidates if present
+    if (selectedGroupCandidates) {
+      const updatedGroup = selectedGroupCandidates.filter(c => c.id !== candidateId);
+      if (updatedGroup.length === 0) {
+        setSelectedGroupCandidates(null);
+      } else {
+        setSelectedGroupCandidates(updatedGroup);
+      }
+    }
+    toast.success('Candidate deleted successfully');
   };
 
   const loadSharePointFiles = async () => {
@@ -818,18 +830,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           >
             Files
           </button>
-          <button
-            onClick={() => {
-              setActiveTab('candidates');
-              setSelectedGroupCandidates(null);
-            }}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'candidates'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-          >
-            Candidates ({getUniqueCandidateCount()})
-          </button>
+	          <button
+	            onClick={() => {
+	              setActiveTab('candidates');
+	              setSelectedGroupCandidates(null);
+	            }}
+	            className={`py-2 px-4 text-sm font-medium ${activeTab === 'candidates'
+	              ? 'border-b-2 border-blue-500 text-blue-600'
+	              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+	              }`}
+	          >
+	            Candidates ({getUniqueCandidateCount()})
+	          </button>
           <button
             onClick={() => setActiveTab('resumes')}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'resumes'
@@ -902,9 +914,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               <div>
                 <button
                   onClick={handleBackToCandidatesList}
-                  className="mb-4 flex items-center text-blue-600 hover:text-blue-800"
+                  className="mb-4 flex items-center text-sm text-blue-600 hover:text-blue-800"
                 >
-                  <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                   Back to Candidates
@@ -920,6 +932,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               <CandidatesGroupedList
                 candidates={candidates}
                 onCandidateSelect={handleCandidateGroupSelect}
+                onCandidateDeleted={handleCandidateDeleted}
               />
             )}
           </div>
@@ -1546,7 +1559,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                   style={{ width: `${(Number(weight) / 10) * 100}%` }}
                                 ></div>
                               </div>
-                              <div className="text-lg font-bold text-gray-900">{Number(displayedJob.skill_weights![skill] || 0)}%</div>
+                              <div className="text-sm text-gray-900">{Number(displayedJob.skill_weights![skill] || 0)}%</div>
                             </div>
                           </div>
                         ))}
@@ -1557,6 +1570,37 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   )}
                 </div>
               )}
+
+              {activeJobDetailSection === 'questions' && (
+                <div>
+                  {displayedJob.extracted_data && displayedJob.extracted_data.questions_for_candidate && displayedJob.extracted_data.questions_for_candidate.length > 0 ? (
+                    <div style={{
+                      border: '1px solid #ddd',
+                      borderRadius: '0px',
+                      padding: '16px',
+                      marginBottom: '12px',
+                      background: '#f9fafb',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}>
+                      <div style={{ marginBottom: '16px' }}>
+                        <h3 style={{ margin: 0, fontWeight: 600, color: '#333', fontSize: '16px' }}>
+                          Questions for Candidate
+                        </h3>
+                        <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#666' }}>
+                          Key questions to assess candidate suitability
+                        </p>
+                      </div>
+                      <ol className="list-decimal list-inside space-y-3" style={{ fontSize: '14px', lineHeight: '1.6', color: '#555' }}>
+                        {displayedJob.extracted_data.questions_for_candidate.map((question: string, index: number) => (
+                          <li key={index} className="pl-2">{question}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 italic">No interview questions generated for this position.</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1564,25 +1608,24 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         {activeTab === 'potential-candidates' && (
           <div className="p-6">
             {potentialCandidates.length === 0 && !searchingCandidates && !searchError ? (
-              <div className="text-center py-16 px-4">
-                <div className="mb-6">
-                  <div className="mx-auto h-24 w-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
-                    <svg className="h-12 w-12 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">Discover Internal Candidates</h3>
-                <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                  Let AI search through the knowledge base to find candidates whose skills and experience match this position
+              <div className="text-center py-12">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">Internal Candidates</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Search the knowledge base to find candidates whose skills and experience match this position.
                 </p>
-                <button
-                  onClick={handleSearchPotentialCandidates}
-                  disabled={!job.description}
-                  className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {!job.description ? 'Add Job Description First' : 'Start AI Search'}
-                </button>
+                <div className="mt-6">
+                  <Button
+                    onClick={handleSearchPotentialCandidates}
+                    disabled={!job.description}
+                    size="small"
+                    kind="primary"
+                  >
+                    {!job.description ? 'Add Job Description First' : 'Start AI Search'}
+                  </Button>
+                </div>
               </div>
             ) : (
               <div>
@@ -1601,14 +1644,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   </div>
                 ) : searchError ? (
                   <div className="text-center py-12">
-                    <div className="bg-red-50 border border-red-200 p-6 max-w-md mx-auto">
-                      <p className="text-red-800 mb-4">{searchError}</p>
-                      <button
-                        onClick={handleSearchPotentialCandidates}
-                        className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700"
-                      >
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 className="mt-4 text-lg font-medium text-gray-900">Search Failed</h3>
+                    <p className="mt-2 text-sm text-gray-500">{searchError}</p>
+                    <div className="mt-6">
+                      <Button onClick={handleSearchPotentialCandidates} size="small" kind="primary">
                         Try Again
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ) : (

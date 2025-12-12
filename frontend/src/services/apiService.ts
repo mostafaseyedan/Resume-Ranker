@@ -41,6 +41,7 @@ export interface JobExtractedData {
   key_responsibilities: string[];
   soft_skills: string[];
   other: string[];
+  questions_for_candidate?: string[];
 }
 
 export interface Job {
@@ -107,14 +108,111 @@ export interface Candidate {
     relevant_years: number;
     role_progression: string;
     industry_match: string;
+    companies?: Array<{
+      name: string;
+      location?: string;
+      start_date?: string;
+      end_date?: string;
+    }>;
   };
   education_match: {
     degree_relevance: string;
     certifications: string[];
     continuous_learning: string;
+    institutions?: Array<{
+      name: string;
+      location?: string;
+      start_date?: string;
+      end_date?: string;
+    }>;
   };
   uploaded_by: string;
   created_at: string;
+  // Web verification data (optional - populated after verification)
+  web_verification?: WebVerificationResult;
+  web_verification_provider?: string;
+}
+
+export interface VerificationSource {
+  url: string;
+  title: string;
+  relevant_text?: string;
+}
+
+export interface ClaimVerification {
+  id: string;
+  category: 'employment' | 'education' | 'certification' | 'project' | 'publication' | 'award' | 'identity' | 'other';
+  claim: string;
+  entity?: {
+    organization?: string | null;
+    role?: string | null;
+    location?: string | null;
+    start_date?: string | null; // YYYY | YYYY-MM | YYYY-MM-DD
+    end_date?: string | null; // YYYY | YYYY-MM | YYYY-MM-DD
+    credential?: string | null;
+  };
+  verification_status: 'verified' | 'partially_verified' | 'unverified' | 'contradicted' | 'inconclusive';
+  confidence: 'high' | 'medium' | 'low';
+  reason: string;
+  evidence_snippets: string[];
+  sources: VerificationSource[];
+  discrepancies: Array<{
+    type:
+      | 'date_mismatch'
+      | 'role_mismatch'
+      | 'org_mismatch'
+      | 'location_mismatch'
+      | 'identity_mismatch'
+      | 'other';
+    description: string;
+    severity: 'high' | 'medium' | 'low';
+    source_urls: string[];
+  }>;
+}
+
+export interface WebVerificationResult {
+  schema_version: '1.0';
+  candidate_name: string;
+  run?: {
+    provider: 'gemini' | 'openai';
+    model: string;
+    run_at: string;
+  };
+  search_queries_used: string[];
+  profile_found: boolean;
+  online_presence: {
+    presence_level: 'strong' | 'moderate' | 'weak' | 'none';
+    profiles: Array<{
+      type: 'linkedin' | 'github' | 'personal_site' | 'portfolio' | 'company_bio' | 'other';
+      url: string;
+      title?: string | null;
+      match_strength: 'high' | 'medium' | 'low';
+      notes?: string | null;
+    }>;
+    summary: string;
+  };
+  identity_resolution: {
+    status: 'matched' | 'ambiguous' | 'not_found';
+    confidence: 'high' | 'medium' | 'low';
+    reason: string;
+    signals: string[];
+  };
+  profile_summary: string;
+  claim_verifications: ClaimVerification[];
+  overall_verification_status: 'verified' | 'partially_verified' | 'limited_information' | 'no_information_found' | 'contradicted';
+  overall_confidence: 'high' | 'medium' | 'low';
+  verification_summary: string;
+  metrics?: {
+    claims_total: number;
+    claims_verified: number;
+    claims_partially_verified: number;
+    claims_unverified: number;
+    claims_contradicted: number;
+    claims_inconclusive: number;
+    verifiable_ratio: number;
+  };
+  discrepancies_summary: ClaimVerification['discrepancies'];
+  sources: VerificationSource[];
 }
 
 export interface CreateJobRequest {
@@ -274,6 +372,11 @@ export const apiService = {
 
   async deleteCandidate(candidateId: string): Promise<{ success: boolean; message: string }> {
     const response = await apiClient.delete(`/candidates/${candidateId}`);
+    return response.data;
+  },
+
+  async verifyCandidate(candidateId: string, provider: 'gemini' | 'openai' = 'gemini'): Promise<{ success: boolean; verification: WebVerificationResult }> {
+    const response = await apiClient.post(`/candidates/${candidateId}/verify`, { provider });
     return response.data;
   },
 

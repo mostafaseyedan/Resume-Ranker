@@ -143,6 +143,12 @@ For the 'job_description_text' field, you MUST rewrite the text into clean, read
 - EXCLUDE application instructions (e.g., 'Please respond by logging in...', 'submit candidate').
 - Focus ONLY on the Role Summary, Technical Environment, and Requirements.
 - The output should look like a clean, professional job posting summary.
+
+QUESTIONS FOR CANDIDATE:
+Generate 5-10 assessment questions based on the job description. Focus on:
+- Technical skills and competencies required for the role
+- Relevant work experience and past projects
+Make questions specific to the job requirements and suitable for candidate assessment emails.
 """
             # Use strict parsing with the JobExtraction Pydantic model
             result = self._parse_completion(self.job_model, prompt, JobExtraction)
@@ -188,13 +194,15 @@ You must calculate the overall_score (0-100) using this weighted formula:
    - Evaluate relevant_years: How much experience is directly relevant? (0-10)
    - Evaluate role_progression: Clear career growth and increasing responsibility? (0-10)
    - Evaluate industry_match: Experience in same/similar industry? (0-10)
-   - Average these four scores, convert to percentage, multiply by 0.30
+   - **BONUS**: If candidate worked for US-based companies, increase the experience score by up to 10 points (max 10 total).
+   - Average these four scores (including bonus in calculation), convert to percentage, multiply by 0.30
 
 3. Education Match (20% of total score):
    - Evaluate degree_relevance: How relevant is education to the role? (0-10)
    - Evaluate certifications: Does candidate have required/preferred certifications? (0-10)
    - Evaluate continuous_learning: Evidence of ongoing professional development? (0-10)
-   - Average these three scores, convert to percentage, multiply by 0.20
+   - **BONUS**: If candidate attended US-based universities/institutions, increase the education score by up to 10 points (max 10 total).
+   - Average these three scores (including bonus), convert to percentage, multiply by 0.20
 
 4. Soft Skills Match (10% of total score):
    - Evaluate communication, leadership, teamwork, problem-solving based on resume evidence (0-10)
@@ -219,11 +227,21 @@ For experience_match:
 - relevant_years: Years of directly relevant experience (numeric)
 - role_progression: Description of career progression with assessment
 - industry_match: Description of industry alignment with assessment
+- companies: List ALL companies with detailed information:
+  - name: Company name (normalize, e.g., "Google Inc." -> "Google")
+  - location: City, State or City, Country (e.g., "Dallas, Texas" or "London, UK")
+  - start_date: Start date in MM/DD/YYYY format
+  - end_date: End date in MM/DD/YYYY format or "Present" if current
 
 For education_match:
 - degree_relevance: Explanation of how education relates to role
 - certifications: List of all certifications found in resume
 - continuous_learning: Evidence of recent training, courses, self-study
+- institutions: List ALL universities and educational institutions with detailed information:
+  - name: Institution name
+  - location: City, State or City, Country
+  - start_date: Start date in MM/DD/YYYY format
+  - end_date: End date in MM/DD/YYYY format or "Present" if current
 
 For strengths:
 - Identify 3-5 top strengths with specific evidence from resume

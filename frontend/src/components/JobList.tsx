@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Label } from '@vibe/core';
+import { Button, Label } from '@vibe/core';
 import '@vibe/core/tokens';
 import { Job, apiService, CreateJobRequest } from '../services/apiService';
 
@@ -526,12 +526,13 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 <img src="/monday.svg" alt="" aria-hidden="true" className="h-6 w-6" />
               )}
             </button>
-            <button
+            <Button
               onClick={() => setShowCreateForm(!showCreateForm)}
-              className="px-3 py-1 text-sm bg-blue-600 text-white hover:bg-blue-700"
+              size="small"
+              kind="primary"
             >
               + New Job
-            </button>
+            </Button>
           </div>
         </div>
       </div>

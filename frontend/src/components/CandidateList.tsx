@@ -125,12 +125,6 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-sm font-normal text-gray-900">
-          Evaluated Candidates ({candidates.length})
-        </h3>
-      </div>
-
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {candidates.map((candidate) => {
           const sharepointFile = findSharePointFile(candidate.resume_filename || '');
@@ -260,7 +254,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                             <div className="text-xs text-gray-500 mb-1">Skill Gaps:</div>
                             <div className="flex flex-wrap gap-1">
                               {lowSkills.slice(0, 2).map((s, i) => (
-                                <span key={i} className="inline-flex px-2 py-0.5 text-[10px] bg-orange-50 text-orange-700 border border-orange-100 truncate max-w-full">
+                                <span key={i} className="inline-flex px-2 py-0.5 text-xs bg-orange-50 text-orange-700 border border-orange-100 truncate max-w-full">
                                   {s.skill} ({s.score * 10}%)
                                 </span>
                               ))}

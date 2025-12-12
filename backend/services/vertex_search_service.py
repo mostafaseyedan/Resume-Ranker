@@ -64,7 +64,7 @@ class VertexSearchService:
             # Construct search prompt
             # Generate grounded response
             response = self.client.models.generate_content(
-                model="gemini-flash-latest",
+                model=os.getenv("VERTEX_MODEL", "gemini-1.5-flash"),
                 contents=f"Based on the job description below, check all resumes and CVs in the knowledge base, then identify candidates that would be a good match for this position.\n\nJob Description:\n{job_description}",
                 config=GenerateContentConfig(
                     tools=[tool],
@@ -88,6 +88,8 @@ class VertexSearchService:
 
             # Log grounding metadata to verify datastore usage
             self._log_grounding_metadata(response)
+            # Log response summary (excluding verbose grounding chunks)
+            self._log_response_summary(response)
 
             # Extract filenames from grounding metadata
             filenames = self._extract_filenames_from_response(response)
@@ -144,20 +146,62 @@ class VertexSearchService:
                 support_count,
                 queries
             )
-
-            # Log the first few chunks for verification
-            for idx, chunk in enumerate((metadata.grounding_chunks or [])[:5]):
-                ctx = getattr(chunk, 'retrieved_context', None)
-                if ctx:
-                    logger.info(
-                        "Grounding chunk %s | title=%s | uri=%s | document_name=%s",
-                        idx,
-                        getattr(ctx, 'title', None),
-                        getattr(ctx, 'uri', None),
-                        getattr(ctx, 'document_name', None)
-                    )
         except Exception as log_err:
             logger.warning(f"Failed to log grounding metadata: {log_err}")
+
+    def _log_response_summary(self, response) -> None:
+        """Log a compact summary of the model response, excluding grounding chunks content."""
+        try:
+            summary: Dict[str, Any] = {}
+
+            summary["candidate_count"] = len(getattr(response, "candidates", []) or [])
+
+            usage = getattr(response, "usage_metadata", None)
+            if usage is not None:
+                summary["usage_metadata"] = {
+                    "prompt_token_count": getattr(usage, "prompt_token_count", None),
+                    "candidates_token_count": getattr(usage, "candidates_token_count", None),
+                    "total_token_count": getattr(usage, "total_token_count", None),
+                }
+
+            response_text = getattr(response, "text", None)
+            if isinstance(response_text, str):
+                summary["text_len"] = len(response_text)
+                summary["text_preview"] = response_text[:500]
+
+            candidates_summary: List[Dict[str, Any]] = []
+            for idx, cand in enumerate((getattr(response, "candidates", None) or [])[:3]):
+                cand_summary: Dict[str, Any] = {"index": idx}
+                cand_summary["finish_reason"] = getattr(cand, "finish_reason", None)
+
+                content = getattr(cand, "content", None)
+                parts = getattr(content, "parts", None) if content is not None else None
+                if parts is not None:
+                    part_types: List[str] = []
+                    for part in parts:
+                        present = []
+                        for field_name in ("text", "function_call", "function_response", "inline_data", "thought_signature"):
+                            if getattr(part, field_name, None) is not None:
+                                present.append(field_name)
+                        part_types.append(",".join(present) if present else part.__class__.__name__)
+                    cand_summary["content_part_types"] = part_types
+
+                grounding = getattr(cand, "grounding_metadata", None)
+                if grounding is not None:
+                    cand_summary["grounding_metadata"] = {
+                        "chunks_count": len(getattr(grounding, "grounding_chunks", []) or []),
+                        "supports_count": len(getattr(grounding, "grounding_supports", []) or []),
+                        "retrieval_queries": getattr(grounding, "retrieval_queries", None),
+                        "web_search_queries": getattr(grounding, "web_search_queries", None),
+                    }
+
+                candidates_summary.append(cand_summary)
+
+            summary["candidates"] = candidates_summary
+
+            logger.info("Vertex search model response summary: %s", summary)
+        except Exception as e:
+            logger.warning("Failed to log response summary: %s", e)
 
     def _extract_filenames_from_response(self, response) -> List[str]:
         """Extract all file URIs referenced in the grounding metadata"""
@@ -271,7 +315,7 @@ class VertexSearchService:
             # Construct search prompt - focused on just names and filenames
             # Generate grounded response
             response = self.client.models.generate_content(
-                model="gemini-flash-latest",
+                model=os.getenv("VERTEX_MODEL", "gemini-1.5-flash"),
                 contents=f"Check all resumes and CVs in the knowledge base that have \"{skill_or_requirement}\".",
                 config=GenerateContentConfig(
                     tools=[tool],

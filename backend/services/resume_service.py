@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime, date
 from .resume_models import ResumeModel, ContactInfo, ExperienceEntry, EducationEntry, SkillEntry, CompetencyEntry, ProjectEntry
@@ -286,7 +287,7 @@ Ensure all fields are properly formatted and the response is valid JSON that mat
         try:
             # Generate content with structured JSON output
             response = self.client.models.generate_content(
-                model="gemini-3-pro-preview",
+                model=os.getenv("GEMINI_GENERATOR_MODEL", "gemini-1.5-pro"),
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",

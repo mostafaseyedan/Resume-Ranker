@@ -14,10 +14,29 @@ interface GroupedCandidate {
 interface CandidatesGroupedListProps {
   candidates: Candidate[];
   onCandidateSelect: (candidates: Candidate[]) => void;
+  onCandidateDeleted: (candidateId: string) => void;
 }
 
-const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidates, onCandidateSelect }) => {
+const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidates, onCandidateSelect, onCandidateDeleted }) => {
+  const [deletingCandidateId, setDeletingCandidateId] = useState<string | null>(null);
 
+  const handleDeleteCandidate = async (candidateId: string, candidateName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!confirm(`Are you sure you want to delete ${candidateName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingCandidateId(candidateId);
+    try {
+      await onCandidateDeleted(candidateId);
+    } catch (error) {
+      console.error('Failed to delete candidate:', error);
+      alert('Failed to delete candidate. Please try again.');
+    } finally {
+      setDeletingCandidateId(null);
+    }
+  };
 
   const getScoreColor = (score: number): string => {
     if (score >= 90) return 'text-green-600 bg-green-100';
@@ -143,10 +162,7 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-sm font-normal text-gray-900">
-          Candidates ({groupedCandidates.length})
-        </h3>
+      <div className="flex justify-end items-center mb-4">
         <div className="text-xs text-gray-500">Select a candidate to view all versions</div>
       </div>
 
@@ -215,13 +231,27 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
                             {isImproved ? 'Improved Version' : 'Original Version'}
                           </span>
                         </div>
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-2">
                           <span className="text-gray-400">
                             {new Date(resume.created_at).toLocaleDateString()}
                           </span>
                           <span className={`font-semibold ${getScoreColor(resume.overall_score || 0).split(' ')[0]}`}>
                             {resume.overall_score || 0}%
                           </span>
+                          <button
+                            onClick={(e) => handleDeleteCandidate(resume.id, resume.name || 'Unnamed', e)}
+                            disabled={deletingCandidateId === resume.id}
+                            className="text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 transition-colors disabled:opacity-50"
+                            title="Delete resume"
+                          >
+                            {deletingCandidateId === resume.id ? (
+                              <div className="animate-spin h-3 w-3 border-2 border-red-500 border-t-transparent rounded-full"></div>
+                            ) : (
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                              </svg>
+                            )}
+                          </button>
                         </div>
                       </div>
                     );

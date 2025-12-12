@@ -15,6 +15,7 @@ from services.resume_service import ResumeService
 from services.activity_logger_service import ActivityLoggerService
 from services.vertex_search_service import VertexSearchService
 from services.openai_analyzer import OpenAIAnalyzer
+from services.web_verification_service import WebVerificationService
 import logging
 import base64
 import json
@@ -129,7 +130,8 @@ def build_job_analysis_payload(job_description, extraction_data=None, analyzer=N
             'certifications': extraction_data.get('certifications', []),
             'key_responsibilities': extraction_data.get('key_responsibilities', []),
             'soft_skills': extraction_data.get('soft_skills', []),
-            'other': extraction_data.get('other', [])
+            'other': extraction_data.get('other', []),
+            'questions_for_candidate': extraction_data.get('questions_for_candidate', [])
         }
 
     return payload
@@ -1045,6 +1047,82 @@ def delete_candidate(candidate_id):
     except Exception as e:
         logger.error(f"Delete candidate error: {e}")
         return jsonify({'error': 'Failed to delete candidate'}), 500
+
+
+# Web verification route - verifies candidate claims using web search
+@app.route('/api/candidates/<candidate_id>/verify', methods=['POST'])
+@require_auth
+def verify_candidate(candidate_id):
+    """
+    Verify candidate claims using web search.
+
+    This endpoint performs a web search to verify claims made in the candidate's resume,
+    such as employment history, education, and certifications.
+
+    Query params:
+        provider: 'gemini' or 'openai' (default: 'gemini')
+    """
+    try:
+        candidate = firestore_service.get_candidate(candidate_id)
+        if not candidate:
+            return jsonify({'error': 'Candidate not found'}), 404
+
+        # Get provider from request
+        data = request.get_json() or {}
+        provider = data.get('provider', 'gemini').lower()
+
+        # Prepare analysis data for verification
+        # The analysis may be nested or at root level
+        if 'analysis' in candidate:
+            analysis = candidate['analysis']
+        else:
+            # Analysis fields are at root level
+            analysis = {
+                'candidate_name': candidate.get('candidate_name') or candidate.get('name', ''),
+                'candidate_email': candidate.get('candidate_email') or candidate.get('email', ''),
+                'experience_match': candidate.get('experience_match', {}),
+                'education_match': candidate.get('education_match', {}),
+                'strengths': candidate.get('strengths', []),
+                'certifications': candidate.get('education_match', {}).get('certifications', [])
+            }
+
+        # Initialize verification service with chosen provider
+        try:
+            verification_service = WebVerificationService(provider=provider)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+
+        # Perform verification
+        verification_result = verification_service.verify_candidate(analysis)
+
+        # Optionally store verification result with candidate
+        # Update candidate with verification data
+        firestore_service.update_candidate(candidate_id, {
+            'web_verification': verification_result,
+            'web_verification_provider': provider
+        })
+
+        # Log the verification activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='candidate_verified',
+            details={
+                'candidate_name': candidate.get('name', 'Unknown'),
+                'verification_status': verification_result.get('overall_verification_status', 'unknown'),
+                'provider': provider
+            }
+        )
+
+        return jsonify({
+            'success': True,
+            'verification': verification_result
+        })
+
+    except Exception as e:
+        logger.error(f"Web verification error: {e}")
+        return jsonify({'error': f'Failed to verify candidate: {str(e)}'}), 500
+
 
 @app.route('/api/resume/templates', methods=['GET'])
 @require_auth

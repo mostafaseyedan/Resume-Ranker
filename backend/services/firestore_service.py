@@ -169,6 +169,22 @@ class FirestoreService:
             logger.error(f"Error getting candidate {candidate_id}: {e}")
             raise
 
+    def update_candidate(self, candidate_id, update_data):
+        """Update a candidate with additional data"""
+        try:
+            doc_ref = self.db.collection(self.COLLECTION_ROOT).document('candidates').collection('candidates').document(candidate_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                logger.error(f"Candidate {candidate_id} not found for update")
+                return False
+
+            doc_ref.update(update_data)
+            logger.info(f"Updated candidate {candidate_id} with fields: {list(update_data.keys())}")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating candidate {candidate_id}: {e}")
+            raise
+
     def get_candidates_by_job(self, job_id):
         """Get all candidates for a specific job, ranked by score"""
         try:
