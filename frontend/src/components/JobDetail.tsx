@@ -212,6 +212,22 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   // Preview Provider State (null = default/root job data)
   const [previewProvider, setPreviewProvider] = useState<string | null>(null);
 
+  const fileNameSets = useMemo(() => {
+    const jobNames = new Set<string>();
+    const resumeNames = new Set<string>();
+    (sharepointFiles?.job_files || []).forEach((file: any) => {
+      const name = String(file?.name || '').toLowerCase().trim();
+      if (name) jobNames.add(name);
+    });
+    (sharepointFiles?.resume_files || []).forEach((file: any) => {
+      const name = String(file?.name || '').toLowerCase().trim();
+      if (name) resumeNames.add(name);
+    });
+    // A file should not be both; if overlap occurs, prefer job description.
+    jobNames.forEach((name) => resumeNames.delete(name));
+    return { jobNames, resumeNames };
+  }, [sharepointFiles]);
+
   // Derived job object to display based on selection
   const displayedJob = useMemo(() => {
     if (previewProvider === 'gemini' && (job as any).gemini_analysis) {
@@ -582,10 +598,17 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
       ...(sharepointFiles.job_files || []),
       ...(sharepointFiles.resume_files || [])
     ];
-    // Remove duplicates based on file name
-    return allFiles.filter((file, index, self) =>
-      index === self.findIndex((f) => f.name === file.name)
-    );
+    const seen = new Set<string>();
+    return allFiles.filter((file) => {
+      const key =
+        String(file?.id || '') ||
+        String(file?.web_url || '') ||
+        String(file?.download_url || '') ||
+        `${String(file?.name || '')}::${String(file?.path || '')}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   };
 
   const handleFileToggle = (fileName: string) => {
@@ -1059,12 +1082,39 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     {/* File List */}
                     {(() => {
                       const uniqueFiles = getUniqueFiles();
+                      const getKind = (file: any): 'job' | 'resume' | 'unknown' => {
+                        const normalizedName = String(file?.name || '').toLowerCase().trim();
+                        const pathLower = String(file?.path || '').toLowerCase();
+                        if (pathLower.includes('resume')) return 'resume';
+                        if (pathLower.includes('job') || pathLower.includes('jd') || pathLower.includes('description')) return 'job';
+                        if (fileNameSets.jobNames.has(normalizedName)) return 'job';
+                        if (fileNameSets.resumeNames.has(normalizedName)) return 'resume';
+                        return 'unknown';
+                      };
+                      const kindRank = (kind: 'job' | 'resume' | 'unknown') => (kind === 'job' ? 0 : kind === 'resume' ? 1 : 2);
+                      const sortedFiles = [...uniqueFiles].sort((a: any, b: any) => {
+                        const rank = kindRank(getKind(a)) - kindRank(getKind(b));
+                        if (rank !== 0) return rank;
+                        return String(a?.name || '').localeCompare(String(b?.name || ''));
+                      });
 
-                      return uniqueFiles.length > 0 ? (
+                      return sortedFiles.length > 0 ? (
 
                         <div className="bg-white border border-gray-200 overflow-hidden">
-                          {uniqueFiles.map((file, index) => {
+                          {sortedFiles.map((file, index) => {
                             const isSelected = selectedFiles.has(file.name);
+                            const normalizedName = String(file?.name || '').toLowerCase().trim();
+                            const pathLower = String(file?.path || '').toLowerCase();
+                            const fileKind: 'job' | 'resume' | null =
+                              pathLower.includes('resume')
+                                ? 'resume'
+                                : pathLower.includes('job') || pathLower.includes('jd') || pathLower.includes('description')
+                                  ? 'job'
+                                  : fileNameSets.jobNames.has(normalizedName)
+                                    ? 'job'
+                                    : fileNameSets.resumeNames.has(normalizedName)
+                                      ? 'resume'
+                                      : null;
                             return (
                               <div
                                 key={index}
@@ -1080,24 +1130,36 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                     />
                                   </div>
 
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <a
-                                        href={file.web_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline truncate"
-                                        title={file.name}
-                                      >
-                                        {file.name}
-                                      </a>
-                                      {getFileIcon(file.name)}
-                                    </div>
-                                    <div className="text-xs text-gray-500 flex items-center gap-2">
-                                      <span>{file.path}</span>
-                                      <span>•</span>
-                                      <span>{Math.round(file.size / 1024)} KB</span>
+                                  <div className="flex-1 min-w-0 flex items-start gap-2">
+                                    {(fileKind === 'job' || fileKind === 'resume') && (
+                                      <Label
+                                        id={`file-kind-${fileKind}-${index}`}
+                                        text={fileKind === 'job' ? 'Job Description' : 'Resume'}
+                                        size="medium"
+                                        color={fileKind === 'job' ? 'positive' : 'bright-blue'}
+                                        className="flex-shrink-0 mt-0.5"
+                                      />
+                                    )}
+
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <a
+                                          href={file.web_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline truncate"
+                                          title={file.name}
+                                        >
+                                          {file.name}
+                                        </a>
+                                        {getFileIcon(file.name)}
+                                      </div>
+                                      <div className="text-xs text-gray-500 flex items-center gap-2">
+                                        <span className="truncate">{file.path}</span>
+                                        <span>•</span>
+                                        <span>{Math.round(file.size / 1024)} KB</span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>

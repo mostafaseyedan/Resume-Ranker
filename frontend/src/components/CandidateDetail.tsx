@@ -13,7 +13,6 @@ interface CandidateDetailProps {
 }
 
 const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBack }) => {
-  const [improvingResume, setImprovingResume] = useState(false);
   const [activeTab, setActiveTab] = useState<'strengths' | 'weaknesses' | 'skills' | 'experience' | 'verification'>('strengths');
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -50,32 +49,6 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
     });
   };
 
-  const getScoreColor = (score: number): string => {
-    if (score >= 90) return 'text-green-600';
-    if (score >= 80) return 'text-green-500';
-    if (score >= 70) return 'text-yellow-600';
-    if (score >= 60) return 'text-orange-600';
-    return 'text-red-600';
-  };
-
-  const getImportanceColor = (importance: string): string => {
-    switch (importance.toLowerCase()) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-orange-100 text-orange-800';
-      case 'low': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getRelevanceColor = (relevance: string): string => {
-    switch (relevance.toLowerCase()) {
-      case 'high': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const extractLevelPrefix = (text?: string): { level?: 'critical' | 'high' | 'medium' | 'low'; label?: string } => {
     if (!text) return {};
     const firstToken = text.trim().split(/\s+/)[0] || '';
@@ -105,18 +78,6 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
     return (status || '').trim().toLowerCase().replace(/\s+/g, '_');
   };
 
-  const getVerificationStatusColor = (status: string): string => {
-    switch (normalizeVerificationStatus(status)) {
-      case 'verified': return 'bg-green-100 text-green-800';
-      case 'partially_verified': return 'bg-yellow-100 text-yellow-800';
-      case 'limited_information': return 'bg-orange-100 text-orange-800';
-      case 'no_information_found': return 'bg-gray-100 text-gray-800';
-      case 'contradicted': return 'bg-red-100 text-red-800';
-      case 'unverified': return 'bg-gray-100 text-gray-600';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const getVerificationStatusLabel = (status: string): string => {
     switch (normalizeVerificationStatus(status)) {
       case 'verified': return 'Verified';
@@ -127,36 +88,6 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
       case 'contradicted': return 'Contradicted';
       case 'unverified': return 'Unverified';
       default: return status;
-    }
-  };
-
-  const getConfidenceColor = (confidence?: string): string => {
-    switch ((confidence || '').toLowerCase()) {
-      case 'high': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const handleImproveResume = async () => {
-    try {
-      setImprovingResume(true);
-      const pdfBlob = await apiService.downloadImprovedResume(candidate.id);
-      const url = window.URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `improved_resume_${candidate.name.replace(/\s+/g, '_')}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      toast.success('Improved resume downloaded successfully!');
-    } catch (err: any) {
-      console.error('Improve resume error:', err);
-      toast.error('Failed to improve resume: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setImprovingResume(false);
     }
   };
 
@@ -223,113 +154,32 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
     whiteSpace: 'pre-wrap',
   };
 
-  const getLabelColorForStrength = (level?: 'critical' | 'high' | 'medium' | 'low') => {
-    switch ((level || '').toLowerCase()) {
-      case 'critical':
-      case 'high':
-        return Label.colors.POSITIVE;
-      case 'medium':
-        return Label.colors.WORKING_ORANGE;
-      case 'low':
-      default:
-        return Label.colors.AMERICAN_GRAY;
-    }
-  };
+  // Unified label color mappings
+  const labelColorMaps = {
+    strength: { critical: 'POSITIVE', high: 'POSITIVE', medium: 'WORKING_ORANGE' },
+    weakness: { critical: 'NEGATIVE', high: 'NEGATIVE', medium: 'WORKING_ORANGE' },
+    confidence: { high: 'POSITIVE', medium: 'WORKING_ORANGE', low: 'NEGATIVE' },
+    presence: { strong: 'POSITIVE', moderate: 'WORKING_ORANGE' },
+    identity: { matched: 'POSITIVE', ambiguous: 'WORKING_ORANGE' },
+    severity: { critical: 'NEGATIVE', high: 'NEGATIVE', medium: 'WORKING_ORANGE' },
+  } as const;
 
-  const getLabelColorForWeakness = (level?: 'critical' | 'high' | 'medium' | 'low') => {
-    switch ((level || '').toLowerCase()) {
-      case 'critical':
-      case 'high':
-        return Label.colors.NEGATIVE;
-      case 'medium':
-        return Label.colors.WORKING_ORANGE;
-      case 'low':
-      default:
-        return Label.colors.AMERICAN_GRAY;
-    }
+  const getLabelColor = (type: keyof typeof labelColorMaps, value?: string) => {
+    const map = labelColorMaps[type];
+    const key = (value || '').toLowerCase() as keyof typeof map;
+    const color = map[key];
+    return color ? Label.colors[color as keyof typeof Label.colors] : Label.colors.AMERICAN_GRAY;
   };
 
   const getLabelColorForVerificationStatus = (status: string) => {
-    switch (normalizeVerificationStatus(status)) {
-      case 'verified':
-        return Label.colors.POSITIVE;
-      case 'partially_verified':
-        return Label.colors.WORKING_ORANGE;
-      case 'contradicted':
-        return Label.colors.NEGATIVE;
-      case 'limited_information':
-      case 'no_information_found':
-      default:
-        return Label.colors.AMERICAN_GRAY;
-    }
+    const s = normalizeVerificationStatus(status);
+    if (s === 'verified') return Label.colors.POSITIVE;
+    if (s === 'partially_verified' || s === 'inconclusive') return Label.colors.WORKING_ORANGE;
+    if (s === 'contradicted') return Label.colors.NEGATIVE;
+    return Label.colors.AMERICAN_GRAY;
   };
 
-  const getLabelColorForConfidence = (confidence?: string) => {
-    switch ((confidence || '').toLowerCase()) {
-      case 'high':
-        return Label.colors.POSITIVE;
-      case 'medium':
-        return Label.colors.WORKING_ORANGE;
-      case 'low':
-        return Label.colors.NEGATIVE;
-      default:
-        return Label.colors.AMERICAN_GRAY;
-    }
-  };
-
-  const getLabelColorForClaimStatus = (status: string) => {
-    switch (normalizeVerificationStatus(status)) {
-      case 'verified':
-        return Label.colors.POSITIVE;
-      case 'partially_verified':
-        return Label.colors.WORKING_ORANGE;
-      case 'contradicted':
-        return Label.colors.NEGATIVE;
-      case 'inconclusive':
-        return Label.colors.WORKING_ORANGE;
-      case 'unverified':
-      default:
-        return Label.colors.AMERICAN_GRAY;
-    }
-  };
-
-  const getLabelColorForPresence = (level?: string) => {
-    switch ((level || '').toLowerCase()) {
-      case 'strong':
-        return Label.colors.POSITIVE;
-      case 'moderate':
-        return Label.colors.WORKING_ORANGE;
-      case 'weak':
-      case 'none':
-      default:
-        return Label.colors.AMERICAN_GRAY;
-    }
-  };
-
-  const getLabelColorForIdentity = (status?: string) => {
-    switch ((status || '').toLowerCase()) {
-      case 'matched':
-        return Label.colors.POSITIVE;
-      case 'ambiguous':
-        return Label.colors.WORKING_ORANGE;
-      case 'not_found':
-      default:
-        return Label.colors.AMERICAN_GRAY;
-    }
-  };
-
-  const getLabelColorForSeverity = (severity?: string) => {
-    switch ((severity || '').toLowerCase()) {
-      case 'high':
-      case 'critical':
-        return Label.colors.NEGATIVE;
-      case 'medium':
-        return Label.colors.WORKING_ORANGE;
-      case 'low':
-      default:
-        return Label.colors.AMERICAN_GRAY;
-    }
-  };
+  const getLabelColorForClaimStatus = getLabelColorForVerificationStatus;
 
   const getVerificationCardTint = (status: string): React.CSSProperties => {
     switch (normalizeVerificationStatus(status)) {
@@ -548,7 +398,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 	                              id={`strength-level-${index}`}
 	                              text={label}
 	                              size="small"
-	                              color={getLabelColorForStrength(level) as any}
+	                              color={getLabelColor('strength', level) as any}
 	                              className="!rounded-none"
 	                            />
 	                          )}
@@ -601,7 +451,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 	                              id={`weakness-level-${index}`}
 	                              text={label}
 	                              size="small"
-	                              color={getLabelColorForWeakness(level) as any}
+	                              color={getLabelColor('weakness', level) as any}
 	                              className="!rounded-none"
 	                            />
 	                          )}
@@ -888,7 +738,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                             id="verification-overall-confidence"
                             text={`${verificationResult.overall_confidence} confidence`}
                             size="small"
-                            color={getLabelColorForConfidence(verificationResult.overall_confidence) as any}
+                            color={getLabelColor('confidence',verificationResult.overall_confidence) as any}
                             className="!rounded-none"
                           />
                         </div>
@@ -952,7 +802,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                             id="verification-presence-level"
                             text={verificationResult.online_presence?.presence_level || '—'}
                             size="small"
-                            color={getLabelColorForPresence(verificationResult.online_presence?.presence_level) as any}
+                            color={getLabelColor('presence',verificationResult.online_presence?.presence_level) as any}
                             className="!rounded-none"
                           />
                         </div>
@@ -963,7 +813,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                             id="verification-identity-status"
                             text={verificationResult.identity_resolution?.status || '—'}
                             size="small"
-                            color={getLabelColorForIdentity(verificationResult.identity_resolution?.status) as any}
+                            color={getLabelColor('identity',verificationResult.identity_resolution?.status) as any}
                             className="!rounded-none"
                           />
                         </div>
@@ -979,7 +829,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                         id="presence-level"
                         text={verificationResult.online_presence?.presence_level || '—'}
                         size="small"
-                        color={getLabelColorForPresence(verificationResult.online_presence?.presence_level) as any}
+                        color={getLabelColor('presence',verificationResult.online_presence?.presence_level) as any}
                         className="!rounded-none"
                       />
                     </div>
@@ -1006,7 +856,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                                 id={`profile-match-${idx}`}
                                 text={`match: ${profile.match_strength}`}
                                 size="small"
-                                color={getLabelColorForConfidence(profile.match_strength) as any}
+                                color={getLabelColor('confidence',profile.match_strength) as any}
                                 className="!rounded-none"
                               />
                             </div>
@@ -1036,14 +886,14 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                           id="identity-status"
                           text={verificationResult.identity_resolution.status}
                           size="small"
-                          color={getLabelColorForIdentity(verificationResult.identity_resolution.status) as any}
+                          color={getLabelColor('identity',verificationResult.identity_resolution.status) as any}
                           className="!rounded-none"
                         />
                         <Label
                           id="identity-confidence"
                           text={`${verificationResult.identity_resolution.confidence} confidence`}
                           size="small"
-                          color={getLabelColorForConfidence(verificationResult.identity_resolution.confidence) as any}
+                          color={getLabelColor('confidence',verificationResult.identity_resolution.confidence) as any}
                           className="!rounded-none"
                         />
                       </div>
@@ -1107,7 +957,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                                   id={`claim-confidence-${claim.id}`}
                                   text={`${claim.confidence} confidence`}
                                   size="small"
-                                  color={getLabelColorForConfidence(claim.confidence) as any}
+                                  color={getLabelColor('confidence',claim.confidence) as any}
                                   className="!rounded-none"
                                 />
                                 <Label
@@ -1146,7 +996,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                                           id={`claim-discrepancy-severity-${claim.id}-${idx}`}
                                           text={d.severity}
                                           size="small"
-                                          color={getLabelColorForSeverity(d.severity) as any}
+                                          color={getLabelColor('severity',d.severity) as any}
                                           className="!rounded-none"
                                         />
                                         <span className="text-xs text-gray-500">{d.type}</span>
@@ -1196,7 +1046,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                                 id={`discrepancy-summary-severity-${idx}`}
                                 text={d.severity}
                                 size="small"
-                                color={getLabelColorForSeverity(d.severity) as any}
+                                color={getLabelColor('severity',d.severity) as any}
                                 className="!rounded-none"
                               />
                               <span className="text-xs text-gray-500">{d.type}</span>

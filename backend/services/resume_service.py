@@ -176,7 +176,7 @@ CRITICAL GOAL: The improved resume MUST score 95% or higher when analyzed agains
 4. Addresses ALL identified weaknesses comprehensively
 5. Follows modern resume best practices
 6. Optimizes for ATS (Applicant Tracking Systems)
-7. Add, or make up experiences or skills for areas that are weak or missing
+7. Add experiences or skills for areas that are weak or missing
 8. Every single requirement in the job description must be clearly demonstrated
 9. Should be comprehensive and detailed - length is not a concern if it means better alignment
 10. Emphasize high-weight skills from the job analysis in multiple sections
@@ -223,7 +223,6 @@ For each professional experience entry, generate the following sections:
 - Highlight relevant courses, projects, or specializations that align with the role
 
 **CERTIFICATION REQUIREMENTS:**
-- Generate relevant certifications based on the job requirements and industry standards
 - Include certifications that are commonly expected for this role (e.g., PMP for project managers, AWS certifications for cloud roles, etc.)
 - Use realistic certification names, issuers, and dates
 - If the original resume mentions certifications, enhance and align them with job requirements
