@@ -1134,7 +1134,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                     {(fileKind === 'job' || fileKind === 'resume') && (
                                       <Label
                                         id={`file-kind-${fileKind}-${index}`}
-                                        text={fileKind === 'job' ? 'Job Description' : 'Resume'}
+                                        text={fileKind === 'job' ? 'Job' : 'Resume'}
                                         size="medium"
                                         color={fileKind === 'job' ? 'positive' : 'bright-blue'}
                                         className="flex-shrink-0 mt-0.5"
