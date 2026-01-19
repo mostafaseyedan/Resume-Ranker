@@ -296,14 +296,14 @@ def create_job():
 def create_job_from_pdf():
     try:
         if 'job_pdf' not in request.files:
-            return jsonify({'error': 'No PDF file provided'}), 400
+            return jsonify({'error': 'No file provided'}), 400
 
         file = request.files['job_pdf']
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
 
-        if not file.filename.lower().endswith('.pdf'):
-            return jsonify({'error': 'Only PDF files are allowed'}), 400
+        if not file.filename.lower().endswith(('.pdf', '.doc', '.docx')):
+            return jsonify({'error': 'Only PDF or DOCX files are allowed'}), 400
 
         # Validate and extract structured data using Gemini
         is_valid, error_msg = gemini_analyzer.validate_file(file)
@@ -313,7 +313,7 @@ def create_job_from_pdf():
         # Extract structured job information
         job_extraction = gemini_analyzer.analyze_job_description_from_file(file)
         if not job_extraction or not job_extraction.get('job_title'):
-            return jsonify({'error': 'Could not extract job information from PDF'}), 400
+            return jsonify({'error': 'Could not extract job information from file'}), 400
 
         # Get additional form data
         title = request.form.get('title', '').strip()
@@ -335,7 +335,7 @@ def create_job_from_pdf():
             'status': 'active',
             'created_by': session['user']['email'],
             'created_at': firestore.SERVER_TIMESTAMP,
-            'source': 'pdf_upload',
+            'source': 'file_upload',
             'source_filename': file.filename
         }
         job_data.update(analysis_payload)

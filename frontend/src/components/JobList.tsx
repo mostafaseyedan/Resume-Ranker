@@ -578,7 +578,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 }}
                 className="px-4 py-1 bg-blue-600 text-white text-sm hover:bg-blue-700"
               >
-                From PDF
+                From file
               </button>
               <button
                 type="button"
@@ -602,20 +602,20 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 value={pdfFormData.title}
                 onChange={(e) => setPdfFormData({ ...pdfFormData, title: e.target.value })}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
-                placeholder="Leave empty to auto-extract from PDF"
+                placeholder="Leave empty to auto-extract from file"
               />
-              <p className="text-xs text-gray-500 mt-1">Optional - The system will extract job title from PDF if not provided</p>
+              <p className="text-xs text-gray-500 mt-1">Optional - The system will extract job title from the file if not provided</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Job Description PDF *</label>
+              <label className="block text-sm font-medium text-gray-700">Job Description File *</label>
               <input
                 type="file"
-                accept=".pdf"
+                accept=".pdf,.doc,.docx"
                 onChange={(e) => setPdfFormData({ ...pdfFormData, file: e.target.files?.[0] || null })}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">Upload a PDF file containing the job description</p>
+              <p className="text-xs text-gray-500 mt-1">Upload a PDF or DOCX file containing the job description</p>
             </div>
             <div className="flex space-x-2">
               <button
@@ -623,7 +623,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 disabled={creatingFromPDF}
                 className="px-4 py-1 bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-50"
               >
-                {creatingFromPDF ? 'Creating...' : 'Create from PDF'}
+                {creatingFromPDF ? 'Creating...' : 'Create from file'}
               </button>
               <button
                 type="button"

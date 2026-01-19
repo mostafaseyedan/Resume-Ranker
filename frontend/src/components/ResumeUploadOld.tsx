@@ -141,7 +141,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
       )}
 
       <div className="mb-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Candidate Resume</h3>
+        <h3 className="text-base font-medium text-gray-900 mb-2">Upload Files</h3>
         <p className="text-sm text-gray-600">
           Upload a PDF or DOCX file and our system will automatically analyze the candidate's qualifications
           against this job position: <strong>{job.title}</strong>

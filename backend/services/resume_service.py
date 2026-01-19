@@ -242,7 +242,7 @@ Please generate the resume data following this JSON schema exactly:
 
 Ensure all fields are properly formatted and the response is valid JSON that matches the schema.
 """
-        return prompt, system_instruction, system_instruction
+        return prompt, system_instruction
 
     def _format_strengths(self, strengths: list) -> str:
         """Format strengths for prompt"""
