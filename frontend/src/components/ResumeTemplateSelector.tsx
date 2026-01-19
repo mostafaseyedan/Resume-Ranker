@@ -146,7 +146,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
         </div>
       </div>
 
-      {(selectedTemplate === 'professional' || selectedTemplate === 'modern') && (
+      {(selectedTemplate === 'professional' || selectedTemplate === 'modern' || selectedTemplate === 'minimal') && (
         <div style={styles.section}>
           <label style={styles.label}>Output Format:</label>
           <div style={styles.formatSelector}>
