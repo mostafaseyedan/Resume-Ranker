@@ -258,15 +258,18 @@ def main():
         resume.logo_path = None
         resume.logo_file_path = None
 
-    # Generate DOCX
-    print("Generating DOCX file...")
+    # Generate DOCX (modern template via HTML)
+    print("Generating DOCX file (modern template - HTML to DOCX)...")
     try:
-        docx_bytes = generator.generate_docx(resume)
+        docx_bytes = generator.generate_docx(
+            resume,
+            template_name="resume_template_modern.html",
+            use_direct_modern=False
+        )
 
-        # Save to file
         output_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
-            'test_resume_output.docx'
+            'test_resume_output_modern_html.docx'
         )
 
         with open(output_path, 'wb') as f:
@@ -276,7 +279,28 @@ def main():
         print(f"File size: {len(docx_bytes):,} bytes")
 
     except Exception as e:
-        print(f"\nError generating DOCX: {e}")
+        print(f"\nError generating modern DOCX: {e}")
+        import traceback
+        traceback.print_exc()
+
+    # Generate DOCX (modern template via direct python-docx)
+    print("\nGenerating DOCX file (modern template - direct python-docx)...")
+    try:
+        docx_bytes = generator.generate_docx_modern_direct(resume)
+
+        output_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            'test_resume_output_modern_direct.docx'
+        )
+
+        with open(output_path, 'wb') as f:
+            f.write(docx_bytes)
+
+        print(f"\nSuccess! DOCX file generated at: {output_path}")
+        print(f"File size: {len(docx_bytes):,} bytes")
+
+    except Exception as e:
+        print(f"\nError generating modern direct DOCX: {e}")
         import traceback
         traceback.print_exc()
 
