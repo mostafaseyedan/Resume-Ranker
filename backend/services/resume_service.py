@@ -176,7 +176,7 @@ CRITICAL GOAL: The improved resume MUST score 95% or higher when analyzed agains
 4. Addresses ALL identified weaknesses comprehensively
 5. Follows modern resume best practices
 6. Optimizes for ATS (Applicant Tracking Systems)
-7. Add experiences or skills for areas that are weak or missing
+7. Address the candidate's gaps by emphasizing relevant existing experience and skills
 8. Every single requirement in the job description must be clearly demonstrated
 9. Should be comprehensive and detailed - length is not a concern if it means better alignment
 10. Emphasize high-weight skills from the job analysis in multiple sections
@@ -188,7 +188,7 @@ CRITICAL GOAL: The improved resume MUST score 95% or higher when analyzed agains
 - Transform work experience descriptions into achievement-focused bullet points with metrics when possible
 - Organize skills into logical categories relevant to the job.
 - Use action verbs and quantifiable achievements throughout
-- Use realistic dates
+- Preserve original dates; do not invent or adjust dates
 - If end_date is missing, the position is current (set end_date to null)
 - Include impactful bullet points per work experience
 - Skills should be categorized and prioritized based on job requirements
@@ -224,14 +224,10 @@ For each professional experience entry, generate the following sections:
 
 **CERTIFICATION REQUIREMENTS:**
 - Include certifications that are commonly expected for this role (e.g., PMP for project managers, AWS certifications for cloud roles, etc.)
-- Use realistic certification names, issuers, and dates
-- If the original resume mentions certifications, enhance and align them with job requirements
-- Add 2-4 relevant certifications that would strengthen the candidate's profile for this specific role
-- Include both technical certifications (if applicable) and professional/industry certifications
-- Use recent dates (within last 3-5 years) for certifications
+- Only include certifications explicitly present in the original resume text or structured candidate data
 
 **CRITICAL REQUIREMENTS:**
-- NEVER use placeholders anywhere - always use realistic, specific names and details
+- NEVER use placeholders anywhere - always use realistic, specific names and details from the original resume
 - DO focus on optimal presentation and positioning of existing qualifications
 - DO ensure all content aligns with and supports the job requirements
 - This should not be shorter than the orginal resume
