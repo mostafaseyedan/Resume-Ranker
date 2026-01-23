@@ -39,23 +39,7 @@ class ResumeService:
             PDF bytes for download
         """
         try:
-            # Step 1: Generate ResumeModel schema for Gemini
-            schema = ResumeModel.model_json_schema()
-
-            # Step 2: Create comprehensive prompt for Gemini
-            prompt, system_instruction = self._create_improvement_prompt(candidate_data, job_data, schema)
-
-            # Step 3: Get structured output from Gemini
-            improved_data = self._get_gemini_structured_output(prompt, schema, system_instruction)
-
-            # Step 4: Add company branding
-            if company_info:
-                improved_data = self._add_company_branding(improved_data, company_info)
-
-            # Step 5: Validate and create ResumeModel
-            resume_model = ResumeModel.model_validate(improved_data)
-
-            # Step 6: Generate PDF with specified template
+            improved_data, resume_model = self._generate_improved_resume_data(candidate_data, job_data, company_info)
             pdf_bytes = self.resume_generator.generate_pdf(resume_model, template_name=template_name)
 
             logger.info(f"Successfully generated improved resume PDF for {candidate_data.get('name', 'unknown')}")
@@ -79,23 +63,7 @@ class ResumeService:
             DOCX bytes for download
         """
         try:
-            # Step 1: Generate ResumeModel schema for Gemini
-            schema = ResumeModel.model_json_schema()
-
-            # Step 2: Create comprehensive prompt for Gemini
-            prompt, system_instruction = self._create_improvement_prompt(candidate_data, job_data, schema)
-
-            # Step 3: Get structured output from Gemini
-            improved_data = self._get_gemini_structured_output(prompt, schema, system_instruction)
-
-            # Step 4: Add company branding
-            if company_info:
-                improved_data = self._add_company_branding(improved_data, company_info)
-
-            # Step 5: Validate and create ResumeModel
-            resume_model = ResumeModel.model_validate(improved_data)
-
-            # Step 6: Generate DOCX with specified template
+            improved_data, resume_model = self._generate_improved_resume_data(candidate_data, job_data, company_info)
             docx_bytes = self.resume_generator.generate_docx(resume_model, template_name=template_name)
 
             logger.info(f"Successfully generated improved resume DOCX for {candidate_data.get('name', 'unknown')}")
@@ -104,6 +72,56 @@ class ResumeService:
         except Exception as e:
             logger.error(f"Error in improve_and_generate_docx: {e}")
             raise Exception(f"Failed to generate improved resume: {str(e)}")
+
+    def improve_and_generate_pdf_with_data(self, candidate_data: Dict, job_data: Dict, company_info: Optional[Dict] = None, template_name: str = "resume_template_professional.html") -> tuple[bytes, Dict]:
+        """
+        Generate improved resume PDF and return the underlying improved JSON.
+        """
+        try:
+            improved_data, resume_model = self._generate_improved_resume_data(candidate_data, job_data, company_info)
+            pdf_bytes = self.resume_generator.generate_pdf(resume_model, template_name=template_name)
+
+            logger.info(f"Successfully generated improved resume PDF for {candidate_data.get('name', 'unknown')}")
+            return pdf_bytes, improved_data
+        except Exception as e:
+            logger.error(f"Error in improve_and_generate_pdf_with_data: {e}")
+            raise Exception(f"Failed to generate improved resume: {str(e)}")
+
+    def improve_and_generate_docx_with_data(self, candidate_data: Dict, job_data: Dict, company_info: Optional[Dict] = None, template_name: str = "resume_template_professional.html") -> tuple[bytes, Dict]:
+        """
+        Generate improved resume DOCX and return the underlying improved JSON.
+        """
+        try:
+            improved_data, resume_model = self._generate_improved_resume_data(candidate_data, job_data, company_info)
+            docx_bytes = self.resume_generator.generate_docx(resume_model, template_name=template_name)
+
+            logger.info(f"Successfully generated improved resume DOCX for {candidate_data.get('name', 'unknown')}")
+            return docx_bytes, improved_data
+        except Exception as e:
+            logger.error(f"Error in improve_and_generate_docx_with_data: {e}")
+            raise Exception(f"Failed to generate improved resume: {str(e)}")
+
+    def _generate_improved_resume_data(self, candidate_data: Dict, job_data: Dict, company_info: Optional[Dict]) -> tuple[Dict, ResumeModel]:
+        """
+        Generate improved resume JSON and validated ResumeModel.
+        """
+        # Step 1: Generate ResumeModel schema for Gemini
+        schema = ResumeModel.model_json_schema()
+
+        # Step 2: Create comprehensive prompt for Gemini
+        prompt, system_instruction = self._create_improvement_prompt(candidate_data, job_data, schema)
+
+        # Step 3: Get structured output from Gemini
+        improved_data = self._get_gemini_structured_output(prompt, schema, system_instruction)
+
+        # Step 4: Add company branding
+        if company_info:
+            improved_data = self._add_company_branding(improved_data, company_info)
+
+        # Step 5: Validate and create ResumeModel
+        resume_model = ResumeModel.model_validate(improved_data)
+
+        return improved_data, resume_model
 
     def _create_improvement_prompt(self, candidate_data: Dict, job_data: Dict, schema: Dict) -> tuple[str, str]:
         """
@@ -228,6 +246,7 @@ For each professional experience entry, generate the following sections:
 
 **CRITICAL REQUIREMENTS:**
 - NEVER use placeholders anywhere - always use realistic, specific names and details from the original resume
+- Do NOT remove any original resume content. Preserve all employers, roles, dates, projects, and education; only add, enhance, and improve.
 - DO focus on optimal presentation and positioning of existing qualifications
 - DO ensure all content aligns with and supports the job requirements
 - This should not be shorter than the orginal resume

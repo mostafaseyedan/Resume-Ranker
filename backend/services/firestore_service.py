@@ -1,7 +1,8 @@
 from firebase_admin import firestore as firebase_firestore
 from google.cloud import firestore
 import logging
-from datetime import datetime
+from datetime import datetime, date
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +185,43 @@ class FirestoreService:
         except Exception as e:
             logger.error(f"Error updating candidate {candidate_id}: {e}")
             raise
+
+    def save_improved_resume(self, candidate_id: str, job_id: str, improved_data: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """Save latest improved resume JSON for a candidate."""
+        try:
+            doc_ref = (self.db.collection(self.COLLECTION_ROOT)
+                       .document('improved_resumes')
+                       .collection('improved_resumes')
+                       .document(candidate_id))
+
+            payload = {
+                'candidate_id': candidate_id,
+                'job_id': job_id,
+                'resume_json': self._serialize_for_firestore(improved_data),
+                'updated_at': firestore.SERVER_TIMESTAMP
+            }
+
+            if metadata:
+                payload.update(metadata)
+
+            doc_ref.set(payload)
+            logger.info(f"Saved improved resume for candidate {candidate_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving improved resume for candidate {candidate_id}: {e}")
+            return False
+
+    def _serialize_for_firestore(self, value: Any) -> Any:
+        """Recursively convert dates to ISO strings for Firestore."""
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, dict):
+            return {key: self._serialize_for_firestore(val) for key, val in value.items()}
+        if isinstance(value, list):
+            return [self._serialize_for_firestore(item) for item in value]
+        return value
 
     def get_candidates_by_job(self, job_id):
         """Get all candidates for a specific job, ranked by score"""

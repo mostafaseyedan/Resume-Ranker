@@ -947,10 +947,24 @@ def improve_resume(candidate_id):
         }
 
         # Generate improved resume PDF using new service
-        pdf_bytes = resume_service.improve_and_generate_pdf(
+        pdf_bytes, improved_data = resume_service.improve_and_generate_pdf_with_data(
             candidate_data=candidate,
             job_data=job,
             company_info=company_info
+        )
+
+        firestore_service.save_improved_resume(
+            candidate_id=candidate_id,
+            job_id=candidate.get('job_id', ''),
+            improved_data=improved_data,
+            metadata={
+                'candidate_name': candidate.get('name', 'Unknown candidate'),
+                'job_title': job.get('title', 'Unknown job'),
+                'template_id': 'professional',
+                'template_name': 'resume_template_professional.html',
+                'format': 'pdf',
+                'source': 'improve_resume'
+            }
         )
 
         # Log the resume improvement activity
@@ -1173,7 +1187,7 @@ def generate_and_save_resume(candidate_id):
 
         # Generate improved resume in requested format
         if output_format == 'docx':
-            file_bytes = resume_service.improve_and_generate_docx(
+            file_bytes, improved_data = resume_service.improve_and_generate_docx_with_data(
                 candidate_data=candidate,
                 job_data=job,
                 company_info=company_info,
@@ -1182,7 +1196,7 @@ def generate_and_save_resume(candidate_id):
             content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             file_extension = 'docx'
         else:
-            file_bytes = resume_service.improve_and_generate_pdf(
+            file_bytes, improved_data = resume_service.improve_and_generate_pdf_with_data(
                 candidate_data=candidate,
                 job_data=job,
                 company_info=company_info,
@@ -1190,6 +1204,21 @@ def generate_and_save_resume(candidate_id):
             )
             content_type = 'application/pdf'
             file_extension = 'pdf'
+
+        firestore_service.save_improved_resume(
+            candidate_id=candidate_id,
+            job_id=candidate.get('job_id', ''),
+            improved_data=improved_data,
+            metadata={
+                'candidate_name': candidate.get('name', 'Unknown candidate'),
+                'job_title': job.get('title', 'Unknown job'),
+                'template_id': template_id,
+                'template_name': template.filename,
+                'format': output_format,
+                'source': 'generate_resume',
+                'save_to_sharepoint': save_to_sharepoint
+            }
+        )
 
         # Log the resume generation activity
         activity_logger.log_activity(
