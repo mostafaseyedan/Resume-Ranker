@@ -203,6 +203,16 @@ class VertexSearchService:
         except Exception as e:
             logger.warning("Failed to log response summary: %s", e)
 
+    def build_grounding_tool(self) -> Tool:
+        """Create a Vertex AI Search grounding tool for reuse."""
+        return Tool(
+            retrieval=Retrieval(
+                vertex_ai_search=VertexAISearch(
+                    datastore=self.datastore_path
+                )
+            )
+        )
+
     def _extract_filenames_from_response(self, response) -> List[str]:
         """Extract all file URIs referenced in the grounding metadata"""
         file_uris = []

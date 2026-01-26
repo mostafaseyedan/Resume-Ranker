@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Job, Candidate, apiService } from '../services/apiService';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Job, Candidate, ChatMessage, apiService } from '../services/apiService';
+import { API_BASE_URL, API_ENDPOINTS } from '../config/apiConfig';
+import { useChat } from 'ai/react';
 import ResumeUpload from './ResumeUpload';
 import CandidateList from './CandidateList';
 import CandidateDetail from './CandidateDetail';
@@ -189,7 +191,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [selectedGroupCandidates, setSelectedGroupCandidates] = useState<Candidate[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates' | 'ai-chat'>('candidates');
   const [sharepointFiles, setSharepointFiles] = useState<{ job_files: any[]; resume_files: any[]; sharepoint_link: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loadingSharePoint, setLoadingSharePoint] = useState(false);
@@ -201,6 +203,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [searchingCandidates, setSearchingCandidates] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<string | null>(null);
+  const [chatInitialized, setChatInitialized] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   // Files Tab State
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
@@ -239,6 +245,28 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     return job; // Default to root (most recent)
   }, [job, previewProvider]);
 
+  const chatApiUrl = useMemo(
+    () => `${API_BASE_URL}${API_ENDPOINTS.JOB_CHAT(job.id)}`,
+    [job.id]
+  );
+
+  const {
+    messages: chatMessages,
+    input: chatInput,
+    handleInputChange: handleChatInputChange,
+    handleSubmit: handleChatSubmit,
+    isLoading: chatStreaming,
+    setMessages: setChatMessages
+  } = useChat({
+    api: chatApiUrl,
+    streamProtocol: 'data',
+    fetch: (input, init) =>
+      fetch(input, {
+        ...init,
+        credentials: 'include'
+      })
+  });
+
   // Sync previewProvider with job's current provider when job loads/changes
   useEffect(() => {
     setPreviewProvider(job.review_provider || null);
@@ -266,6 +294,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     setSharepointFiles(null);
     setSuccessMessage(null);
     setProcessingFile(null);
+    setChatInitialized(false);
+    setChatError(null);
+    setChatLoading(false);
+    setChatMessages([]);
 
     // Reset and load potential candidates from job if available
     setPotentialCandidates([]);
@@ -297,6 +329,42 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     };
     loadUser();
   }, [job.id]);
+
+  useEffect(() => {
+    if (activeTab !== 'ai-chat' || chatInitialized) {
+      return;
+    }
+    let cancelled = false;
+    setChatLoading(true);
+    setChatError(null);
+    apiService.getJobChat(job.id)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        const messages = (response.messages || []) as ChatMessage[];
+        setChatMessages(messages);
+        setChatInitialized(true);
+      })
+      .catch((err) => {
+        if (cancelled) {
+          return;
+        }
+        setChatError(err?.response?.data?.error || err.message || 'Failed to load chat history');
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setChatLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, chatInitialized, job.id, setChatMessages]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, chatStreaming]);
 
   const loadCandidates = async () => {
     try {
@@ -896,6 +964,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               }`}
           >
             Job Details
+          </button>
+          <button
+            onClick={() => setActiveTab('ai-chat')}
+            className={`py-2 px-4 text-sm font-medium ${activeTab === 'ai-chat'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            Chat
           </button>
           <button
             onClick={(e) => handleDeleteJob(job.id, e as any)}
@@ -1662,6 +1739,87 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     <div className="text-gray-500 italic">No interview questions generated for this position.</div>
                   )}
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'ai-chat' && (
+          <div className="h-full w-full">
+            <div className="flex h-full w-full flex-col bg-white">
+              {chatLoading ? (
+                <div className="flex flex-1 items-center justify-center">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                    Loading chat history...
+                  </div>
+                </div>
+              ) : chatError ? (
+                <div className="flex flex-1 items-center justify-center p-6">
+                  <div className="text-sm text-red-600">{chatError}</div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex-1 overflow-y-auto px-4 py-4">
+                    {chatMessages.length === 0 && !chatStreaming ? (
+                      <div className="text-sm text-gray-500">
+                        Ask about the job, candidates, or resume improvements to get started.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {chatMessages.map((message, index) => {
+                          const isUser = message.role === 'user';
+                          return (
+                            <div key={message.id || index} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                              <div
+                                className={`max-w-[75%] rounded-md px-3 py-2 text-sm leading-relaxed ${
+                                  isUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'
+                                }`}
+                              >
+                                <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    {message.content}
+                                  </ReactMarkdown>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {chatStreaming && (
+                          <div className="flex justify-start">
+                            <div className="max-w-[75%] rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
+                              Generating response...
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  <form onSubmit={handleChatSubmit} className="border-t border-gray-200 px-4 py-2">
+                    <div className="flex items-center bg-white">
+                      <textarea
+                        value={chatInput}
+                        onChange={handleChatInputChange}
+                        placeholder="Type your question"
+                        rows={2}
+                        disabled={chatStreaming}
+                        className="w-full resize-none border-0 px-3 py-2 text-sm text-gray-900 focus:outline-none"
+                      />
+                      <div className="border-l border-transparent px-2 py-2">
+                        <Button
+                          type="submit"
+                          disabled={chatStreaming || chatInput.trim().length === 0}
+                          size="small"
+                          kind="primary"
+                        >
+                          Send
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+                </>
               )}
             </div>
           </div>

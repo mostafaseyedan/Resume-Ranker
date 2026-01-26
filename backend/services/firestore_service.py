@@ -2,7 +2,7 @@ from firebase_admin import firestore as firebase_firestore
 from google.cloud import firestore
 import logging
 from datetime import datetime, date
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +209,49 @@ class FirestoreService:
             return True
         except Exception as e:
             logger.error(f"Error saving improved resume for candidate {candidate_id}: {e}")
+            return False
+
+    def get_job_chat(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Get chat history for a job."""
+        try:
+            doc_ref = (self.db.collection(self.COLLECTION_ROOT)
+                       .document('job_chats')
+                       .collection('job_chats')
+                       .document(job_id))
+            doc = doc_ref.get()
+            if not doc.exists:
+                return None
+            chat_data = doc.to_dict()
+            chat_data['id'] = doc.id
+            return chat_data
+        except Exception as e:
+            logger.error(f"Error getting job chat for {job_id}: {e}")
+            return None
+
+    def save_job_chat(self, job_id: str, messages: List[Dict[str, Any]], system_prompt: Optional[str] = None, context_seeded: Optional[bool] = None) -> bool:
+        """Save latest chat messages for a job."""
+        try:
+            doc_ref = (self.db.collection(self.COLLECTION_ROOT)
+                       .document('job_chats')
+                       .collection('job_chats')
+                       .document(job_id))
+
+            payload: Dict[str, Any] = {
+                'job_id': job_id,
+                'messages': self._serialize_for_firestore(messages),
+                'updated_at': firestore.SERVER_TIMESTAMP
+            }
+
+            if system_prompt is not None:
+                payload['system_prompt'] = system_prompt
+            if context_seeded is not None:
+                payload['context_seeded'] = context_seeded
+
+            doc_ref.set(payload, merge=True)
+            logger.info(f"Saved job chat for job {job_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving job chat for {job_id}: {e}")
             return False
 
     def _serialize_for_firestore(self, value: Any) -> Any:

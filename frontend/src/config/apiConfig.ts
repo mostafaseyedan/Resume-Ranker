@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   // Jobs
   JOBS: '/jobs',
   JOB: (id: string) => `/jobs/${id}`,
+  JOB_CHAT: (id: string) => `/jobs/${id}/chat`,
 
   // Candidates
   UPLOAD_RESUME: (jobId: string) => `/jobs/${jobId}/upload-resume`,

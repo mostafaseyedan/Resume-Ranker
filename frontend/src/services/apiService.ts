@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../config/apiConfig';
+import { API_BASE_URL, API_ENDPOINTS } from '../config/apiConfig';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -131,6 +131,13 @@ export interface Candidate {
   // Web verification data (optional - populated after verification)
   web_verification?: WebVerificationResult;
   web_verification_provider?: string;
+}
+
+export interface ChatMessage {
+  id?: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at?: string;
 }
 
 export interface VerificationSource {
@@ -348,6 +355,11 @@ export const apiService = {
 
   async getCandidateDetails(candidateId: string): Promise<{ candidate: Candidate }> {
     const response = await apiClient.get(`/candidates/${candidateId}`);
+    return response.data;
+  },
+
+  async getJobChat(jobId: string): Promise<{ messages: ChatMessage[] }> {
+    const response = await apiClient.get(API_ENDPOINTS.JOB_CHAT(jobId));
     return response.data;
   },
 

@@ -13,6 +13,7 @@
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
     "@vibe/core": "^3.81.1",
+    "ai": "^3.4.0",
     "autoprefixer": "^10.4.21",
     "axios": "^1.12.2",
     "postcss": "^8.5.6",

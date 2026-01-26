@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session, send_from_directory
+from flask import Flask, request, jsonify, session, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv, find_dotenv
@@ -19,6 +19,7 @@ from services.web_verification_service import WebVerificationService
 import logging
 import base64
 import json
+import uuid
 
 # Load environment variables from shared .env
 load_dotenv(find_dotenv())
@@ -135,6 +136,51 @@ def build_job_analysis_payload(job_description, extraction_data=None, analyzer=N
         }
 
     return payload
+
+
+def build_job_chat_context(job: dict, candidates: list) -> str:
+    job_payload = {
+        'id': job.get('id'),
+        'title': job.get('title'),
+        'description': job.get('description'),
+        'requirements': job.get('requirements'),
+        'skill_weights': job.get('skill_weights'),
+        'extracted_data': job.get('extracted_data'),
+        'monday_metadata': job.get('monday_metadata')
+    }
+
+    context = {
+        'job': job_payload,
+        'candidates': candidates
+    }
+
+    return (
+        "You are an AI assistant for a resume evaluation system. "
+        "Use ONLY the provided job and candidate data plus grounded retrieval results to answer questions.\n\n"
+        "CONTEXT DATA (do not omit any details):\n"
+        f"{json.dumps(context, indent=2)}"
+    )
+
+
+def normalize_chat_messages(raw_messages: list) -> list:
+    normalized = []
+    if not isinstance(raw_messages, list):
+        return normalized
+    for message in raw_messages:
+        if not isinstance(message, dict):
+            continue
+        role = message.get('role')
+        content = message.get('content')
+        if role not in ('user', 'assistant'):
+            continue
+        if not isinstance(content, str):
+            continue
+        normalized.append({
+            'id': message.get('id') or uuid.uuid4().hex,
+            'role': role,
+            'content': content
+        })
+    return normalized
 
 def get_msal_app():
     return msal.ConfidentialClientApplication(
@@ -814,6 +860,107 @@ def search_by_skill(job_id):
             'success': False,
             'error': 'Failed to search by skill'
         }), 500
+
+# Job chat routes
+@app.route('/api/jobs/<job_id>/chat', methods=['GET'])
+@require_auth
+def get_job_chat(job_id):
+    try:
+        chat = firestore_service.get_job_chat(job_id)
+        if not chat:
+            return jsonify({'messages': []})
+        messages = chat.get('messages', [])
+        if not isinstance(messages, list):
+            messages = []
+        return jsonify({'messages': messages})
+    except Exception as e:
+        logger.error(f"Get job chat error: {e}")
+        return jsonify({'error': 'Failed to retrieve chat history'}), 500
+
+
+@app.route('/api/jobs/<job_id>/chat', methods=['POST'])
+@require_auth
+def stream_job_chat(job_id):
+    data = request.get_json(silent=True) or {}
+    incoming_messages = normalize_chat_messages(data.get('messages', []))
+    if not incoming_messages:
+        return jsonify({'error': 'No messages provided'}), 400
+
+    chat_state = firestore_service.get_job_chat(job_id) or {}
+    context_seeded = bool(chat_state.get('context_seeded'))
+    system_prompt = chat_state.get('system_prompt') if context_seeded else None
+
+    should_save_system_prompt = False
+    if not context_seeded or not system_prompt:
+        job = firestore_service.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+        candidates = firestore_service.get_candidates_by_job(job_id)
+        system_prompt = build_job_chat_context(job, candidates)
+        should_save_system_prompt = True
+
+    contents = []
+    for message in incoming_messages:
+        role = 'model' if message['role'] == 'assistant' else 'user'
+        contents.append({
+            'role': role,
+            'parts': [{'text': message['content']}]
+        })
+
+    tool = vertex_search_service.build_grounding_tool()
+    model = os.getenv("VERTEX_MODEL", "gemini-1.5-flash")
+
+    def generate():
+        assistant_text = ""
+        try:
+            stream = vertex_search_service.client.models.generate_content_stream(
+                model=model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    tools=[tool],
+                    system_instruction=system_prompt
+                )
+            )
+
+            for chunk in stream:
+                chunk_text = getattr(chunk, 'text', None)
+                if not chunk_text:
+                    continue
+                if chunk_text.startswith(assistant_text):
+                    delta = chunk_text[len(assistant_text):]
+                    assistant_text = chunk_text
+                else:
+                    delta = chunk_text
+                    assistant_text += delta
+                if delta:
+                    yield f"data: 0:{json.dumps(delta)}\n\n"
+        except Exception as e:
+            yield f"data: e:{json.dumps({'error': str(e)})}\n\n"
+        finally:
+            saved_messages = list(incoming_messages)
+            if assistant_text:
+                saved_messages.append({
+                    'id': uuid.uuid4().hex,
+                    'role': 'assistant',
+                    'content': assistant_text
+                })
+
+            firestore_service.save_job_chat(
+                job_id=job_id,
+                messages=saved_messages,
+                system_prompt=system_prompt if should_save_system_prompt else None,
+                context_seeded=True
+            )
+
+            yield "data: [DONE]\n\n"
+
+    headers = {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    }
+    return Response(stream_with_context(generate()), headers=headers)
 
 # Resume upload and analysis routes
 @app.route('/api/jobs/<job_id>/upload-resume', methods=['POST'])
