@@ -258,24 +258,24 @@ def main():
         resume.logo_path = None
         resume.logo_file_path = None
 
-    # Generate DOCX (minimal template via direct python-docx)
-    print("Generating DOCX file (minimal template - direct python-docx)...")
+    # Generate DOCX (professional template via direct python-docx)
+    print("Generating DOCX file (professional template - direct python-docx)...")
     try:
-        docx_bytes = generator.generate_docx_minimal_direct(resume)
+        docx_bytes = generator.generate_docx_professional_direct(resume)
 
         output_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
-            'test_resume_output_minimal.docx'
+            'test_resume_output_professional.docx'
         )
 
         with open(output_path, 'wb') as f:
             f.write(docx_bytes)
 
-        print(f"\nSuccess! DOCX file generated at: {output_path}")
+        print(f"\nSuccess! Professional DOCX file generated at: {output_path}")
         print(f"File size: {len(docx_bytes):,} bytes")
 
     except Exception as e:
-        print(f"\nError generating minimal direct DOCX: {e}")
+        print(f"\nError generating professional direct DOCX: {e}")
         import traceback
         traceback.print_exc()
 
