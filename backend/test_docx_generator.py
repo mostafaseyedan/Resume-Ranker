@@ -279,6 +279,27 @@ def main():
         import traceback
         traceback.print_exc()
 
+    # Generate DOCX (modern template via direct python-docx)
+    print("Generating DOCX file (modern template - direct python-docx)...")
+    try:
+        docx_bytes = generator.generate_docx_modern_direct(resume)
+
+        output_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            'test_resume_output_modern.docx'
+        )
+
+        with open(output_path, 'wb') as f:
+            f.write(docx_bytes)
+
+        print(f"\nSuccess! Modern DOCX file generated at: {output_path}")
+        print(f"File size: {len(docx_bytes):,} bytes")
+
+    except Exception as e:
+        print(f"\nError generating modern direct DOCX: {e}")
+        import traceback
+        traceback.print_exc()
+
 
 if __name__ == "__main__":
     main()

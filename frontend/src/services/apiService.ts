@@ -134,7 +134,7 @@ export interface Candidate {
 }
 
 export interface ChatMessage {
-  id?: string;
+  id: string;
   role: 'user' | 'assistant';
   content: string;
   created_at?: string;

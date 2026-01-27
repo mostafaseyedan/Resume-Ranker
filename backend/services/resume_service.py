@@ -206,6 +206,7 @@ CRITICAL GOAL: The improved resume MUST score 95% or higher when analyzed agains
 - Transform work experience descriptions into achievement-focused bullet points with metrics when possible
 - Organize skills into logical categories relevant to the job.
 - Use action verbs and quantifiable achievements throughout
+- Format phone numbers as (###)-###-#### (e.g., (754)-202-5153); do not include country codes
 - Preserve original dates; do not invent or adjust dates
 - If end_date is missing, the position is current (set end_date to null)
 - Include impactful bullet points per work experience

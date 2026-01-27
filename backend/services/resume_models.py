@@ -4,7 +4,11 @@ from datetime import date
 
 class ContactInfo(BaseModel):
     email: EmailStr
-    phone: Optional[str] = None
+    phone: Optional[str] = Field(
+        default=None,
+        description="Phone number formatted as (###)-###-####",
+        examples=["(754)-202-5153"]
+    )
     linkedin: Optional[HttpUrl] = None
     github: Optional[HttpUrl] = None
     portfolio: Optional[HttpUrl] = None

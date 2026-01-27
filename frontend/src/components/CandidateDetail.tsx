@@ -222,6 +222,28 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
   const analysis = candidate;
   const isImprovedResume = (candidate.resume_filename || '').toLowerCase().includes('improved');
+
+  const getVerificationBadge = (): { label: string; style: string } => {
+    const status = verificationResult?.overall_verification_status;
+    if (!verificationResult) {
+      return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+    }
+    switch (status) {
+      case 'verified':
+        return { label: 'Verified', style: 'bg-green-100 text-green-800' };
+      case 'partially_verified':
+        return { label: 'Partially Verified', style: 'bg-yellow-100 text-yellow-800' };
+      case 'contradicted':
+        return { label: 'Verification Denied', style: 'bg-red-100 text-red-800' };
+      case 'limited_information':
+        return { label: 'Limited Verification Info', style: 'bg-yellow-100 text-yellow-800' };
+      case 'no_information_found':
+        return { label: 'No Verification Info', style: 'bg-gray-100 text-gray-600' };
+      default:
+        return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+    }
+  };
+  const verificationBadge = getVerificationBadge();
   const structuredClaims = verificationResult?.claim_verifications || [];
   const claimStatusCounts = structuredClaims.reduce((acc, claim) => {
     const key = normalizeVerificationStatus(claim.verification_status || 'unverified');
@@ -260,15 +282,20 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               </svg>
             </button>
             <div>
-              <h2 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
-                <span>{candidate.name}</span>
+              <h2 className="text-xl font-bold text-gray-900">
+                {candidate.name}
+              </h2>
+              <p className="text-sm text-gray-600">Candidate Analysis for {job.title}</p>
+              <div className="mt-2 flex items-center gap-2">
                 {isImprovedResume && (
-                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800">
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium whitespace-nowrap bg-green-100 text-green-800">
                     Improved
                   </span>
                 )}
-              </h2>
-              <p className="text-sm text-gray-600">Candidate Analysis for {job.title}</p>
+                <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium whitespace-nowrap ${verificationBadge.style}`}>
+                  {verificationBadge.label}
+                </span>
+              </div>
             </div>
           </div>
           <div className="text-center flex-1 flex flex-col items-center">

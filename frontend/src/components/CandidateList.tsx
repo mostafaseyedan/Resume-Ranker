@@ -45,6 +45,27 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
     return 'text-red-600 bg-red-50';
   };
 
+  const getVerificationBadge = (candidate: Candidate): { label: string; style: string } => {
+    const status = candidate.web_verification?.overall_verification_status;
+    if (!candidate.web_verification) {
+      return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+    }
+    switch (status) {
+      case 'verified':
+        return { label: 'Verified', style: 'bg-green-100 text-green-800' };
+      case 'partially_verified':
+        return { label: 'Partially Verified', style: 'bg-yellow-100 text-yellow-800' };
+      case 'contradicted':
+        return { label: 'Verification Denied', style: 'bg-red-100 text-red-800' };
+      case 'limited_information':
+        return { label: 'Limited Verification Info', style: 'bg-yellow-100 text-yellow-800' };
+      case 'no_information_found':
+        return { label: 'No Verification Info', style: 'bg-gray-100 text-gray-600' };
+      default:
+        return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+    }
+  };
+
   // Function to find SharePoint file by matching filename
   const findSharePointFile = (filename: string): SharePointFile | null => {
     if (!sharepointFiles) return null;
@@ -151,6 +172,14 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                           Improved
                         </span>
                       )}
+                      {(() => {
+                        const badge = getVerificationBadge(candidate);
+                        return (
+                          <span className={`inline-flex items-center px-1.5 py-0.5 text-xs font-medium whitespace-nowrap ${badge.style}`}>
+                            {badge.label}
+                          </span>
+                        );
+                      })()}
                       <span className="text-xs text-gray-500">
                         {formatDate(sharepointFile?.created_datetime || candidate.created_at)}
                       </span>

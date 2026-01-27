@@ -311,6 +311,13 @@ class ResumeGenerator:
                 if alignment is not None:
                     paragraph.alignment = alignment
 
+            def add_spacer(line_spacing=None, space_before=None, space_after=None, style=None):
+                spacer = document.add_paragraph()
+                if style:
+                    spacer.style = style
+                format_paragraph(spacer, line_spacing=line_spacing, space_before=space_before, space_after=space_after)
+                return spacer
+
             def set_cell_shading(cell, fill_hex):
                 tcPr = cell._element.get_or_add_tcPr()
                 shd = OxmlElement('w:shd')
@@ -377,7 +384,7 @@ class ResumeGenerator:
                     tblCellMar.append(mar)
                 tblPr.append(tblCellMar)
 
-            def add_section_title(title_text, add_spacer=False):
+            def add_section_title(title_text):
                 """Add a section title with black background and white text"""
                 table = document.add_table(rows=1, cols=1)
                 table.autofit = False
@@ -389,12 +396,8 @@ class ResumeGenerator:
                 # Set compact table cell margins (top/bottom: 30 twips ~= 2pt, left/right: 115 twips ~= 8pt)
                 set_table_cell_margins(table, top=30, left=115, bottom=30, right=115)
                 para = cell.paragraphs[0]
-                format_paragraph(para, space_before=0, space_after=0)
-                add_text(para, title_text, size=12, color=colors['white'], bold=True)
-                # Add zero-spacing paragraph only if needed (to prevent table merging)
-                if add_spacer:
-                    spacer = document.add_paragraph()
-                    format_paragraph(spacer, space_before=0, space_after=0)
+                format_paragraph(para, line_spacing=1.0, space_before=0, space_after=0)
+                add_text(para, title_text, size=11, color=colors['white'], bold=True)
                 return table
 
             # ==================== HEADER TABLE ====================
@@ -426,17 +429,17 @@ class ResumeGenerator:
             # Add header info (name, title, contact)
             # Name line
             name_para = info_cell.paragraphs[0]
-            format_paragraph(name_para, space_before=0, space_after=1)
+            format_paragraph(name_para, line_spacing=1.0, space_before=0, space_after=0)
             add_text(name_para, resume_model.name, size=18, color=colors['black'], bold=True)
 
             # Title line
             title_para = info_cell.add_paragraph()
-            format_paragraph(title_para, space_before=0, space_after=1)
+            format_paragraph(title_para, line_spacing=1.0, space_before=0, space_after=0)
             add_text(title_para, resume_model.title, size=14, color=colors['blue'], bold=True)
 
             # Contact line (labels in gray/normal, values in black/bold)
             contact_para = info_cell.add_paragraph()
-            format_paragraph(contact_para, space_before=0, space_after=0)
+            format_paragraph(contact_para, line_spacing=1.0, space_before=0, space_after=0)
             first_item = True
             if resume_model.contact.phone:
                 add_text(contact_para, "Phone: ", size=12, color=colors['gray'], bold=False)
@@ -448,17 +451,20 @@ class ResumeGenerator:
                 add_text(contact_para, "Email: ", size=12, color=colors['gray'], bold=False)
                 add_text(contact_para, resume_model.contact.email, size=12, color=colors['black'], bold=True)
 
-            # Add spacing after header
-            document.add_paragraph()
+            # Spacer after header table
+            add_spacer(line_spacing=1.0, space_after=0)
 
             # ==================== PROFESSIONAL SUMMARY ====================
-            add_section_title("Professional Summary")  # No spacer - followed by paragraph
+            add_section_title("Professional Summary")
             summary_para = document.add_paragraph()
-            format_paragraph(summary_para, line_spacing=1.0, space_before=12, space_after=6)
+            format_paragraph(summary_para, line_spacing=1.0, space_before=12, space_after=0)
             add_text(summary_para, resume_model.summary, size=11, color=colors['text'])
+            add_spacer(line_spacing=1.0, space_before=6, space_after=6)
 
             # ==================== KEY EXPERTISE & SKILLS ====================
-            add_section_title("Key Expertise, Skills & Core Qualifications", add_spacer=True)  # Spacer - followed by table
+            add_section_title("Key Expertise, Skills & Core Qualifications")
+            # Spacer between header table and skills table
+            add_spacer(space_after=0)
 
             if resume_model.skills:
                 skills_table = document.add_table(rows=0, cols=2)
@@ -488,20 +494,32 @@ class ResumeGenerator:
                     format_paragraph(det_para, space_before=3, space_after=3)
                     add_text(det_para, safe_text(skill.details), size=11, color=colors['text'])
 
-            document.add_paragraph()
+            # Spacers between skills table and Core Competencies header
+            add_spacer(line_spacing=1.0, space_after=0)
+            add_spacer(line_spacing=1.0, space_after=0)
 
             # ==================== CORE COMPETENCIES ====================
-            add_section_title("Core Competencies")  # No spacer - followed by paragraphs
+            add_section_title("Core Competencies")
 
-            for competency in resume_model.core_competencies:
+            for idx, competency in enumerate(resume_model.core_competencies):
                 bullet_para = document.add_paragraph(style='List Bullet')
+                format_paragraph(
+                    bullet_para,
+                    line_spacing=1.0,
+                    space_before=12 if idx == 0 else 0,
+                    space_after=0
+                )
                 add_text(bullet_para, safe_text(competency.title), size=11, color=colors['black'], bold=True)
                 add_text(bullet_para, f" - {safe_text(competency.description)}", size=11, color=colors['text'])
 
-            document.add_paragraph()
+            # Spacers between Core Competencies and Professional Experience
+            add_spacer(line_spacing=1.0, space_after=0)
+            add_spacer(line_spacing=1.0, space_after=0)
 
             # ==================== PROFESSIONAL EXPERIENCE ====================
-            add_section_title("Professional Experience", add_spacer=True)  # Spacer - followed by table
+            add_section_title("Professional Experience")
+            # Spacer between header table and first job table
+            add_spacer(space_after=0)
 
             for job in resume_model.experience:
                 # Job header table (no borders)
@@ -517,7 +535,7 @@ class ResumeGenerator:
                 company_cell = job_table.cell(0, 0)
                 company_cell.merge(job_table.cell(0, 1))
                 company_para = company_cell.paragraphs[0]
-                format_paragraph(company_para, space_before=2, space_after=2)
+                format_paragraph(company_para, line_spacing=1.0, space_before=0, space_after=0)
                 company_text = safe_text(job.company)
                 if job.location:
                     company_text = f"{company_text} - {safe_text(job.location)}"
@@ -528,11 +546,11 @@ class ResumeGenerator:
                 date_cell = job_table.cell(1, 1)
 
                 role_para = role_cell.paragraphs[0]
-                format_paragraph(role_para, space_before=2, space_after=2)
+                format_paragraph(role_para, line_spacing=1.0, space_before=0, space_after=0)
                 add_text(role_para, safe_text(job.role), size=11, color=colors['blue'], bold=True)
 
                 date_para = date_cell.paragraphs[0]
-                format_paragraph(date_para, space_before=2, space_after=2, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
+                format_paragraph(date_para, line_spacing=1.0, space_before=0, space_after=0, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
                 start = job.start_date.strftime('%b %Y') if job.start_date else ''
                 end = job.end_date.strftime('%b %Y') if job.end_date else 'Present'
                 add_text(date_para, f"{start} - {end}", size=11, color=colors['dark_gray'], italic=True)
@@ -540,57 +558,63 @@ class ResumeGenerator:
                 # Job summary
                 if job.summary:
                     summary_para = document.add_paragraph()
-                    format_paragraph(summary_para, line_spacing=1.0, space_before=12, space_after=6)
+                    format_paragraph(summary_para, line_spacing=1.0, space_before=6, space_after=6)
                     add_text(summary_para, safe_text(job.summary), size=11, color=colors['text'], italic=True)
 
                 # Notable Projects
                 if job.notable_projects:
                     proj_heading = document.add_paragraph()
-                    format_paragraph(proj_heading, space_before=6, space_after=2)
+                    format_paragraph(proj_heading, space_before=6, space_after=6)
                     run = proj_heading.add_run("Notable Projects")
                     run.bold = True
                     run.font.size = Pt(10)
                     run.font.color.rgb = colors['purple']
                     for project in job.notable_projects:
                         proj_para = document.add_paragraph(style='List Bullet')
+                        format_paragraph(proj_para, line_spacing=1.0, space_after=0)
                         add_text(proj_para, safe_text(project.title), size=11, color=colors['black'], bold=True)
                         add_text(proj_para, f" - {safe_text(project.description)}", size=11, color=colors['text'])
 
                 # Responsibilities
                 if job.responsibilities:
                     resp_heading = document.add_paragraph()
-                    format_paragraph(resp_heading, space_before=6, space_after=2)
+                    format_paragraph(resp_heading, space_before=6, space_after=6)
                     run = resp_heading.add_run("Responsibilities")
                     run.bold = True
                     run.font.size = Pt(10)
                     run.font.color.rgb = colors['purple']
                     for resp in job.responsibilities:
                         resp_para = document.add_paragraph(style='List Bullet')
+                        format_paragraph(resp_para, line_spacing=1.0, space_after=0)
                         add_text(resp_para, resp, size=11, color=colors['text'])
 
                 # Accomplishments
                 if job.accomplishments:
                     acc_heading = document.add_paragraph()
-                    format_paragraph(acc_heading, space_before=6, space_after=2)
+                    format_paragraph(acc_heading, space_before=6, space_after=6)
                     run = acc_heading.add_run("Accomplishments")
                     run.bold = True
                     run.font.size = Pt(10)
                     run.font.color.rgb = colors['purple']
                     for acc in job.accomplishments:
                         acc_para = document.add_paragraph(style='List Bullet')
+                        format_paragraph(acc_para, line_spacing=1.0, space_after=0)
                         add_text(acc_para, acc, size=11, color=colors['text'])
 
                 # Environment
                 if job.environment:
                     env_para = document.add_paragraph()
-                    format_paragraph(env_para, space_before=6, space_after=8)
+                    format_paragraph(env_para, line_spacing=1.0, space_before=6, space_after=12)
                     add_text(env_para, "Environment: ", size=11, color=colors['black'], bold=True)
                     add_text(env_para, join_values(job.environment), size=11, color=colors['text'])
 
-                document.add_paragraph()
+            if resume_model.education:
+                add_spacer(space_before=6, space_after=8)
+                add_spacer(line_spacing=1.0, space_after=0)
 
             # ==================== EDUCATION ====================
-            add_section_title("Education", add_spacer=True)  # Spacer - followed by table
+            add_section_title("Education")
+            add_spacer(space_after=0)
 
             for edu in resume_model.education:
                 edu_table = document.add_table(rows=2, cols=2)
@@ -605,7 +629,7 @@ class ResumeGenerator:
                 inst_cell = edu_table.cell(0, 0)
                 inst_cell.merge(edu_table.cell(0, 1))
                 inst_para = inst_cell.paragraphs[0]
-                format_paragraph(inst_para, space_before=2, space_after=2)
+                format_paragraph(inst_para, line_spacing=1.0, space_before=0, space_after=0)
                 inst_text = safe_text(edu.institution)
                 if edu.location:
                     inst_text = f"{inst_text} - {safe_text(edu.location)}"
@@ -616,28 +640,32 @@ class ResumeGenerator:
                 grad_cell = edu_table.cell(1, 1)
 
                 degree_para = degree_cell.paragraphs[0]
-                format_paragraph(degree_para, space_before=2, space_after=2)
+                format_paragraph(degree_para, line_spacing=1.0, space_before=0, space_after=0)
                 add_text(degree_para, safe_text(edu.degree), size=11, color=colors['blue'], bold=True)
 
                 grad_para = grad_cell.paragraphs[0]
-                format_paragraph(grad_para, space_before=2, space_after=2, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
+                format_paragraph(grad_para, line_spacing=1.0, space_before=0, space_after=0, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
                 grad_date = edu.graduation_date.strftime('%b %Y') if edu.graduation_date else ''
                 if grad_date:
                     add_text(grad_para, f"Graduated: {grad_date}", size=11, color=colors['dark_gray'], italic=True)
 
                 # Relevance
                 if edu.relevance:
+                    add_spacer(line_spacing=1.0, space_after=0)
                     rel_para = document.add_paragraph()
-                    format_paragraph(rel_para, line_spacing=1.4, space_before=4, space_after=6)
+                    format_paragraph(rel_para, line_spacing=1.0, space_before=0, space_after=0)
                     add_text(rel_para, safe_text(edu.relevance), size=11, color=colors['text'])
 
-            document.add_paragraph()
+            if resume_model.certifications:
+                # Spacer between Education and Certifications (avoid oversized gaps)
+                add_spacer(space_before=6, space_after=8)
 
             # ==================== CERTIFICATIONS ====================
             if resume_model.certifications:
-                add_section_title("Certifications", add_spacer=True)  # Spacer - followed by table
+                add_section_title("Certifications")
+                add_spacer(space_after=0)
 
-                for cert in resume_model.certifications:
+                for cert_index, cert in enumerate(resume_model.certifications):
                     cert_table = document.add_table(rows=1, cols=2)
                     cert_table.autofit = False
                     col1_width = Inches(4.5)
@@ -650,18 +678,20 @@ class ResumeGenerator:
                     date_cell = cert_table.cell(0, 1)
 
                     name_para = name_cell.paragraphs[0]
-                    format_paragraph(name_para, space_before=2, space_after=2)
+                    format_paragraph(name_para, line_spacing=1.0, space_before=0, space_after=0)
                     add_text(name_para, safe_text(cert.name), size=11, color=colors['black'], bold=True)
 
                     date_para = date_cell.paragraphs[0]
-                    format_paragraph(date_para, space_before=2, space_after=2, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
+                    format_paragraph(date_para, line_spacing=1.0, space_before=0, space_after=0, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
                     if cert.issue_date:
                         add_text(date_para, cert.issue_date.strftime('%b %Y'), size=11, color=colors['dark_gray'], italic=True)
 
                     if cert.description:
                         desc_para = document.add_paragraph()
-                        format_paragraph(desc_para, line_spacing=1.4, space_after=4)
+                        format_paragraph(desc_para, line_spacing=1.0, space_after=0)
                         add_text(desc_para, safe_text(cert.description), size=11, color=colors['text'])
+                    if cert_index < len(resume_model.certifications) - 1:
+                        add_spacer(line_spacing=1.0, space_after=0)
 
             # ==================== FOOTER ====================
             if resume_model.footer:
@@ -717,23 +747,31 @@ class ResumeGenerator:
 
             document = Document()
 
-            # Page setup: letter with 0.75" margins to match Modern HTML
+            # Page setup: legal with Cendien modern margins
             section = document.sections[0]
             section.page_width = Inches(8.5)
-            section.page_height = Inches(11)
-            section.top_margin = Inches(0.75)
-            section.bottom_margin = Inches(0.75)
+            section.page_height = Inches(14)
+            section.top_margin = Inches(0.7)
+            section.bottom_margin = Inches(0.7)
             section.left_margin = Inches(0.75)
             section.right_margin = Inches(0.75)
+            section.header_distance = Inches(0.5)
+            section.footer_distance = Inches(0.5)
 
-            # Default to an Office font (Inter is not available by default in Word)
+            # Default to an Office font (Calibri)
             self._set_default_font(document, 'Calibri')
 
+            usable_width = Inches(7.0)
+
             colors = {
-                'dark': RGBColor(0x2C, 0x3E, 0x50),
-                'blue': RGBColor(0x34, 0x98, 0xDB),
-                'muted': RGBColor(0x5A, 0x6C, 0x7D),
-                'text': RGBColor(0x34, 0x49, 0x5E)
+                'black': RGBColor(0x00, 0x00, 0x00),
+                'blue': RGBColor(0x00, 0x70, 0xC0),
+                'purple': RGBColor(0x70, 0x30, 0xA0),
+                'gray': RGBColor(0x80, 0x80, 0x80),
+                'dark_gray': RGBColor(0x55, 0x55, 0x55),
+                'text': RGBColor(0x26, 0x26, 0x26),
+                'light_blue': 'EDF7F9',
+                'light_gray': 'F8F9FA'
             }
 
             def safe_text(value):
@@ -748,10 +786,6 @@ class ResumeGenerator:
                     if text:
                         parts.append(text)
                 return sep.join(parts)
-
-            def emu_to_twips(emu_value):
-                # 1 twip = 1/1440 inch = 635 EMU
-                return int(round(emu_value / 635))
 
             def add_text(paragraph, text, size, color, bold=False, italic=False, align=None):
                 run = paragraph.add_run(safe_text(text))
@@ -775,16 +809,6 @@ class ResumeGenerator:
                 if alignment is not None:
                     paragraph.alignment = alignment
 
-            def set_paragraph_bottom_border(paragraph, color, size=12):
-                pPr = paragraph._element.get_or_add_pPr()
-                pBdr = OxmlElement('w:pBdr')
-                bottom = OxmlElement('w:bottom')
-                bottom.set(qn('w:val'), 'single')
-                bottom.set(qn('w:sz'), str(size))
-                bottom.set(qn('w:color'), color)
-                pBdr.append(bottom)
-                pPr.append(pBdr)
-
             def set_cell_shading(cell, fill_hex):
                 tcPr = cell._element.get_or_add_tcPr()
                 shd = OxmlElement('w:shd')
@@ -793,284 +817,287 @@ class ResumeGenerator:
                 shd.set(qn('w:fill'), fill_hex)
                 tcPr.append(shd)
 
-            def set_cell_left_border(cell, color_hex, size=18):
+            def set_table_borders(table, border_color, border_size):
+                tbl = table._element
+                tblPr = tbl.find(qn('w:tblPr'))
+                if tblPr is None:
+                    tblPr = OxmlElement('w:tblPr')
+                    tbl.insert(0, tblPr)
+                old_borders = tblPr.find(qn('w:tblBorders'))
+                if old_borders is not None:
+                    tblPr.remove(old_borders)
+                tblBorders = OxmlElement('w:tblBorders')
+                for border_name in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
+                    border = OxmlElement(f'w:{border_name}')
+                    border.set(qn('w:val'), 'single')
+                    border.set(qn('w:sz'), str(border_size))
+                    border.set(qn('w:color'), border_color)
+                    border.set(qn('w:space'), '0')
+                    tblBorders.append(border)
+                tblPr.append(tblBorders)
+
+            def remove_table_borders(table):
+                tbl = table._element
+                tblPr = tbl.find(qn('w:tblPr'))
+                if tblPr is None:
+                    tblPr = OxmlElement('w:tblPr')
+                    tbl.insert(0, tblPr)
+                old_borders = tblPr.find(qn('w:tblBorders'))
+                if old_borders is not None:
+                    tblPr.remove(old_borders)
+                tblBorders = OxmlElement('w:tblBorders')
+                for border_name in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
+                    border = OxmlElement(f'w:{border_name}')
+                    border.set(qn('w:val'), 'nil')
+                    border.set(qn('w:sz'), '0')
+                    border.set(qn('w:color'), 'auto')
+                    tblBorders.append(border)
+                tblPr.append(tblBorders)
+
+            def set_cell_borders(cell, border_color, border_size):
                 tcPr = cell._element.get_or_add_tcPr()
                 tcBorders = tcPr.find(qn('w:tcBorders'))
                 if tcBorders is None:
                     tcBorders = OxmlElement('w:tcBorders')
                     tcPr.append(tcBorders)
-                left = OxmlElement('w:left')
-                left.set(qn('w:val'), 'single')
-                left.set(qn('w:sz'), str(size))
-                left.set(qn('w:color'), color_hex)
-                tcBorders.append(left)
+                for border_name in ['top', 'left', 'bottom', 'right']:
+                    border = tcBorders.find(qn(f'w:{border_name}'))
+                    if border is None:
+                        border = OxmlElement(f'w:{border_name}')
+                        tcBorders.append(border)
+                    border.set(qn('w:val'), 'single')
+                    border.set(qn('w:sz'), str(border_size))
+                    border.set(qn('w:color'), border_color)
+                    border.set(qn('w:space'), '0')
 
             def add_section_title(text):
-                paragraph = document.add_paragraph()
-                format_paragraph(paragraph, line_spacing=1.2, space_before=18, space_after=12)
-                add_text(
-                    paragraph,
-                    text.upper(),
-                    size=14,
-                    color=colors['dark'],
-                    bold=True
-                )
-                set_paragraph_bottom_border(paragraph, '3498DB', size=12)
-                return paragraph
-
-            def clear_cell_borders(cell):
-                try:
-                    self._remove_cell_borders(cell)
-                except Exception:
-                    pass
+                table = document.add_table(rows=1, cols=1)
+                table.autofit = False
+                table.columns[0].width = usable_width
+                set_table_borders(table, '0070C0', '4')
+                cell = table.cell(0, 0)
+                set_cell_shading(cell, '0070C0')
+                para = cell.paragraphs[0]
+                format_paragraph(para, space_before=1, space_after=1)
+                add_text(para, text, size=12, color=RGBColor(0xFF, 0xFF, 0xFF), bold=True)
+                return table
 
             # Header with optional logo
             logo_path = resume_model.logo_file_path or resume_model.logo_path
+            header_table = document.add_table(rows=1, cols=2)
+            header_table.autofit = False
+            remove_table_borders(header_table)
+            self._set_table_column_widths(header_table, [1300, 8798])
+            header_table.columns[0].width = Inches(0.9)
+            header_table.columns[1].width = usable_width - Inches(0.9)
+            logo_cell = header_table.cell(0, 0)
+            info_cell = header_table.cell(0, 1)
+            self._remove_cell_borders(logo_cell)
+            self._remove_cell_borders(info_cell)
+
             if logo_path and os.path.exists(logo_path):
-                header_table = document.add_table(rows=1, cols=2)
-                header_table.autofit = False
-                content_width = section.page_width - section.left_margin - section.right_margin
-                logo_column_width = Inches(1.5)
-                text_column_width = content_width - logo_column_width
-                header_table.columns[0].width = logo_column_width
-                header_table.columns[1].width = text_column_width
-
-                logo_cell = header_table.cell(0, 0)
-                text_cell = header_table.cell(0, 1)
-                logo_cell.width = logo_column_width
-                text_cell.width = text_column_width
-                self._remove_cell_borders(logo_cell)
-                self._remove_cell_borders(text_cell)
-
-                self._set_table_column_widths(
-                    header_table,
-                    [int(1.5 * 1440), max(emu_to_twips(content_width) - int(1.5 * 1440), 0)]
-                )
-
-                logo_paragraph = logo_cell.paragraphs[0]
-                logo_run = logo_paragraph.add_run()
+                logo_para = logo_cell.paragraphs[0]
+                logo_run = logo_para.add_run()
                 logo_run.add_picture(logo_path, width=Inches(0.7), height=Inches(0.7))
 
-                name_paragraph = text_cell.paragraphs[0]
-                format_paragraph(name_paragraph, line_spacing=1.1, space_after=2)
-                add_text(name_paragraph, resume_model.name, size=28, color=colors['dark'], bold=True)
+            name_para = info_cell.paragraphs[0]
+            format_paragraph(name_para, space_before=6, space_after=2)
+            add_text(name_para, resume_model.name, size=18, color=colors['black'], bold=True)
 
-                title_paragraph = text_cell.add_paragraph()
-                format_paragraph(title_paragraph, line_spacing=1.1, space_after=6)
-                add_text(title_paragraph, resume_model.title, size=14, color=colors['blue'], bold=True)
+            title_para = info_cell.add_paragraph()
+            format_paragraph(title_para, space_before=2, space_after=2)
+            add_text(title_para, resume_model.title, size=14, color=colors['blue'], bold=True)
 
-                contact_parts = [
-                    safe_text(resume_model.contact.phone),
-                    safe_text(resume_model.contact.email),
-                    safe_text(resume_model.contact.linkedin),
-                    safe_text(resume_model.contact.github)
-                ]
-                contact_parts = [item for item in contact_parts if item]
-                if contact_parts:
-                    contact_paragraph = text_cell.add_paragraph()
-                    format_paragraph(contact_paragraph, line_spacing=1.2, space_after=10)
-                    add_text(contact_paragraph, " | ".join(contact_parts), size=9, color=colors['muted'])
-            else:
-                name_paragraph = document.add_paragraph()
-                format_paragraph(name_paragraph, line_spacing=1.1, space_after=2)
-                add_text(name_paragraph, resume_model.name, size=28, color=colors['dark'], bold=True)
-                title_paragraph = document.add_paragraph()
-                format_paragraph(title_paragraph, line_spacing=1.1, space_after=8)
-                add_text(title_paragraph, resume_model.title, size=14, color=colors['blue'], bold=True)
-
-            if not (logo_path and os.path.exists(logo_path)):
-                contact_parts = [
-                    safe_text(resume_model.contact.phone),
-                    safe_text(resume_model.contact.email),
-                    safe_text(resume_model.contact.linkedin),
-                    safe_text(resume_model.contact.github)
-                ]
-                contact_parts = [item for item in contact_parts if item]
-                if contact_parts:
-                    contact_paragraph = document.add_paragraph()
-                    format_paragraph(contact_paragraph, line_spacing=1.2, space_after=10)
-                    add_text(contact_paragraph, " | ".join(contact_parts), size=9, color=colors['muted'])
+            contact_para = info_cell.add_paragraph()
+            format_paragraph(contact_para, space_after=6)
+            first_item = True
+            if resume_model.contact.phone:
+                add_text(contact_para, "Phone: ", size=12, color=colors['gray'], bold=False)
+                add_text(contact_para, resume_model.contact.phone, size=12, color=colors['black'], bold=True)
+                first_item = False
+            if resume_model.contact.email:
+                if not first_item:
+                    add_text(contact_para, " | ", size=12, color=colors['gray'])
+                add_text(contact_para, "Email: ", size=12, color=colors['gray'], bold=False)
+                add_text(contact_para, resume_model.contact.email, size=12, color=colors['black'], bold=True)
+                first_item = False
+            if resume_model.contact.linkedin:
+                if not first_item:
+                    add_text(contact_para, " | ", size=12, color=colors['gray'])
+                add_text(contact_para, "LinkedIn: ", size=12, color=colors['gray'], bold=False)
+                add_text(contact_para, resume_model.contact.linkedin, size=12, color=colors['black'], bold=True)
+                first_item = False
+            if resume_model.contact.github:
+                if not first_item:
+                    add_text(contact_para, " | ", size=12, color=colors['gray'])
+                add_text(contact_para, "GitHub: ", size=12, color=colors['gray'], bold=False)
+                add_text(contact_para, resume_model.contact.github, size=12, color=colors['black'], bold=True)
 
             # Professional Summary
             add_section_title("Professional Summary")
-            summary_paragraph = document.add_paragraph()
-            format_paragraph(summary_paragraph, line_spacing=1.6, space_after=14)
-            add_text(summary_paragraph, resume_model.summary, size=11, color=colors['text'])
+            summary_lines = [line.strip() for line in safe_text(resume_model.summary).split('\\n') if line.strip()]
+            if not summary_lines:
+                summary_lines = [safe_text(resume_model.summary)]
+            for line in summary_lines:
+                summary_paragraph = document.add_paragraph()
+                format_paragraph(summary_paragraph, line_spacing=1.0, space_before=12, space_after=6)
+                add_text(summary_paragraph, line, size=11, color=colors['text'])
 
-            # Technical Skills
-            add_section_title("Technical Skills")
-            skills_table = document.add_table(rows=0, cols=2)
-            skills_table.autofit = False
-            skills_table.columns[0].width = Inches(2.0)
-            skills_table.columns[1].width = Inches(5.0)
-            for skill in resume_model.skills:
-                row = skills_table.add_row()
-                left = row.cells[0]
-                right = row.cells[1]
-                clear_cell_borders(left)
-                clear_cell_borders(right)
-                set_cell_shading(left, 'ECF6FD')
-                set_cell_left_border(left, '3498DB', size=18)
-                set_cell_shading(right, 'F8F9FA')
-                left_paragraph = left.paragraphs[0]
-                format_paragraph(left_paragraph, line_spacing=1.4)
-                add_text(left_paragraph, safe_text(skill.category), size=10, color=colors['blue'], bold=True)
-                right_paragraph = right.paragraphs[0]
-                format_paragraph(right_paragraph, line_spacing=1.4)
-                add_text(right_paragraph, safe_text(skill.details), size=11, color=colors['text'])
+            # Key Expertise Areas & Skills
+            add_section_title("Key Expertise Areas & Skills")
+            if resume_model.skills:
+                # Spacer to prevent section title table from merging with the skills table
+                document.add_paragraph()
+                skills_table = document.add_table(rows=0, cols=2)
+                skills_table.autofit = False
+                self._set_table_column_widths(skills_table, [2875, 7200])
+                skills_table.columns[0].width = Inches(2.0)
+                skills_table.columns[1].width = Inches(5.0)
+                set_table_borders(skills_table, '31849B', '4')
+                for skill in resume_model.skills:
+                    row = skills_table.add_row()
+                    left = row.cells[0]
+                    right = row.cells[1]
+                    set_cell_shading(left, colors['light_blue'])
+                    left_paragraph = left.paragraphs[0]
+                    format_paragraph(left_paragraph, space_before=3, space_after=3)
+                    add_text(left_paragraph, safe_text(skill.category), size=11, color=RGBColor(0x00, 0x20, 0x60), bold=True)
+                    right_paragraph = right.paragraphs[0]
+                    format_paragraph(right_paragraph, space_before=3, space_after=3)
+                    add_text(right_paragraph, safe_text(skill.details), size=11, color=colors['text'])
+                # Spacer to prevent skills table from merging with the next section title
+                document.add_paragraph()
 
             # Core Competencies
             add_section_title("Core Competencies")
-            comp_table = document.add_table(rows=0, cols=2)
-            comp_table.autofit = False
-            comp_table.columns[0].width = Inches(3.5)
-            comp_table.columns[1].width = Inches(3.5)
-            for idx, competency in enumerate(resume_model.core_competencies):
-                if idx % 2 == 0:
-                    row = comp_table.add_row()
-                cell = row.cells[idx % 2]
-                clear_cell_borders(cell)
-                set_cell_shading(cell, 'F8F9FA')
-                set_cell_left_border(cell, '3498DB', size=24)
-                title_paragraph = cell.paragraphs[0]
-                format_paragraph(title_paragraph, line_spacing=1.4, space_after=2)
-                add_text(title_paragraph, safe_text(competency.title), size=10, color=colors['dark'], bold=True)
-                desc_paragraph = cell.add_paragraph()
-                format_paragraph(desc_paragraph, line_spacing=1.4)
-                add_text(desc_paragraph, safe_text(competency.description), size=9, color=colors['muted'])
+            if resume_model.core_competencies:
+                # Spacer to prevent section title table from merging with the competencies table
+                document.add_paragraph()
+                comp_table = document.add_table(rows=0, cols=2)
+                comp_table.autofit = False
+                self._set_table_column_widths(comp_table, [5040, 5040])
+                comp_table.columns[0].width = Inches(3.5)
+                comp_table.columns[1].width = Inches(3.5)
+                set_table_borders(comp_table, '3498DB', '8')
+                for idx, competency in enumerate(resume_model.core_competencies):
+                    if idx % 2 == 0:
+                        row = comp_table.add_row()
+                    cell = row.cells[idx % 2]
+                    set_cell_shading(cell, colors['light_gray'])
+                    title_paragraph = cell.paragraphs[0]
+                    format_paragraph(title_paragraph, line_spacing=1.0, space_before=6, space_after=4)
+                    add_text(title_paragraph, safe_text(competency.title), size=11, color=colors['blue'], bold=True)
+                    desc_paragraph = cell.add_paragraph()
+                    format_paragraph(desc_paragraph, line_spacing=1.0, space_before=2, space_after=6)
+                    add_text(desc_paragraph, safe_text(competency.description), size=11, color=colors['text'])
+                # Spacer to prevent competencies table from merging with the next section title
+                document.add_paragraph()
 
             # Professional Experience
             add_section_title("Professional Experience")
             for job in resume_model.experience:
-                role_table = document.add_table(rows=1, cols=2)
-                role_table.autofit = False
-                role_table.columns[0].width = Inches(4.8)
-                role_table.columns[1].width = Inches(2.2)
-                self._remove_cell_borders(role_table.cell(0, 0))
-                self._remove_cell_borders(role_table.cell(0, 1))
+                job_table = document.add_table(rows=2, cols=2)
+                job_table.autofit = False
+                self._set_table_column_widths(job_table, [5616, 4456])
+                job_table.columns[0].width = Inches(3.9)
+                job_table.columns[1].width = usable_width - Inches(3.9)
+                set_table_borders(job_table, '000000', '4')
+                for row in job_table.rows:
+                    for cell in row.cells:
+                        set_cell_borders(cell, 'FFFFFF', '6')
 
-                role_paragraph = role_table.cell(0, 0).paragraphs[0]
-                format_paragraph(role_paragraph, line_spacing=1.2)
-                add_text(role_paragraph, safe_text(job.role), size=12, color=colors['dark'], bold=True)
-                date_paragraph = role_table.cell(0, 1).paragraphs[0]
-                format_paragraph(date_paragraph, line_spacing=1.2, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
-                start = job.start_date.strftime('%B %Y') if job.start_date else ''
-                end = job.end_date.strftime('%B %Y') if job.end_date else 'Present'
-                add_text(date_paragraph, f"{start} - {end}", size=9, color=colors['muted'], italic=True)
-
-                company_paragraph = document.add_paragraph()
-                format_paragraph(company_paragraph, line_spacing=1.2, space_after=6)
+                company_cell = job_table.cell(0, 0)
+                company_cell.merge(job_table.cell(0, 1))
+                company_para = company_cell.paragraphs[0]
                 company_text = safe_text(job.company)
                 if job.location:
-                    company_text = f"{company_text} | {safe_text(job.location)}"
-                add_text(company_paragraph, company_text, size=11, color=colors['blue'], bold=True)
+                    company_text = f"{company_text} - {safe_text(job.location)}"
+                add_text(company_para, company_text, size=12, color=colors['black'], bold=True)
+
+                role_para = job_table.cell(1, 0).paragraphs[0]
+                add_text(role_para, safe_text(job.role), size=12, color=colors['blue'], bold=True)
+
+                date_para = job_table.cell(1, 1).paragraphs[0]
+                format_paragraph(date_para, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
+                start = job.start_date.strftime('%b %Y') if job.start_date else ''
+                end = job.end_date.strftime('%b %Y') if job.end_date else 'Present'
+                add_text(date_para, f"{start} - {end}", size=11, color=colors['dark_gray'])
 
                 if job.summary:
-                    summary_table = document.add_table(rows=1, cols=1)
-                    summary_cell = summary_table.cell(0, 0)
-                    clear_cell_borders(summary_cell)
-                    set_cell_shading(summary_cell, 'F8F9FA')
-                    set_cell_left_border(summary_cell, '3498DB', size=18)
-                    summary_paragraph = summary_cell.paragraphs[0]
-                    format_paragraph(summary_paragraph, line_spacing=1.5)
-                    add_text(summary_paragraph, safe_text(job.summary), size=9, color=colors['text'], italic=True)
+                    summary_paragraph = document.add_paragraph()
+                    format_paragraph(summary_paragraph, line_spacing=1.0, space_before=6, space_after=6)
+                    add_text(summary_paragraph, safe_text(job.summary), size=11, color=colors['text'])
 
                 def add_subsection(title, items):
                     if not items:
                         return
                     heading = document.add_paragraph()
-                    format_paragraph(heading, line_spacing=1.2, space_before=6, space_after=2)
-                    add_text(heading, title.upper(), size=10, color=colors['blue'], bold=True)
+                    format_paragraph(heading, line_spacing=1.0, space_before=6, space_after=6)
+                    run = heading.add_run(title)
+                    run.bold = True
+                    run.font.color.rgb = colors['purple']
                     for item in items:
                         bullet = document.add_paragraph(style='List Bullet')
-                        format_paragraph(bullet, line_spacing=1.5, space_after=4)
-                        add_text(bullet, item, size=9, color=colors['text'])
+                        add_text(bullet, item, size=11, color=colors['text'])
 
                 if job.notable_projects:
                     add_subsection(
                         "Notable Projects",
                         [f"{safe_text(p.title)}: {safe_text(p.description)}" for p in job.notable_projects]
                     )
-
-                add_subsection("Key Responsibilities", job.responsibilities or [])
-                add_subsection("Key Accomplishments", job.accomplishments or [])
+                add_subsection("Responsibilities", job.responsibilities or [])
+                add_subsection("Accomplishments", job.accomplishments or [])
 
                 if job.environment:
-                    env_table = document.add_table(rows=1, cols=1)
-                    env_cell = env_table.cell(0, 0)
-                    clear_cell_borders(env_cell)
-                    set_cell_shading(env_cell, 'ECF6FD')
-                    set_cell_left_border(env_cell, '3498DB', size=18)
-                    env_paragraph = env_cell.paragraphs[0]
-                    format_paragraph(env_paragraph, line_spacing=1.5)
-                    add_text(
-                        env_paragraph,
-                        "Technical Environment: " + join_values(job.environment),
-                        size=9,
-                        color=colors['dark']
-                    )
-
-                document.add_paragraph()
+                    env_paragraph = document.add_paragraph()
+                    add_text(env_paragraph, "Environment: ", size=11, color=colors['purple'], bold=True)
+                    add_text(env_paragraph, join_values(job.environment), size=11, color=colors['text'])
 
             # Education
             add_section_title("Education")
             for edu in resume_model.education:
-                edu_table = document.add_table(rows=1, cols=2)
+                edu_table = document.add_table(rows=2, cols=2)
                 edu_table.autofit = False
-                edu_table.columns[0].width = Inches(4.8)
-                edu_table.columns[1].width = Inches(2.2)
-                self._remove_cell_borders(edu_table.cell(0, 0))
-                self._remove_cell_borders(edu_table.cell(0, 1))
-                degree_paragraph = edu_table.cell(0, 0).paragraphs[0]
-                format_paragraph(degree_paragraph, line_spacing=1.2)
-                add_text(degree_paragraph, safe_text(edu.degree), size=11, color=colors['dark'], bold=True)
-                grad_paragraph = edu_table.cell(0, 1).paragraphs[0]
-                format_paragraph(grad_paragraph, line_spacing=1.2, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
-                grad_date = edu.graduation_date.strftime('%B %Y') if edu.graduation_date else ''
-                add_text(grad_paragraph, f"Graduated: {grad_date}", size=9, color=colors['muted'], italic=True)
+                self._set_table_column_widths(edu_table, [5616, 4464])
+                edu_table.columns[0].width = Inches(3.9)
+                edu_table.columns[1].width = usable_width - Inches(3.9)
+                set_table_borders(edu_table, '000000', '4')
+                for row in edu_table.rows:
+                    for cell in row.cells:
+                        set_cell_borders(cell, 'FFFFFF', '6')
 
-                inst_paragraph = document.add_paragraph()
-                format_paragraph(inst_paragraph, line_spacing=1.2, space_after=6)
+                inst_cell = edu_table.cell(0, 0)
+                inst_cell.merge(edu_table.cell(0, 1))
+                inst_para = inst_cell.paragraphs[0]
                 inst_text = safe_text(edu.institution)
                 if edu.location:
-                    inst_text = f"{inst_text} | {safe_text(edu.location)}"
-                add_text(inst_paragraph, inst_text, size=10, color=colors['blue'], bold=True)
+                    inst_text = f"{inst_text} - {safe_text(edu.location)}"
+                add_text(inst_para, inst_text, size=12, color=colors['black'], bold=True)
+
+                degree_para = edu_table.cell(1, 0).paragraphs[0]
+                add_text(degree_para, safe_text(edu.degree), size=12, color=colors['blue'], bold=True)
+
+                grad_para = edu_table.cell(1, 1).paragraphs[0]
+                format_paragraph(grad_para, alignment=WD_ALIGN_PARAGRAPH.RIGHT)
+                grad_date = edu.graduation_date.strftime('%b %Y') if edu.graduation_date else ''
+                add_text(grad_para, f"Graduated: {grad_date}", size=11, color=colors['dark_gray'])
 
                 if edu.relevance:
-                    rel_table = document.add_table(rows=1, cols=1)
-                    rel_cell = rel_table.cell(0, 0)
-                    clear_cell_borders(rel_cell)
-                    set_cell_shading(rel_cell, 'F8F9FA')
-                    set_cell_left_border(rel_cell, '3498DB', size=18)
-                    rel_paragraph = rel_cell.paragraphs[0]
-                    format_paragraph(rel_paragraph, line_spacing=1.5)
-                    add_text(rel_paragraph, safe_text(edu.relevance), size=9, color=colors['text'])
+                    rel_para = document.add_paragraph()
+                    format_paragraph(rel_para, line_spacing=1.0, space_before=6, space_after=6)
+                    add_text(rel_para, safe_text(edu.relevance), size=11, color=colors['text'])
 
             # Certifications
             if resume_model.certifications:
                 add_section_title("Certifications")
-                cert_table = document.add_table(rows=0, cols=2)
-                cert_table.autofit = False
-                cert_table.columns[0].width = Inches(3.5)
-                cert_table.columns[1].width = Inches(3.5)
-                for idx, cert in enumerate(resume_model.certifications):
-                    if idx % 2 == 0:
-                        row = cert_table.add_row()
-                    cell = row.cells[idx % 2]
-                    clear_cell_borders(cell)
-                    set_cell_shading(cell, 'F8F9FA')
-                    set_cell_left_border(cell, '3498DB', size=24)
-                    name_paragraph = cell.paragraphs[0]
-                    format_paragraph(name_paragraph, line_spacing=1.3, space_after=2)
-                    add_text(name_paragraph, safe_text(cert.name), size=10, color=colors['dark'], bold=True)
-                    if cert.issue_date:
-                        date_paragraph = cell.add_paragraph()
-                        format_paragraph(date_paragraph, line_spacing=1.3, space_after=2)
-                        add_text(date_paragraph, cert.issue_date.strftime('%B %Y'), size=9, color=colors['muted'], italic=True)
+                for cert in resume_model.certifications:
+                    name_paragraph = document.add_paragraph()
+                    format_paragraph(name_paragraph, line_spacing=1.0, space_before=6, space_after=6)
+                    add_text(name_paragraph, safe_text(cert.name), size=12, color=colors['purple'], bold=True)
                     if cert.description:
-                        desc_paragraph = cell.add_paragraph()
-                        format_paragraph(desc_paragraph, line_spacing=1.3)
-                        add_text(desc_paragraph, safe_text(cert.description), size=9, color=colors['muted'])
+                        desc_paragraph = document.add_paragraph()
+                        format_paragraph(desc_paragraph, line_spacing=1.0, space_before=6, space_after=6)
+                        add_text(desc_paragraph, safe_text(cert.description), size=11, color=colors['text'])
 
             # Save to bytes
             docx_buffer = BytesIO()

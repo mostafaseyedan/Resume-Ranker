@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
+import { Checkbox, ButtonGroup, Toggle, Button, LinearProgressBar, Flex, Heading, Text } from '@vibe/core';
 
 interface Template {
   id: string;
@@ -22,12 +23,13 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
   onGenerate
 }) => {
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('professional');
-  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'docx'>('pdf');
+  const [selectedTemplates, setSelectedTemplates] = useState<Set<string>>(new Set(['professional']));
+  const [selectedFormat, setSelectedFormat] = useState<string>('pdf');
   const [saveToSharePoint, setSaveToSharePoint] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [progress, setProgress] = useState<number>(0);
+  const [currentTemplate, setCurrentTemplate] = useState<string>('');
 
   useEffect(() => {
     loadTemplates();
@@ -43,344 +45,247 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
     }
   };
 
+  const handleTemplateToggle = (templateId: string, available: boolean) => {
+    if (!available) return;
+
+    setSelectedTemplates(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(templateId)) {
+        newSet.delete(templateId);
+      } else {
+        newSet.add(templateId);
+      }
+      return newSet;
+    });
+  };
+
   const handleGenerate = async () => {
+    if (selectedTemplates.size === 0) {
+      setError('Please select at least one template');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setProgress(0);
 
-    // Simulate progress over 45 seconds
-    const progressInterval = setInterval(() => {
-      setProgress(prev => Math.min(prev + 2, 90));
-    }, 1000);
+    const templateArray = Array.from(selectedTemplates);
+    const totalTemplates = templateArray.length;
+    let completedTemplates = 0;
+    let lastSharepointUrl: string | undefined;
 
     try {
-      const response = await apiService.generateResumeWithTemplate(
-        candidateId,
-        selectedTemplate,
-        saveToSharePoint,
-        selectedFormat
-      );
+      for (const templateId of templateArray) {
+        setCurrentTemplate(templateId);
 
-      clearInterval(progressInterval);
-      setProgress(100);
+        // Update progress for current template
+        const baseProgress = (completedTemplates / totalTemplates) * 100;
+        const templateProgress = 100 / totalTemplates;
 
-      // Get SharePoint URL from response header if available
-      const sharepointUrl = response.headers['x-sharepoint-url'];
+        // Simulate progress within each template generation
+        const progressInterval = setInterval(() => {
+          setProgress(prev => {
+            const maxForThisTemplate = baseProgress + (templateProgress * 0.9);
+            return Math.min(prev + 2, maxForThisTemplate);
+          });
+        }, 500);
 
-      // Create download link for PDF or DOCX
-      const mimeType = selectedFormat === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      const fileExtension = selectedFormat === 'pdf' ? 'pdf' : 'docx';
-      const blob = new Blob([response.data], { type: mimeType });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `improved_resume_${candidateName.replace(/\s+/g, '_')}.${fileExtension}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+        const response = await apiService.generateResumeWithTemplate(
+          candidateId,
+          templateId,
+          saveToSharePoint,
+          selectedFormat as 'pdf' | 'docx'
+        );
 
-      if (onGenerate) {
-        onGenerate(sharepointUrl);
+        clearInterval(progressInterval);
+        completedTemplates++;
+        setProgress((completedTemplates / totalTemplates) * 100);
+
+        // Get SharePoint URL from response header if available
+        const sharepointUrl = response.headers['x-sharepoint-url'];
+        if (sharepointUrl) {
+          lastSharepointUrl = sharepointUrl;
+        }
+
+        // Create download link for PDF or DOCX
+        const mimeType = selectedFormat === 'pdf'
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        const fileExtension = selectedFormat === 'pdf' ? 'pdf' : 'docx';
+        const blob = new Blob([response.data], { type: mimeType });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Include template name in filename for multi-template downloads
+        const templateName = templateId === 'professional' ? 'cendien' : templateId;
+        link.download = `improved_resume_${templateName}_${candidateName.replace(/\s+/g, '_')}.${fileExtension}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
       }
 
-      if (sharepointUrl) {
-        alert(`Resume saved to SharePoint!\nURL: ${sharepointUrl}`);
+      if (onGenerate) {
+        onGenerate(lastSharepointUrl);
       }
 
     } catch (err: any) {
-      clearInterval(progressInterval);
       console.error('Failed to generate resume:', err);
       setError(err.response?.data?.error || 'Failed to generate resume');
     } finally {
       setLoading(false);
+      setCurrentTemplate('');
       setTimeout(() => setProgress(0), 1000);
     }
   };
 
+  const formatOptions = [
+    { value: 'pdf', text: 'PDF' },
+    { value: 'docx', text: 'DOCX' }
+  ];
+
+  const availableTemplates = templates.filter(t => t.available);
+  const hasAvailableTemplates = availableTemplates.some(t =>
+    t.id === 'professional' || t.id === 'modern' || t.id === 'minimal'
+  );
+
   return (
-    <div className="resume-template-selector" style={styles.container}>
-      <h3 style={styles.title}>Generate Improved Resume</h3>
+    <div className="bg-gray-50 p-5 mt-5">
+      <Heading type="h3" className="mb-5 text-gray-800">Generate Improved Resume</Heading>
 
       {error && (
-        <div style={styles.error}>
+        <div className="p-3 mb-4 bg-red-50 border border-red-200 text-red-700 text-sm">
           {error}
         </div>
       )}
 
-      <div style={styles.section}>
-        <label style={styles.label}>Select Template:</label>
-        <div style={styles.templateGrid}>
+      {/* Template Selection */}
+      <div className="mb-5">
+        <Text type="text1" weight="bold" className="mb-3 text-gray-600 block">
+          Select Templates:
+        </Text>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((template) => (
             <div
               key={template.id}
-              onClick={() => template.available && setSelectedTemplate(template.id)}
-              style={{
-                ...styles.templateCard,
-                ...(selectedTemplate === template.id ? styles.templateCardSelected : {}),
-                ...(template.available ? {} : styles.templateCardDisabled),
-              }}
+              className={`
+                p-4 border-2 bg-white transition-all
+                ${selectedTemplates.has(template.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}
+                ${template.available ? 'cursor-pointer hover:border-blue-300' : 'opacity-50 cursor-not-allowed'}
+              `}
+              onClick={() => handleTemplateToggle(template.id, template.available)}
             >
-              {template.preview_image && (
-                <div style={styles.previewImageContainer}>
-                  <img
-                    src={template.preview_image}
-                    alt={`${template.name} preview`}
-                    style={styles.previewImage}
-                  />
+              <Flex gap="small" align="start">
+                <Checkbox
+                  checked={selectedTemplates.has(template.id)}
+                  disabled={!template.available}
+                  onChange={() => handleTemplateToggle(template.id, template.available)}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  {template.preview_image && (
+                    <div className="mb-3 rounded overflow-hidden bg-gray-100">
+                      <img
+                        src={template.preview_image}
+                        alt={`${template.name} preview`}
+                        className="w-full h-auto border border-gray-200"
+                      />
+                    </div>
+                  )}
+                  <Text type="text1" weight="bold" className="text-gray-800 mb-2 block">
+                    {template.name}
+                  </Text>
+                  {template.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {template.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {!template.available && (
+                    <div className="mt-2 px-2 py-1 bg-yellow-400 text-black text-xs font-bold text-center">
+                      Coming Soon
+                    </div>
+                  )}
                 </div>
-              )}
-              <div style={styles.templateName}>{template.name}</div>
-              {template.tags.length > 0 && (
-                <div style={styles.tags}>
-                  {template.tags.map((tag) => (
-                    <span key={tag} style={styles.tag}>{tag}</span>
-                  ))}
-                </div>
-              )}
-              {!template.available && (
-                <div style={styles.comingSoon}>Coming Soon</div>
-              )}
+              </Flex>
             </div>
           ))}
         </div>
+        {selectedTemplates.size > 0 && (
+          <Text type="text2" className="mt-2 text-gray-500">
+            {selectedTemplates.size} template{selectedTemplates.size > 1 ? 's' : ''} selected
+          </Text>
+        )}
       </div>
 
-      {(selectedTemplate === 'professional' || selectedTemplate === 'modern' || selectedTemplate === 'minimal') && (
-        <div style={styles.section}>
-          <label style={styles.label}>Output Format:</label>
-          <div style={styles.formatSelector}>
-            <label style={styles.formatOption}>
-              <input
-                type="radio"
-                name="format"
-                value="pdf"
-                checked={selectedFormat === 'pdf'}
-                onChange={(e) => setSelectedFormat('pdf')}
-                style={styles.radio}
-              />
-              PDF
-            </label>
-            <label style={styles.formatOption}>
-              <input
-                type="radio"
-                name="format"
-                value="docx"
-                checked={selectedFormat === 'docx'}
-                onChange={(e) => setSelectedFormat('docx')}
-                style={styles.radio}
-              />
-              DOCX (Word)
-            </label>
-          </div>
-        </div>
-      )}
-
-      <div style={styles.section}>
-        <label style={styles.checkboxLabel}>
-          <input
-            type="checkbox"
-            checked={saveToSharePoint}
-            onChange={(e) => setSaveToSharePoint(e.target.checked)}
-            style={styles.checkbox}
+      {/* Format Selection */}
+      {hasAvailableTemplates && selectedTemplates.size > 0 && (
+        <div className="mb-5">
+          <Text type="text1" weight="bold" className="mb-3 text-gray-600 block">
+            Output Format:
+          </Text>
+          <ButtonGroup
+            options={formatOptions}
+            value={selectedFormat}
+            onSelect={(value) => setSelectedFormat(value as string)}
+            size="small"
           />
-          Save to SharePoint (job position folder)
-        </label>
-      </div>
-
-      {loading && progress > 0 && (
-        <div style={styles.progressContainer}>
-          <div style={styles.progressBar}>
-            <div style={{...styles.progressFill, width: `${progress}%`}} />
-          </div>
-          <div style={styles.progressText}>{progress}%</div>
         </div>
       )}
 
-      <div style={styles.actions}>
-        <button
-          onClick={handleGenerate}
-          disabled={loading || !selectedTemplate}
-          className={`px-4 py-1 text-sm rounded ${
-            loading || !selectedTemplate
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
-        >
-          {loading ? 'Generating...' : 'Start'}
-        </button>
+      {/* SharePoint Toggle */}
+      <div className="mb-5">
+        <Flex gap="small" align="center">
+          <Toggle
+            isSelected={saveToSharePoint}
+            onChange={(value) => setSaveToSharePoint(value)}
+            size="small"
+            areLabelsHidden
+          />
+          <Text type="text2" className="text-gray-600">
+            Save to SharePoint (job position folder)
+          </Text>
+        </Flex>
       </div>
+
+      {/* Progress Bar */}
+      {loading && progress > 0 && (
+        <div className="mb-4">
+          <LinearProgressBar
+            value={progress}
+            size="medium"
+            barStyle="positive"
+          />
+          <Text type="text2" className="mt-2 text-center text-gray-600">
+            {currentTemplate && `Generating ${currentTemplate}... `}
+            {Math.round(progress)}%
+          </Text>
+        </div>
+      )}
+
+      {/* Actions */}
+      <Flex justify="end">
+        <Button
+          onClick={handleGenerate}
+          disabled={loading || selectedTemplates.size === 0}
+          size="small"
+          loading={loading}
+        >
+          {loading
+            ? `Generating ${selectedTemplates.size > 1 ? `(${selectedTemplates.size} templates)` : ''}...`
+            : `Generate${selectedTemplates.size > 1 ? ` (${selectedTemplates.size})` : ''}`
+          }
+        </Button>
+      </Flex>
     </div>
   );
-};
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    padding: '20px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '8px',
-    marginTop: '20px',
-  },
-  title: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    marginBottom: '20px',
-    color: '#333',
-  },
-  section: {
-    marginBottom: '20px',
-  },
-  label: {
-    display: 'block',
-    fontSize: '14px',
-    fontWeight: '600',
-    marginBottom: '10px',
-    color: '#555',
-  },
-  templateGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-    gap: '15px',
-  },
-  templateCard: {
-    padding: '15px',
-    borderWidth: '2px',
-    borderStyle: 'solid',
-    borderColor: '#ddd',
-    borderRadius: '8px',
-    backgroundColor: '#fff',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    overflow: 'hidden',
-  },
-  previewImageContainer: {
-    marginBottom: '12px',
-    borderRadius: '4px',
-    overflow: 'hidden',
-    backgroundColor: '#f5f5f5',
-  },
-  previewImage: {
-    width: '100%',
-    height: 'auto',
-    display: 'block',
-    border: '1px solid #e0e0e0',
-  },
-  templateCardSelected: {
-    borderColor: '#007bff',
-    backgroundColor: '#e7f3ff',
-  },
-  templateCardDisabled: {
-    opacity: 0.5,
-    cursor: 'not-allowed',
-  },
-  templateName: {
-    fontSize: '16px',
-    fontWeight: 'bold',
-    marginBottom: '8px',
-    color: '#333',
-  },
-  templateDescription: {
-    fontSize: '13px',
-    color: '#666',
-    marginBottom: '10px',
-    lineHeight: '1.4',
-  },
-  tags: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '5px',
-  },
-  tag: {
-    padding: '3px 8px',
-    fontSize: '11px',
-    backgroundColor: '#e0e0e0',
-    borderRadius: '4px',
-    color: '#555',
-  },
-  comingSoon: {
-    marginTop: '10px',
-    padding: '5px',
-    backgroundColor: '#ffc107',
-    color: '#000',
-    fontSize: '12px',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    borderRadius: '4px',
-  },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    fontSize: '14px',
-    color: '#555',
-    cursor: 'pointer',
-  },
-  checkbox: {
-    marginRight: '8px',
-    cursor: 'pointer',
-  },
-  formatSelector: {
-    display: 'flex',
-    gap: '20px',
-  },
-  formatOption: {
-    display: 'flex',
-    alignItems: 'center',
-    fontSize: '14px',
-    color: '#555',
-    cursor: 'pointer',
-  },
-  radio: {
-    marginRight: '8px',
-    cursor: 'pointer',
-  },
-  actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-  },
-  button: {
-    padding: '12px 24px',
-    backgroundColor: '#007bff',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-    cursor: 'not-allowed',
-  },
-  error: {
-    padding: '10px',
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-    border: '1px solid #f5c6cb',
-    borderRadius: '4px',
-    marginBottom: '15px',
-  },
-  progressContainer: {
-    marginBottom: '15px',
-  },
-  progressBar: {
-    width: '100%',
-    height: '8px',
-    backgroundColor: '#e0e0e0',
-    borderRadius: '4px',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#007bff',
-    transition: 'width 0.5s ease',
-  },
-  progressText: {
-    marginTop: '5px',
-    fontSize: '12px',
-    color: '#666',
-    textAlign: 'center',
-  },
 };
 
 export default ResumeTemplateSelector;
