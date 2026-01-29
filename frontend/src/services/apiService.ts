@@ -62,6 +62,7 @@ export interface Job {
     work_mode_color?: string;
     employment_type?: string;
     employment_type_color?: string;
+    client?: string;
     column_values: any;
   };
   created_by: string;
@@ -131,6 +132,22 @@ export interface Candidate {
   // Web verification data (optional - populated after verification)
   web_verification?: WebVerificationResult;
   web_verification_provider?: string;
+  // Job information (populated when fetching all candidates)
+  job_title?: string;
+  job_status?: string;
+  job_monday_metadata?: {
+    group?: string;
+    status?: string;
+    status_color?: string;
+    due_date?: string;
+    sharepoint_link?: string;
+    work_mode?: string;
+    work_mode_color?: string;
+    employment_type?: string;
+    employment_type_color?: string;
+    client?: string;
+    column_values?: any;
+  };
 }
 
 export interface ChatMessage {
@@ -350,6 +367,11 @@ export const apiService = {
 
   async getJobCandidates(jobId: string): Promise<{ candidates: Candidate[] }> {
     const response = await apiClient.get(`/jobs/${jobId}/candidates`);
+    return response.data;
+  },
+
+  async getAllCandidates(): Promise<{ candidates: Candidate[] }> {
+    const response = await apiClient.get('/candidates');
     return response.data;
   },
 

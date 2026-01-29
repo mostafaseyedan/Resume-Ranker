@@ -59,10 +59,13 @@ except Exception as e:
     logger.error(f"Firebase initialization failed: {e}")
 
 # Initialize services
-firestore_service = FirestoreService()
+firestore_cache_ttl = int(os.getenv('FIRESTORE_CACHE_TTL_SECONDS', '30'))
+firestore_service = FirestoreService(cache_ttl_seconds=firestore_cache_ttl)
 gemini_analyzer = GeminiAnalyzer(os.getenv('GEMINI_API_KEY'))
 openai_analyzer = OpenAIAnalyzer(os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
-monday_service = MondayService(os.getenv('MONDAY_API_KEY')) if os.getenv('MONDAY_API_KEY') else None
+monday_cache_ttl = int(os.getenv('MONDAY_CACHE_TTL_SECONDS', '60'))
+monday_service = MondayService(os.getenv('MONDAY_API_KEY'), cache_ttl_seconds=monday_cache_ttl) if os.getenv('MONDAY_API_KEY') else None
+logger.info(f"Firestore cache TTL: {firestore_cache_ttl}s, Monday cache TTL: {monday_cache_ttl}s")
 resume_service = ResumeService(os.getenv('GEMINI_API_KEY'))
 activity_logger = ActivityLoggerService()
 
@@ -1046,6 +1049,17 @@ def get_job_candidates(job_id):
         return jsonify({'candidates': candidates})
     except Exception as e:
         logger.error(f"Get candidates error: {e}")
+        return jsonify({'error': 'Failed to retrieve candidates'}), 500
+
+@app.route('/api/candidates', methods=['GET'])
+@require_auth
+def get_all_candidates():
+    """Get all candidates across all jobs"""
+    try:
+        candidates = firestore_service.get_all_candidates()
+        return jsonify({'candidates': candidates})
+    except Exception as e:
+        logger.error(f"Get all candidates error: {e}")
         return jsonify({'error': 'Failed to retrieve candidates'}), 500
 
 @app.route('/api/candidates/<candidate_id>', methods=['GET'])

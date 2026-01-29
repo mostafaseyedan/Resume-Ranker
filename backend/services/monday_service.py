@@ -2,13 +2,16 @@ import requests
 import logging
 import os
 import json
+import threading
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
 
 class MondayService:
-    def __init__(self, api_key: str, board_id: Optional[str] = None):
+    def __init__(self, api_key: str, board_id: Optional[str] = None, cache_ttl_seconds: int = 60):
         self.api_key = api_key
         self.board_id: str = board_id or os.getenv('MONDAY_BOARD_ID', '18004940852')
         self.base_url = "https://api.monday.com/v2"
@@ -16,14 +19,47 @@ class MondayService:
             "Authorization": api_key,
             "Content-Type": "application/json"
         }
+        self.cache_ttl_seconds = max(int(cache_ttl_seconds or 0), 0)
+        self._cache: Dict[str, Dict[str, any]] = {}
+        self._cache_lock = threading.Lock()
 
-    def get_board_data(self, board_id: Optional[str] = None) -> Dict:
+    def _cache_get(self, key: str):
+        if self.cache_ttl_seconds <= 0:
+            return None
+        with self._cache_lock:
+            entry = self._cache.get(key)
+            if not entry:
+                return None
+            if datetime.utcnow() > entry['expires_at']:
+                self._cache.pop(key, None)
+                return None
+            return entry['data']
+
+    def _cache_set(self, key: str, data: any):
+        if self.cache_ttl_seconds <= 0:
+            return
+        with self._cache_lock:
+            self._cache[key] = {
+                'data': data,
+                'expires_at': datetime.utcnow() + timedelta(seconds=self.cache_ttl_seconds)
+            }
+
+    def clear_cache(self) -> None:
+        with self._cache_lock:
+            self._cache.clear()
+
+    def get_board_data(self, board_id: Optional[str] = None, use_cache: bool = True) -> Dict:
         """
         Fetch board data including items and columns settings (for colors)
         """
         try:
             # Use instance board_id if not provided
             board_id_to_use = board_id if board_id is not None else self.board_id
+            cache_key = f"board:{board_id_to_use}"
+            if use_cache:
+                cached = self._cache_get(cache_key)
+                if cached is not None:
+                    return cached
 
             query = """
             query {
@@ -69,7 +105,10 @@ class MondayService:
                 logger.warning("No boards found")
                 return {}
             
-            return boards[0]
+            board = boards[0]
+            if use_cache:
+                self._cache_set(cache_key, board)
+            return board
 
         except requests.RequestException as e:
             logger.error(f"Error fetching from Monday.com: {e}")
@@ -111,11 +150,11 @@ class MondayService:
                 
         return color_map
 
-    def get_job_requisitions(self, board_id: Optional[str] = None) -> List[Dict]:
+    def get_job_requisitions(self, board_id: Optional[str] = None, use_cache: bool = True) -> List[Dict]:
         """
         Legacy wrapper for backward compatibility or simple item fetching
         """
-        data = self.get_board_data(board_id)
+        data = self.get_board_data(board_id, use_cache=use_cache)
         return data.get('items_page', {}).get('items', [])
 
     def parse_job_item(self, item: Dict, color_map: Dict[str, Dict[str, str]] = None) -> Dict:
@@ -191,13 +230,13 @@ class MondayService:
             logger.error(f"Error parsing job item {item.get('id', 'unknown')}: {e}")
             return {}
 
-    def sync_jobs(self, firestore_service) -> Dict:
+    def sync_jobs(self, firestore_service, use_cache: bool = True) -> Dict:
         """
         Sync jobs from Monday.com to Firestore
         """
         try:
             # Fetch board data
-            board_data = self.get_board_data()
+            board_data = self.get_board_data(use_cache=use_cache)
             if not board_data:
                 return {'success': False, 'message': 'No data found in Monday.com'}
             
@@ -210,63 +249,64 @@ class MondayService:
             if not monday_items:
                 return {'success': False, 'message': 'No jobs found in Monday.com'}
 
-            synced_jobs = []
-            errors = []
-
-            for item in monday_items:
+            def process_item(item: Dict):
                 try:
                     job_data = self.parse_job_item(item, color_map)
 
                     if not job_data:
-                        errors.append(f"Failed to parse item {item.get('id', 'unknown')}")
-                        continue
+                        return {'error': f"Failed to parse item {item.get('id', 'unknown')}"}
 
-                    # Check if job already exists (by monday_id)
                     existing_jobs = firestore_service.get_jobs_by_monday_id(job_data['monday_id'])
-
                     metadata = job_data.pop('monday_metadata', {})
 
                     if existing_jobs:
-                        # Update existing job with limited fields
                         job_id = existing_jobs[0]['id']
                         update_data = {}
 
                         if 'status' in job_data and job_data['status']:
                             update_data['status'] = job_data['status']
-
                         if metadata:
                             update_data['monday_metadata'] = metadata
-
                         if 'title' in job_data and job_data['title']:
                             update_data['title'] = job_data['title']
 
                         if update_data:
                             firestore_service.update_job(job_id, update_data)
 
-                        synced_jobs.append({
+                        return {
                             'action': 'updated',
                             'job_id': job_id,
                             'title': job_data.get('title') or existing_jobs[0].get('title')
-                        })
-                    else:
-                        # Create new job - add required fields
-                        new_job = {
-                            'title': job_data.get('title', 'Untitled Job'),
-                            'description': '',
-                            'status': job_data.get('status', 'active'),
-                            'monday_id': job_data['monday_id'],
-                            'monday_metadata': metadata,
-                            'created_at': firestore.SERVER_TIMESTAMP,
-                            'created_by': 'monday_sync'
                         }
 
-                        job_id = firestore_service.create_job(new_job)
-                        synced_jobs.append({'action': 'created', 'job_id': job_id, 'title': new_job['title']})
+                    new_job = {
+                        'title': job_data.get('title', 'Untitled Job'),
+                        'description': '',
+                        'status': job_data.get('status', 'active'),
+                        'monday_id': job_data['monday_id'],
+                        'monday_metadata': metadata,
+                        'created_at': firestore.SERVER_TIMESTAMP,
+                        'created_by': 'monday_sync'
+                    }
+
+                    job_id = firestore_service.create_job(new_job)
+                    return {'action': 'created', 'job_id': job_id, 'title': new_job['title']}
 
                 except Exception as e:
-                    error_msg = f"Error syncing item {item.get('id', 'unknown')}: {e}"
-                    logger.error(error_msg)
-                    errors.append(error_msg)
+                    return {'error': f"Error syncing item {item.get('id', 'unknown')}: {e}"}
+
+            synced_jobs = []
+            errors = []
+            max_workers = min(8, len(monday_items)) or 1
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [executor.submit(process_item, item) for item in monday_items]
+                for future in as_completed(futures):
+                    result = future.result()
+                    if 'error' in result:
+                        logger.error(result['error'])
+                        errors.append(result['error'])
+                    else:
+                        synced_jobs.append(result)
 
             return {
                 'success': True,

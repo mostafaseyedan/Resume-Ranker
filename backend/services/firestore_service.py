@@ -1,7 +1,8 @@
 from firebase_admin import firestore as firebase_firestore
 from google.cloud import firestore
 import logging
-from datetime import datetime, date
+import threading
+from datetime import datetime, date, timedelta
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -10,8 +11,40 @@ class FirestoreService:
     # Collection path constant
     COLLECTION_ROOT = 'resume-evaluator'
 
-    def __init__(self):
+    def __init__(self, cache_ttl_seconds: int = 30):
         self.db = firebase_firestore.client()
+        self.cache_ttl_seconds = max(int(cache_ttl_seconds or 0), 0)
+        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._cache_lock = threading.Lock()
+
+    def _cache_get(self, key: str):
+        if self.cache_ttl_seconds <= 0:
+            return None
+        with self._cache_lock:
+            entry = self._cache.get(key)
+            if not entry:
+                return None
+            if datetime.utcnow() > entry['expires_at']:
+                self._cache.pop(key, None)
+                return None
+            return entry['data']
+
+    def _cache_set(self, key: str, data: Any):
+        if self.cache_ttl_seconds <= 0:
+            return
+        with self._cache_lock:
+            self._cache[key] = {
+                'data': data,
+                'expires_at': datetime.utcnow() + timedelta(seconds=self.cache_ttl_seconds)
+            }
+
+    def _cache_invalidate(self, prefix: str):
+        if self.cache_ttl_seconds <= 0:
+            return
+        with self._cache_lock:
+            keys = [k for k in self._cache.keys() if k.startswith(prefix)]
+            for k in keys:
+                self._cache.pop(k, None)
 
     # Job-related operations
     def create_job(self, job_data):
@@ -20,6 +53,8 @@ class FirestoreService:
             doc_ref = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document()
             job_data['id'] = doc_ref.id
             doc_ref.set(job_data)
+            self._cache_invalidate('jobs:')
+            self._cache_set(f'job:{doc_ref.id}', job_data)
             logger.info(f"Created job with ID: {doc_ref.id}")
             return doc_ref.id
         except Exception as e:
@@ -29,11 +64,15 @@ class FirestoreService:
     def get_job(self, job_id):
         """Get a specific job by ID"""
         try:
+            cached = self._cache_get(f'job:{job_id}')
+            if cached is not None:
+                return cached
             doc_ref = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document(job_id)
             doc = doc_ref.get()
             if doc.exists:
                 job_data = doc.to_dict()
                 job_data['id'] = doc.id
+                self._cache_set(f'job:{job_id}', job_data)
                 return job_data
             return None
         except Exception as e:
@@ -43,6 +82,9 @@ class FirestoreService:
     def get_all_jobs(self):
         """Get all job postings"""
         try:
+            cached = self._cache_get('jobs:all')
+            if cached is not None:
+                return cached
             # Get all jobs without ordering first (to avoid filtering out jobs without created_at)
             docs = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').stream()
             jobs = []
@@ -78,6 +120,7 @@ class FirestoreService:
             jobs.sort(key=sort_key, reverse=False)
 
             logger.info(f"Retrieved {len(jobs)} jobs")
+            self._cache_set('jobs:all', jobs)
             return jobs
         except Exception as e:
             logger.error(f"Error getting all jobs: {e}")
@@ -95,6 +138,8 @@ class FirestoreService:
                         doc_ref.update({f'monday_metadata.{key}': value})
                 update_data.pop('monday_metadata')
             doc_ref.update(update_data)
+            self._cache_invalidate('jobs:')
+            self._cache_invalidate(f'job:{job_id}')
             logger.info(f"Updated job {job_id}")
             return True
         except Exception as e:
@@ -113,6 +158,8 @@ class FirestoreService:
             doc_ref = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document(job_id)
             doc_ref.delete()
 
+            self._cache_invalidate('jobs:')
+            self._cache_invalidate(f'job:{job_id}')
             logger.info(f"Deleted job {job_id} and {len(candidates)} associated candidates")
             return True
         except Exception as e:
@@ -144,6 +191,8 @@ class FirestoreService:
 
             job_candidate_ref.set(summary_data)
 
+            self._cache_invalidate('candidates:')
+            self._cache_invalidate('candidate:')
             logger.info(f"Saved candidate with ID: {doc_ref.id}")
             return doc_ref.id
 
@@ -154,6 +203,9 @@ class FirestoreService:
     def get_candidate(self, candidate_id):
         """Get a specific candidate by ID"""
         try:
+            cached = self._cache_get(f'candidate:{candidate_id}')
+            if cached is not None:
+                return cached
             doc_ref = self.db.collection(self.COLLECTION_ROOT).document('candidates').collection('candidates').document(candidate_id)
             doc = doc_ref.get()
             if doc.exists:
@@ -164,6 +216,7 @@ class FirestoreService:
                 if 'created_at' in candidate_data and candidate_data['created_at']:
                     candidate_data['created_at'] = candidate_data['created_at'].isoformat() if hasattr(candidate_data['created_at'], 'isoformat') else str(candidate_data['created_at'])
 
+                self._cache_set(f'candidate:{candidate_id}', candidate_data)
                 return candidate_data
             return None
         except Exception as e:
@@ -180,6 +233,8 @@ class FirestoreService:
                 return False
 
             doc_ref.update(update_data)
+            self._cache_invalidate('candidates:')
+            self._cache_invalidate(f'candidate:{candidate_id}')
             logger.info(f"Updated candidate {candidate_id} with fields: {list(update_data.keys())}")
             return True
         except Exception as e:
@@ -302,6 +357,64 @@ class FirestoreService:
             logger.error(f"Error getting candidates for job {job_id}: {e}")
             raise
 
+    def get_all_candidates(self):
+        """Get all candidates across all jobs, with job information included"""
+        try:
+            cached = self._cache_get('candidates:all')
+            if cached is not None:
+                return cached
+            # Get all candidates from the main candidates collection
+            docs = (self.db.collection(self.COLLECTION_ROOT)
+                   .document('candidates')
+                   .collection('candidates')
+                   .stream())
+
+            candidates = []
+            jobs_cache = {}  # Cache job data to avoid repeated fetches
+
+            for doc in docs:
+                candidate_data = doc.to_dict()
+                candidate_data['id'] = doc.id
+
+                # Convert timestamps for JSON serialization
+                if 'created_at' in candidate_data and candidate_data['created_at']:
+                    candidate_data['created_at'] = (
+                        candidate_data['created_at'].isoformat()
+                        if hasattr(candidate_data['created_at'], 'isoformat')
+                        else str(candidate_data['created_at'])
+                    )
+
+                # Flatten analysis data to root level for frontend compatibility
+                if 'analysis' in candidate_data:
+                    analysis = candidate_data.pop('analysis')
+                    for key, value in analysis.items():
+                        candidate_data[key] = value
+
+                # Get job information (cached)
+                job_id = candidate_data.get('job_id')
+                if job_id:
+                    if job_id not in jobs_cache:
+                        job = self.get_job(job_id)
+                        jobs_cache[job_id] = job
+                    job = jobs_cache.get(job_id)
+                    if job:
+                        candidate_data['job_title'] = job.get('title', 'Unknown Job')
+                        candidate_data['job_status'] = job.get('status', '')
+                        candidate_data['job_monday_metadata'] = job.get('monday_metadata')
+
+                candidates.append(candidate_data)
+
+            # Sort by overall_score descending
+            candidates.sort(key=lambda c: c.get('overall_score', 0), reverse=True)
+
+            logger.info(f"Retrieved {len(candidates)} candidates across all jobs")
+            self._cache_set('candidates:all', candidates)
+            return candidates
+
+        except Exception as e:
+            logger.error(f"Error getting all candidates: {e}")
+            raise
+
     def delete_candidate(self, candidate_id):
         """Delete a candidate"""
         try:
@@ -318,6 +431,8 @@ class FirestoreService:
             # Delete from job's candidates subcollection
             self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').document(job_id).collection('candidates').document(candidate_id).delete()
 
+            self._cache_invalidate('candidates:')
+            self._cache_invalidate(f'candidate:{candidate_id}')
             logger.info(f"Deleted candidate {candidate_id}")
             return True
 
