@@ -73,6 +73,14 @@ export interface Job {
   source_filename?: string;
   gemini_analysis?: any;
   openai_analysis?: any;
+  // Internal candidates (SharePoint/Vertex AI Search)
+  potential_candidates?: Array<{ filename: string; sharepoint_url: string | null; download_url: string | null }>;
+  potential_candidates_last_search?: string;
+  potential_candidates_gemini_response?: string;
+  // External candidates (LinkedIn via Serper.dev)
+  external_candidates?: ExternalCandidateProfile[];
+  external_candidates_last_search?: string;
+  external_candidates_parsed_query?: ParsedSearchQuery;
 }
 
 export interface Candidate {
@@ -245,6 +253,36 @@ export interface CreateJobRequest {
   status?: string;
 }
 
+// External Candidates (LinkedIn profile search) types - matching Peoplehub format
+export interface ExternalCandidateProfile {
+  linkedinUrl: string;
+  linkedinId: string;
+  title: string;
+  snippet: string;
+  name?: string;
+  headline?: string;
+  location?: string;
+}
+
+export interface ParsedSearchQuery {
+  count: number;
+  role: string | null;
+  location?: string | null;
+  countryCode?: string | null;
+  keywords: string[];
+  googleQuery: string;
+}
+
+export interface ExternalCandidatesSearchResult {
+  success: boolean;
+  count: number;
+  results: ExternalCandidateProfile[];
+  parsedQuery: ParsedSearchQuery;
+  cached: boolean;
+  timestamp: number;
+  error?: string;
+}
+
 export const apiService = {
   // Authentication
   async login(authCode: string, redirectUri: string) {
@@ -348,6 +386,12 @@ export const apiService = {
   // Search candidates by skill or requirement
   async searchBySkill(jobId: string, skill: string): Promise<{ success: boolean; response_text: string; skill_searched: string; error?: string }> {
     const response = await apiClient.post(`/jobs/${jobId}/search-by-skill`, { skill });
+    return response.data;
+  },
+
+  // External candidates search (LinkedIn via Serper.dev)
+  async searchExternalCandidates(jobId: string): Promise<ExternalCandidatesSearchResult> {
+    const response = await apiClient.post(`/jobs/${jobId}/search-external-candidates`);
     return response.data;
   },
 

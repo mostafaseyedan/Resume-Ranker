@@ -191,7 +191,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [selectedGroupCandidates, setSelectedGroupCandidates] = useState<Candidate[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates' | 'ai-chat'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates' | 'external-candidates' | 'ai-chat'>('candidates');
   const [sharepointFiles, setSharepointFiles] = useState<{ job_files: any[]; resume_files: any[]; sharepoint_link: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loadingSharePoint, setLoadingSharePoint] = useState(false);
@@ -203,6 +203,11 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [searchingCandidates, setSearchingCandidates] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<string | null>(null);
+  // External candidates state (LinkedIn search via Serper.dev)
+  const [externalCandidates, setExternalCandidates] = useState<Array<{ linkedinUrl: string; linkedinId: string; title: string; snippet: string; name?: string; headline?: string; location?: string }>>([]);
+  const [searchingExternalCandidates, setSearchingExternalCandidates] = useState(false);
+  const [externalSearchError, setExternalSearchError] = useState<string | null>(null);
+  const [externalParsedQuery, setExternalParsedQuery] = useState<{ googleQuery?: string; role?: string | null; location?: string | null } | null>(null);
   const [chatInitialized, setChatInitialized] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -311,6 +316,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     // Load gemini response from job if available
     if ((job as any).potential_candidates_gemini_response) {
       setGeminiResponse((job as any).potential_candidates_gemini_response);
+    }
+
+    // Reset and load external candidates from job if available
+    setExternalCandidates([]);
+    setExternalSearchError(null);
+    setExternalParsedQuery(null);
+
+    if ((job as any).external_candidates) {
+      setExternalCandidates((job as any).external_candidates);
+    }
+    if ((job as any).external_candidates_parsed_query) {
+      setExternalParsedQuery((job as any).external_candidates_parsed_query);
     }
 
     // Load SharePoint files if available
@@ -597,6 +614,31 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
       setSearchError(err.response?.data?.error || err.message || 'Failed to search for potential candidates');
     } finally {
       setSearchingCandidates(false);
+    }
+  };
+
+  const handleSearchExternalCandidates = async () => {
+    try {
+      setSearchingExternalCandidates(true);
+      setExternalSearchError(null);
+      setExternalParsedQuery(null);
+
+      const response = await apiService.searchExternalCandidates(job.id);
+
+      if (response.success) {
+        setExternalCandidates(response.results || []);
+        setExternalParsedQuery(response.parsedQuery || null);
+        if (response.results.length === 0) {
+          setExternalSearchError('No matching LinkedIn profiles found');
+        }
+      } else {
+        setExternalSearchError(response.error || 'Failed to search for external candidates');
+      }
+    } catch (err: any) {
+      console.error('Search external candidates error:', err);
+      setExternalSearchError(err.response?.data?.error || err.message || 'Failed to search for external candidates');
+    } finally {
+      setSearchingExternalCandidates(false);
     }
   };
 
@@ -950,6 +992,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               }`}
           >
             Internal Candidates
+          </button>
+          <button
+            onClick={() => setActiveTab('external-candidates')}
+            className={`py-2 px-4 text-sm font-medium ${activeTab === 'external-candidates'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+          >
+            External Candidates
           </button>
           <button
             onClick={() => {
@@ -2053,6 +2104,140 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                           );
                         })}
                       </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'external-candidates' && (
+          <div className="p-6">
+            {externalCandidates.length === 0 && !searchingExternalCandidates && !externalSearchError ? (
+              <div className="text-center py-12">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
+                <h3 className="mt-4 text-lg font-medium text-gray-900">External Candidates</h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  Search LinkedIn to find external candidates whose skills and experience match this position.
+                </p>
+                <div className="mt-6">
+                  <Button
+                    onClick={handleSearchExternalCandidates}
+                    disabled={!job.description}
+                    size="small"
+                    kind="primary"
+                  >
+                    {!job.description ? 'Add Job Description First' : 'Search LinkedIn'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {searchingExternalCandidates ? (
+                  <div className="text-center py-16">
+                    <div className="relative mb-6">
+                      <div className="animate-spin h-16 w-16 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto"></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                        </svg>
+                      </div>
+                    </div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Searching LinkedIn</h4>
+                    <p className="text-gray-600">AI is generating search query and finding matching profiles...</p>
+                  </div>
+                ) : externalSearchError ? (
+                  <div className="text-center py-12">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 className="mt-4 text-lg font-medium text-gray-900">Search Failed</h3>
+                    <p className="mt-2 text-sm text-gray-500">{externalSearchError}</p>
+                    <div className="mt-6">
+                      <Button onClick={handleSearchExternalCandidates} size="small" kind="primary">
+                        Try Again
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-sm text-gray-600">
+                        Found {externalCandidates.length} LinkedIn profile{externalCandidates.length !== 1 ? 's' : ''}
+                      </div>
+                      <button
+                        onClick={handleSearchExternalCandidates}
+                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors"
+                        title="Refresh search"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh
+                      </button>
+                    </div>
+
+                    {/* Profile Cards - Grid Layout */}
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {externalCandidates.map((profile, index) => (
+                        <a
+                          key={profile.linkedinId || index}
+                          href={profile.linkedinUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 transition-all shadow-sm hover:shadow-md flex flex-col self-start"
+                        >
+                          {/* Header: Name and LinkedIn icon */}
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1 min-w-0 pr-2">
+                              <h4 className="font-semibold text-gray-900 text-base truncate" title={profile.name || profile.title}>
+                                {profile.name || profile.linkedinId}
+                              </h4>
+                            </div>
+                            <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                            </svg>
+                          </div>
+
+                          {/* Headline */}
+                          {profile.headline && (
+                            <p className="text-sm text-gray-700 mb-2 line-clamp-2" title={profile.headline}>
+                              {profile.headline}
+                            </p>
+                          )}
+
+                          {/* Location */}
+                          {profile.location && (
+                            <div className="flex items-center gap-1 mb-2 text-xs text-gray-500">
+                              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span className="truncate">{profile.location}</span>
+                            </div>
+                          )}
+
+                          {/* Snippet */}
+                          {profile.snippet && (
+                            <p className="text-xs text-gray-500 line-clamp-3 flex-grow" title={profile.snippet}>
+                              {profile.snippet}
+                            </p>
+                          )}
+
+                          {/* Footer */}
+                          <div className="border-t border-gray-100 pt-3 mt-3">
+                            <span className="inline-flex items-center text-xs font-medium text-blue-600">
+                              View LinkedIn Profile
+                              <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </span>
+                          </div>
+                        </a>
+                      ))}
                     </div>
                   </div>
                 )}

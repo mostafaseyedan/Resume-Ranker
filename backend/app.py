@@ -16,6 +16,7 @@ from services.activity_logger_service import ActivityLoggerService
 from services.vertex_search_service import VertexSearchService
 from services.openai_analyzer import OpenAIAnalyzer
 from services.web_verification_service import WebVerificationService
+from services.external_search_service import ExternalSearchService
 import logging
 import base64
 import json
@@ -87,6 +88,14 @@ logger.info(f"SharePoint service initialized with cache TTL: {sharepoint_cache_t
 # Initialize Vertex Search service with SharePoint service for metadata enrichment
 vertex_search_service = VertexSearchService(sharepoint_service=sharepoint_service)
 logger.info("Vertex AI Search service initialized with SharePoint integration")
+
+# Initialize External Search service (for LinkedIn candidate search via Serper.dev)
+try:
+    external_search_service = ExternalSearchService()
+    logger.info("External Search service initialized")
+except Exception as e:
+    external_search_service = None
+    logger.warning(f"External Search service not initialized: {e}")
 
 
 def build_job_analysis_payload(job_description, extraction_data=None, analyzer=None):
@@ -862,6 +871,89 @@ def search_by_skill(job_id):
         return jsonify({
             'success': False,
             'error': 'Failed to search by skill'
+        }), 500
+
+@app.route('/api/jobs/<job_id>/search-external-candidates', methods=['POST'])
+@require_auth
+def search_external_candidates(job_id):
+    """Search for external candidates on LinkedIn using Serper.dev API"""
+    try:
+        if not external_search_service:
+            return jsonify({
+                'success': False,
+                'error': 'External search service not configured. Please set SERPER_API_KEY, GEMINI_API_KEY, and GEMINI_MODEL environment variables.'
+            }), 500
+
+        # Get job details
+        job = firestore_service.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Check if job has a description
+        job_description = job.get('description', '').strip()
+
+        # Debug: Log job description
+        logger.info(f"[DEBUG] Job ID: {job_id}, Job title: {job.get('title', 'N/A')}")
+        logger.info(f"[DEBUG] Job description length: {len(job_description)}")
+        logger.info(f"[DEBUG] Job description preview: {job_description[:300] if job_description else 'EMPTY'}...")
+
+        if not job_description:
+            return jsonify({
+                'success': False,
+                'error': 'Job description is required for external candidate search'
+            }), 400
+
+        # Search for candidates using External Search Service
+        search_result = external_search_service.search_candidates(job_description)
+
+        # Log the search query for debugging
+        parsed_query = search_result.get('parsedQuery', {})
+        logger.info(
+            "External candidates search | job_id=%s | query=%s | results=%s",
+            job_id,
+            parsed_query.get('googleQuery', ''),
+            search_result.get('count', 0)
+        )
+
+        if not search_result.get('success'):
+            return jsonify(search_result), 500
+
+        # Save the external candidates to Firestore
+        external_candidates = search_result.get('results', [])
+
+        try:
+            update_data = {
+                'external_candidates': external_candidates,
+                'external_candidates_last_search': firestore.SERVER_TIMESTAMP,
+                'external_candidates_parsed_query': parsed_query
+            }
+
+            firestore_service.update_job(job_id, update_data)
+            logger.info(f"Saved {len(external_candidates)} external candidates to job {job_id}")
+
+        except Exception as save_error:
+            logger.error(f"Error saving external candidates: {save_error}")
+            # Continue - we can still return results even if save failed
+
+        # Log the search activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='external_candidates_search',
+            details={
+                'job_title': job.get('title', 'Unknown job'),
+                'candidates_found': len(external_candidates),
+                'search_query': parsed_query.get('googleQuery', '')
+            }
+        )
+
+        return jsonify(search_result)
+
+    except Exception as e:
+        logger.error(f"Search external candidates error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to search for external candidates'
         }), 500
 
 # Job chat routes
