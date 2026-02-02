@@ -389,9 +389,22 @@ export const apiService = {
     return response.data;
   },
 
+  // External candidates - extract search query (HITL step 1)
+  async extractSearchQuery(jobId: string): Promise<{ success: boolean; role?: string; location?: string; error?: string }> {
+    const response = await apiClient.post(`/jobs/${jobId}/extract-search-query`);
+    return response.data;
+  },
+
   // External candidates search (LinkedIn via Serper.dev)
-  async searchExternalCandidates(jobId: string): Promise<ExternalCandidatesSearchResult> {
-    const response = await apiClient.post(`/jobs/${jobId}/search-external-candidates`);
+  async searchExternalCandidates(
+    jobId: string,
+    params: { count?: number; role?: string; location?: string } = {}
+  ): Promise<ExternalCandidatesSearchResult> {
+    const response = await apiClient.post(`/jobs/${jobId}/search-external-candidates`, {
+      count: params.count || 10,
+      role: params.role,
+      location: params.location
+    });
     return response.data;
   },
 

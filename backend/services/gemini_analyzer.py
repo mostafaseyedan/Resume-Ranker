@@ -1,7 +1,7 @@
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List, Dict, Optional
 import logging
 import json
 import io
@@ -86,6 +86,7 @@ class ResumeAnalysis(BaseModel):
 
 class JobExtraction(BaseModel):
     job_title: str
+    job_location: Optional[str] = Field(default=None, description="Job location (city, state, country) or null if remote/not specified")
     job_description_text: str
     required_skills: List[str]
     preferred_skills: List[str]
@@ -226,7 +227,15 @@ class GeminiAnalyzer:
                     response_mime_type="application/json",
                     response_schema=JobExtraction,
                     system_instruction="""
-                    You are an expert technical recruiter. Analyze the provided job description text and extract all relevant information including the job title, complete description text, required and preferred skills, experience requirements, education requirements, certifications, responsibilities, soft skills, and any other important details.
+                    You are an expert technical recruiter. Analyze the provided job description text and extract all relevant information including the job title, job location, complete description text, required and preferred skills, experience requirements, education requirements, certifications, responsibilities, soft skills, and any other important details.
+
+                    JOB LOCATION:
+                    Extract the job location (city, state, country) if mentioned. Examples:
+                    - "Oakland County, Michigan" or "Oakland County, MI"
+                    - "San Francisco, CA"
+                    - "New York, NY"
+                    - "Remote" if fully remote
+                    Set to null if location is not specified or unclear.
 
                     CRITICAL FORMATTING INSTRUCTION:
                     For the 'job_description_text' field, you MUST rewrite the text into clean, readable Markdown.

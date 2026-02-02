@@ -9,7 +9,7 @@ import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
-import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label } from '@vibe/core';
+import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label, NumberField, TextField } from '@vibe/core';
 import '@vibe/core/tokens';
 import { AiOutlineFile } from 'react-icons/ai';
 import { BsFiletypePdf, BsFiletypeDocx, BsFiletypeXlsx, BsCheck } from 'react-icons/bs';
@@ -208,6 +208,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [searchingExternalCandidates, setSearchingExternalCandidates] = useState(false);
   const [externalSearchError, setExternalSearchError] = useState<string | null>(null);
   const [externalParsedQuery, setExternalParsedQuery] = useState<{ googleQuery?: string; role?: string | null; location?: string | null } | null>(null);
+  const [externalCandidatesCount, setExternalCandidatesCount] = useState<number>(10);
+  const [externalSearchRole, setExternalSearchRole] = useState<string>('');
+  const [externalSearchLocation, setExternalSearchLocation] = useState<string>('');
+  const [extractingSearchQuery, setExtractingSearchQuery] = useState(false);
   const [chatInitialized, setChatInitialized] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -617,13 +621,44 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     }
   };
 
+  const handleExtractSearchQuery = async () => {
+    try {
+      setExtractingSearchQuery(true);
+      setExternalSearchError(null);
+
+      const response = await apiService.extractSearchQuery(job.id);
+
+      if (response.success) {
+        setExternalSearchRole(response.role || '');
+        setExternalSearchLocation(response.location || '');
+      } else {
+        setExternalSearchError(response.error || 'Failed to extract search query');
+      }
+    } catch (err: any) {
+      console.error('Extract search query error:', err);
+      setExternalSearchError(err.response?.data?.error || err.message || 'Failed to extract search query');
+    } finally {
+      setExtractingSearchQuery(false);
+    }
+  };
+
   const handleSearchExternalCandidates = async () => {
+    // If role is empty, extract first
+    if (!externalSearchRole.trim()) {
+      setExternalSearchError('Please extract or enter a role title first');
+      return;
+    }
+
     try {
       setSearchingExternalCandidates(true);
       setExternalSearchError(null);
       setExternalParsedQuery(null);
 
-      const response = await apiService.searchExternalCandidates(job.id);
+      const response = await apiService.searchExternalCandidates(job.id, {
+        count: externalCandidatesCount,
+        role: externalSearchRole.trim(),
+        location: externalSearchLocation.trim() || undefined
+      });
 
       if (response.success) {
         setExternalCandidates(response.results || []);
@@ -2114,25 +2149,77 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
         {activeTab === 'external-candidates' && (
           <div className="p-6">
-            {externalCandidates.length === 0 && !searchingExternalCandidates && !externalSearchError ? (
-              <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900">External Candidates</h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  Search LinkedIn to find external candidates whose skills and experience match this position.
-                </p>
-                <div className="mt-6">
+            {/* Search Form - Always visible */}
+            <h4 className="text-base font-semibold text-gray-900 mb-3">LinkedIn Search Query</h4>
+            <div className="bg-gray-50 border border-gray-200 p-4 mb-6">
+              <div className="flex flex-wrap items-end gap-8">
+                <div className="min-w-64 max-w-md" style={{ width: `${Math.max(256, externalSearchRole.length * 9 + 24)}px` }}>
+                  <TextField
+                    id="external-search-role"
+                    title="Role Title"
+                    placeholder="e.g., Software Engineer"
+                    value={externalSearchRole}
+                    onChange={(value) => setExternalSearchRole(value)}
+                    size="small"
+                  />
+                </div>
+                <div className="w-48">
+                  <TextField
+                    id="external-search-location"
+                    title="Location (optional)"
+                    placeholder="e.g., San Francisco, CA"
+                    value={externalSearchLocation}
+                    onChange={(value) => setExternalSearchLocation(value)}
+                    size="small"
+                  />
+                </div>
+                <div className="w-24">
+                  <NumberField
+                    id="external-candidates-count"
+                    label="Count"
+                    value={externalCandidatesCount}
+                    onChange={(value) => setExternalCandidatesCount(value)}
+                    min={1}
+                    max={50}
+                    size="small"
+                  />
+                </div>
+                <div className="flex-1"></div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleExtractSearchQuery}
+                    disabled={!job.description || extractingSearchQuery}
+                    size="small"
+                    kind="tertiary"
+                  >
+                    {extractingSearchQuery ? 'Extracting...' : 'Extract'}
+                  </Button>
                   <Button
                     onClick={handleSearchExternalCandidates}
-                    disabled={!job.description}
+                    disabled={!externalSearchRole.trim() || searchingExternalCandidates}
                     size="small"
                     kind="primary"
                   >
-                    {!job.description ? 'Add Job Description First' : 'Search LinkedIn'}
+                    {searchingExternalCandidates ? 'Searching...' : 'Search'}
                   </Button>
                 </div>
+              </div>
+              {externalSearchRole && (
+                <p className="mt-3 text-xs text-gray-500">
+                  Query: site:linkedin.com/in "{externalSearchRole}"{externalSearchLocation ? ` ${externalSearchLocation}` : ''}
+                </p>
+              )}
+            </div>
+
+            {/* Results Section */}
+            {externalCandidates.length === 0 && !searchingExternalCandidates && !externalSearchError ? (
+              <div className="text-center py-8">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
+                <p className="mt-4 text-sm text-gray-500">
+                  Click "Extract" to get suggested role and location from the job description, then click "Search".
+                </p>
               </div>
             ) : (
               <div>
@@ -2147,37 +2234,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       </div>
                     </div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-2">Searching LinkedIn</h4>
-                    <p className="text-gray-600">AI is generating search query and finding matching profiles...</p>
+                    <p className="text-gray-600">Finding matching profiles...</p>
                   </div>
-                ) : externalSearchError ? (
-                  <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                ) : externalSearchError && externalCandidates.length === 0 ? (
+                  <div className="text-center py-8">
+                    <svg className="mx-auto h-12 w-12 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900">Search Failed</h3>
-                    <p className="mt-2 text-sm text-gray-500">{externalSearchError}</p>
-                    <div className="mt-6">
-                      <Button onClick={handleSearchExternalCandidates} size="small" kind="primary">
-                        Try Again
-                      </Button>
-                    </div>
+                    <p className="mt-4 text-sm text-gray-500">{externalSearchError}</p>
                   </div>
                 ) : (
                   <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="text-sm text-gray-600">
-                        Found {externalCandidates.length} LinkedIn profile{externalCandidates.length !== 1 ? 's' : ''}
-                      </div>
-                      <button
-                        onClick={handleSearchExternalCandidates}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors"
-                        title="Refresh search"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Refresh
-                      </button>
+                    <div className="mb-4 text-sm text-gray-600">
+                      Found {externalCandidates.length} LinkedIn profile{externalCandidates.length !== 1 ? 's' : ''}
                     </div>
 
                     {/* Profile Cards - Grid Layout */}

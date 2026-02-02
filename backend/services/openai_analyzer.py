@@ -128,10 +128,18 @@ class OpenAIAnalyzer:
             job_description_text = self._extract_text_with_processor(file)
 
             prompt = f"""
-Analyze the provided job description text and extract all relevant information including the job title, complete description text, required and preferred skills, experience requirements, education requirements, certifications, responsibilities, soft skills, and any other important details.
+Analyze the provided job description text and extract all relevant information including the job title, job location, complete description text, required and preferred skills, experience requirements, education requirements, certifications, responsibilities, soft skills, and any other important details.
 
 Job Description:
 {job_description_text}
+
+JOB LOCATION:
+Extract the job location (city, state, country) if mentioned. Examples:
+- "Oakland County, Michigan" or "Oakland County, MI"
+- "San Francisco, CA"
+- "New York, NY"
+- "Remote" if fully remote
+Set to null if location is not specified or unclear.
 
 CRITICAL FORMATTING INSTRUCTION:
 For the 'job_description_text' field, you MUST rewrite the text into clean, readable Markdown.

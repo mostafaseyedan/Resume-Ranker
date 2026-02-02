@@ -136,6 +136,7 @@ def build_job_analysis_payload(job_description, extraction_data=None, analyzer=N
 
     if extraction_data is not None:
         payload['extracted_data'] = {
+            'job_location': extraction_data.get('job_location'),
             'required_skills': extraction_data.get('required_skills', []),
             'preferred_skills': extraction_data.get('preferred_skills', []),
             'experience_requirements': extraction_data.get('experience_requirements', ''),
@@ -873,6 +874,56 @@ def search_by_skill(job_id):
             'error': 'Failed to search by skill'
         }), 500
 
+@app.route('/api/jobs/<job_id>/extract-search-query', methods=['POST'])
+@require_auth
+def extract_search_query(job_id):
+    """Extract role and location from job description using Gemini (HITL step 1)"""
+    try:
+        if not external_search_service:
+            return jsonify({
+                'success': False,
+                'error': 'External search service not configured.'
+            }), 500
+
+        # Get job details
+        job = firestore_service.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        job_description = job.get('description', '').strip()
+        if not job_description:
+            return jsonify({
+                'success': False,
+                'error': 'Job description is required'
+            }), 400
+
+        # Check if we have pre-extracted location
+        extracted_data = job.get('extracted_data', {}) or {}
+        stored_location = extracted_data.get('job_location')
+
+        # Extract search query using Gemini
+        parsed_query = external_search_service._generate_search_query(job_description)
+        if not parsed_query:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to extract search query from job description'
+            }), 500
+
+        # Use stored location if available (more reliable)
+        location = stored_location or parsed_query.get('location')
+
+        return jsonify({
+            'success': True,
+            'role': parsed_query.get('role'),
+            'location': location,
+            'countryCode': parsed_query.get('countryCode')
+        })
+
+    except Exception as e:
+        logger.error(f"Error extracting search query: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/jobs/<job_id>/search-external-candidates', methods=['POST'])
 @require_auth
 def search_external_candidates(job_id):
@@ -903,8 +954,26 @@ def search_external_candidates(job_id):
                 'error': 'Job description is required for external candidate search'
             }), 400
 
+        # Get parameters from request body
+        request_data = request.get_json() or {}
+        count = request_data.get('count', 10)
+        # Validate count range
+        count = max(1, min(50, int(count)))
+
+        # Get user-provided role and location (from HITL step)
+        user_role = request_data.get('role', '').strip() if request_data.get('role') else None
+        user_location = request_data.get('location', '').strip() if request_data.get('location') else None
+
+        logger.info(f"[DEBUG] User-provided role: {user_role}, location: {user_location}")
+
         # Search for candidates using External Search Service
-        search_result = external_search_service.search_candidates(job_description)
+        # If user provided role/location (from HITL), use those directly
+        search_result = external_search_service.search_candidates(
+            job_description,
+            count=count,
+            role=user_role,
+            location=user_location
+        )
 
         # Log the search query for debugging
         parsed_query = search_result.get('parsedQuery', {})

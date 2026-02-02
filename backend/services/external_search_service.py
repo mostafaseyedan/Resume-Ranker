@@ -51,12 +51,21 @@ class ExternalSearchService:
 
         logger.info(f"ExternalSearchService initialized with model: {self.gemini_model}")
 
-    def search_candidates(self, job_description: str) -> Dict[str, Any]:
+    def search_candidates(
+        self,
+        job_description: str,
+        count: int = 10,
+        role: Optional[str] = None,
+        location: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Search for external candidates matching a job description.
 
         Args:
             job_description: The full job description text
+            count: Number of candidates to search for (default 10, max 50)
+            role: User-provided role title (from HITL, skips Gemini if provided)
+            location: User-provided location (from HITL)
 
         Returns:
             Dictionary with:
@@ -75,13 +84,32 @@ class ExternalSearchService:
                     "error": "No job description provided"
                 }
 
-            # Step 1: Generate search query from job description
-            parsed_query = self._generate_search_query(job_description)
-            if not parsed_query:
-                return {
-                    "success": False,
-                    "error": "Failed to generate search query from job description"
+            # Validate and clamp count
+            count = max(1, min(50, count))
+
+            # Step 1: Build search query
+            if role:
+                # User provided role (from HITL) - skip Gemini extraction
+                location_part = f" {location}" if location else ""
+                google_query = f'site:linkedin.com/in "{role}"{location_part}'
+                parsed_query = {
+                    "role": role,
+                    "location": location,
+                    "countryCode": None,
+                    "keywords": [],
+                    "googleQuery": google_query,
+                    "source": "user"
                 }
+                logger.info(f"Using user-provided role: {role}, location: {location}")
+            else:
+                # No role provided - use Gemini to extract
+                parsed_query = self._generate_search_query(job_description)
+                if not parsed_query:
+                    return {
+                        "success": False,
+                        "error": "Failed to generate search query from job description"
+                    }
+                parsed_query["source"] = "gemini"
 
             logger.info(f"Generated search query for role: {parsed_query.get('role', 'N/A')}")
 
@@ -89,7 +117,7 @@ class ExternalSearchService:
             try:
                 search_results = self._execute_search(
                     query=parsed_query["googleQuery"],
-                    count=parsed_query.get("count", self.DEFAULT_RESULT_COUNT),
+                    count=count,
                     country_code=parsed_query.get("countryCode")
                 )
             except SerperAPIError as e:
@@ -102,6 +130,9 @@ class ExternalSearchService:
             profiles = self._extract_profiles(search_results)
 
             logger.info(f"Found {len(profiles)} LinkedIn profiles")
+
+            # Include the requested count in parsedQuery for reference
+            parsed_query["requestedCount"] = count
 
             return {
                 "success": True,
@@ -133,48 +164,46 @@ class ExternalSearchService:
                 - googleQuery: str (always includes site:linkedin.com/in)
         """
         try:
-            prompt = f"""Analyze this job description and create a simple Google search query for finding LinkedIn profiles.
+            system_instruction = """You are a LinkedIn recruiter search query generator. Your task is to create simple, effective Google search queries for finding LinkedIn profiles.
 
-Job Description:
-{job_description}
-
-Instructions:
-1. Extract the main job role/title (use a common, broad title like "Software Engineer", "Data Scientist", "Product Manager")
-2. Identify the location if mentioned (city or country)
-3. Convert geographic location to 2-letter ISO country code (e.g., "US", "IL", "GB", "DE"). Set to null if not mentioned.
-4. Identify 1-2 key skills (optional, only the most important ones)
+Rules:
+1. Extract the main job role/title - use common, broad titles (e.g., "Software Engineer", "Data Scientist", "Product Manager")
+2. Identify the location if mentioned (city, state, or country)
+3. Convert location to 2-letter ISO country code (e.g., "US", "IL", "GB", "DE"). Set to null if not mentioned.
+4. DO NOT add niche skills or technologies to the query - they severely limit results
 5. Create a SIMPLE Google search query:
    - MUST start with "site:linkedin.com/in"
    - Put the job role in quotes
    - Add location WITHOUT quotes if available
-   - Optionally add 1 key skill WITHOUT quotes
+   - DO NOT add skills/technologies - keep it broad
 
-Output JSON:
-{{
-    "count": 10,
+Output JSON format:
+{
     "role": "Job Title",
-    "location": "City, Country or null",
+    "location": "City, State or Country or null",
     "countryCode": "US or null",
-    "keywords": ["skill1"],
+    "keywords": [],
     "googleQuery": "site:linkedin.com/in \\"Job Title\\" location"
-}}
+}
 
 GOOD examples:
+- site:linkedin.com/in "Software Developer" Michigan
 - site:linkedin.com/in "Software Engineer" San Francisco
-- site:linkedin.com/in "Data Scientist" New York Python
-- site:linkedin.com/in "AI Engineer" AWS
-- site:linkedin.com/in "Product Manager" remote
+- site:linkedin.com/in "Data Scientist" New York
+- site:linkedin.com/in "Product Manager" Texas
 
-BAD examples (too complex):
-- site:linkedin.com/in "AI Specialist" "AWS Bedrock" "RAG" "Public Safety"
+BAD examples (too specific - will return few results):
+- site:linkedin.com/in "Software Developer" Oakland County Kofax
+- site:linkedin.com/in "AI Specialist" "AWS Bedrock" "RAG"
 - site:linkedin.com/in "Senior Staff Principal ML Platform Engineer"
 
-Keep it simple: just role + location (+ optionally 1 skill)."""
+Keep it simple: just role + location. No skills."""
 
             response = self.gemini_client.models.generate_content(
                 model=self.gemini_model,
-                contents=prompt,
+                contents=job_description,
                 config=GenerateContentConfig(
+                    system_instruction=system_instruction,
                     response_mime_type="application/json"
                 )
             )
@@ -210,9 +239,6 @@ Keep it simple: just role + location (+ optionally 1 skill)."""
                 # Force the prefix
                 google_query = f"site:linkedin.com/in {google_query}"
                 parsed["googleQuery"] = google_query
-
-            # Ensure count is always 10
-            parsed["count"] = self.DEFAULT_RESULT_COUNT
 
             return parsed
 
@@ -307,7 +333,14 @@ Keep it simple: just role + location (+ optionally 1 skill)."""
         except json.JSONDecodeError as e:
             raise SerperAPIError(f"Invalid JSON response: {str(e)}")
 
-        return data.get("organic", [])
+        # Log raw Serper results for debugging
+        organic_results = data.get("organic", [])
+        logger.info(f"[SERPER RAW] Query: {query}")
+        logger.info(f"[SERPER RAW] Requested: {count}, Returned: {len(organic_results)}")
+        for i, result in enumerate(organic_results):
+            logger.info(f"[SERPER RAW] Result {i+1}: {result.get('link', 'N/A')} | {result.get('title', 'N/A')[:50]}")
+
+        return organic_results
 
     def _extract_profiles(self, search_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
