@@ -9,11 +9,12 @@ import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
-import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label, NumberField, TextField, TextArea } from '@vibe/core';
+import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label, NumberField, TextField, TextArea, IconButton } from '@vibe/core';
 import { Modal as NextModal, ModalHeader as NextModalHeader, ModalContent as NextModalContent, ModalBasicLayout as NextModalBasicLayout } from '@vibe/core/next';
 import '@vibe/core/tokens';
 import { AiOutlineFile } from 'react-icons/ai';
 import { BsFiletypePdf, BsFiletypeDocx, BsFiletypeXlsx, BsCheck } from 'react-icons/bs';
+import { Retry } from '@vibe/icons';
 
 interface JobDetailProps {
   job: Job;
@@ -223,6 +224,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [useSavedLinkedInCredentials, setUseSavedLinkedInCredentials] = useState(false);
   const [saveLinkedInCredentials, setSaveLinkedInCredentials] = useState(false);
   const [loadingSavedCredentials, setLoadingSavedCredentials] = useState(false);
+  // Conversation state
+  const [conversation, setConversation] = useState<{ messages: Array<{ sender: 'user' | 'candidate'; content: string; timestamp: string }>; lastSyncedAt?: string } | null>(null);
+  const [loadingConversation, setLoadingConversation] = useState(false);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [generatingFollowup, setGeneratingFollowup] = useState(false);
+  const [sendingReply, setSendingReply] = useState(false);
+  const [checkingConnection, setCheckingConnection] = useState(false);
   const [chatInitialized, setChatInitialized] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -397,6 +405,46 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, chatStreaming]);
+
+  useEffect(() => {
+    if (!reachOutOpen || !reachOutCandidate) {
+      return;
+    }
+    if (reachOutCandidate.outreach_status !== 'message_sent') {
+      setConversation(null);
+      setReplyMessage('');
+      return;
+    }
+    let cancelled = false;
+    setLoadingConversation(true);
+    apiService.getConversation(job.id, reachOutCandidate.linkedinUrl, { skipConnectionCheck: true })
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        if (response.success && response.conversation) {
+          setConversation({
+            messages: response.conversation.messages || [],
+            lastSyncedAt: response.conversation.last_synced_at,
+          });
+        } else {
+          setConversation({ messages: [] });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setConversation({ messages: [] });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingConversation(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reachOutOpen, reachOutCandidate, job.id]);
 
   const loadCandidates = async () => {
     try {
@@ -705,6 +753,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     setReachOutPassword('');
     setSaveLinkedInCredentials(false);
     setUseSavedLinkedInCredentials(false);
+    setConversation(null);
+    setReplyMessage('');
+    setLoadingConversation(false);
+    setGeneratingFollowup(false);
+    setSendingReply(false);
+    setCheckingConnection(false);
     setLoadingSavedCredentials(true);
 
     try {
@@ -735,6 +789,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     setUseSavedLinkedInCredentials(false);
     setSaveLinkedInCredentials(false);
     setLoadingSavedCredentials(false);
+    setConversation(null);
+    setReplyMessage('');
+    setLoadingConversation(false);
+    setGeneratingFollowup(false);
+    setSendingReply(false);
+    setCheckingConnection(false);
   };
 
   const handleConfirmReachOut = async () => {
@@ -807,6 +867,193 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     } finally {
       setReachOutSubmitting(false);
     }
+  };
+
+  const handleRefreshConversation = async () => {
+    if (!reachOutCandidate) return;
+
+    try {
+      setLoadingConversation(true);
+      const response = await apiService.getConversation(job.id, reachOutCandidate.linkedinUrl, {
+        refresh: true,
+        useSavedCredentials: useSavedLinkedInCredentials,
+        username: reachOutUsername,
+        password: reachOutPassword,
+        skipConnectionCheck: true,
+      });
+
+      if (response.success && response.conversation) {
+        setConversation({
+          messages: response.conversation.messages || [],
+          lastSyncedAt: response.conversation.last_synced_at,
+        });
+      } else if (response.status === 'upsell_blocked') {
+        toast.error('LinkedIn Premium required to view this conversation');
+      } else if (response.status === 'no_history') {
+        setConversation({ messages: [] });
+        toast.info('No conversation history found');
+      } else {
+        toast.error(response.error || 'Failed to fetch conversation');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to refresh conversation');
+    } finally {
+      setLoadingConversation(false);
+    }
+  };
+
+  const handleGenerateFollowup = async () => {
+    if (!reachOutCandidate) return;
+
+    try {
+      setGeneratingFollowup(true);
+      const response = await apiService.generateFollowup(job.id, reachOutCandidate.linkedinUrl);
+
+      if (response.success && response.message) {
+        setReplyMessage(response.message);
+        toast.success('Follow-up message generated');
+      } else {
+        toast.error(response.error || 'Failed to generate follow-up');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to generate follow-up');
+    } finally {
+      setGeneratingFollowup(false);
+    }
+  };
+
+  const handleSendReply = async () => {
+    if (!reachOutCandidate || !replyMessage.trim()) return;
+
+    try {
+      setSendingReply(true);
+      const response = await apiService.sendReply(job.id, {
+        profileUrl: reachOutCandidate.linkedinUrl,
+        message: replyMessage.trim(),
+        useSavedCredentials: useSavedLinkedInCredentials,
+        username: reachOutUsername,
+        password: reachOutPassword,
+      });
+
+      if (response.success) {
+        // Add message to local conversation
+        setConversation((prev) => ({
+          messages: [...(prev?.messages || []), {
+            sender: 'user' as const,
+            content: replyMessage.trim(),
+            timestamp: new Date().toISOString(),
+          }],
+          lastSyncedAt: prev?.lastSyncedAt,
+        }));
+        setReplyMessage('');
+        toast.success('Reply sent successfully');
+      } else {
+        toast.error(response.error || 'Failed to send reply');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to send reply');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const handleCheckConnection = async () => {
+    if (!reachOutCandidate) return;
+
+    try {
+      setCheckingConnection(true);
+      const response = await apiService.checkConnectionAndMessage(
+        job.id,
+        reachOutCandidate.linkedinUrl,
+        reachOutCandidate.linkedinId,
+        {
+          useSavedCredentials: useSavedLinkedInCredentials,
+          username: reachOutUsername,
+          password: reachOutPassword,
+        }
+      );
+
+      if (response.connectionAccepted && response.messageSent) {
+        // Update candidate status in local state
+        setExternalCandidates((prev) =>
+          prev.map((c) =>
+            c.linkedinUrl === reachOutCandidate.linkedinUrl
+              ? { ...c, outreach_status: 'message_sent' as const }
+              : c
+          )
+        );
+        setReachOutCandidate((prev) => prev ? { ...prev, outreach_status: 'message_sent' } : null);
+        toast.success('Connection accepted! Initial message sent.');
+      } else if (response.connectionAccepted && !response.messageSent) {
+        toast.error('Connection accepted but failed to send message. Try again.');
+      } else {
+        toast.info('Connection request still pending');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to check connection');
+    } finally {
+      setCheckingConnection(false);
+    }
+  };
+
+  const renderLinkedInCredentialFields = (showSaveOption: boolean, showSavedToggle: boolean) => (
+    <div className="space-y-3">
+      {!useSavedLinkedInCredentials && (
+        <>
+          <TextField
+            id="reach-out-username"
+            title="LinkedIn Email/Username"
+            placeholder="you@example.com"
+            value={reachOutUsername}
+            onChange={(value) => setReachOutUsername(value)}
+            size="small"
+            disabled={loadingSavedCredentials}
+          />
+          <TextField
+            id="reach-out-password"
+            title="LinkedIn Password"
+            placeholder="Your LinkedIn password"
+            type="password"
+            value={reachOutPassword}
+            onChange={(value) => setReachOutPassword(value)}
+            size="small"
+            disabled={loadingSavedCredentials}
+          />
+        </>
+      )}
+      {showSavedToggle && savedLinkedInUsername && (
+        <Checkbox
+          checked={useSavedLinkedInCredentials}
+          onChange={(event) => {
+            const checked = event.target.checked;
+            setUseSavedLinkedInCredentials(checked);
+            if (checked) {
+              setReachOutUsername(savedLinkedInUsername);
+              setReachOutPassword('');
+              setSaveLinkedInCredentials(false);
+            } else {
+              setReachOutUsername('');
+            }
+          }}
+          label={`Use ${savedLinkedInUsername} saved credential`}
+        />
+      )}
+      {!useSavedLinkedInCredentials && showSaveOption && (
+        <Checkbox
+          checked={saveLinkedInCredentials}
+          onChange={(event) => setSaveLinkedInCredentials(event.target.checked)}
+          label="Save credentials for next time"
+        />
+      )}
+    </div>
+  );
+
+  const reachOutStatus = reachOutCandidate?.outreach_status;
+  const isNotContacted = !reachOutStatus || reachOutStatus === 'failed';
+  const formatLastSynced = (value?: string) => {
+    if (!value) return 'Never';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
   };
 
   const handleSkillClick = async (skill: string) => {
@@ -2386,7 +2633,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       {externalCandidates.map((profile, index) => (
                         <div
                           key={profile.linkedinId || index}
-                          onClick={() => window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer')}
+                          onClick={() => handleOpenReachOut(profile)}
                           className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col h-[207px] overflow-hidden"
                         >
                           {/* Header: Name and LinkedIn icon */}
@@ -2452,11 +2699,11 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleOpenReachOut(profile);
+                                  window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer');
                                 }}
                                 className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
                               >
-                                Reach out
+                                View Profile
                               </button>
                             </div>
                           </div>
@@ -2492,73 +2739,130 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           />
           <NextModalContent>
             <div className="space-y-4">
-            {!useSavedLinkedInCredentials && (
-              <>
-                <TextField
-                  id="reach-out-username"
-                  title="LinkedIn Email/Username"
-                  placeholder="you@example.com"
-                  value={reachOutUsername}
-                  onChange={(value) => setReachOutUsername(value)}
-                  size="small"
-                  disabled={loadingSavedCredentials}
-                />
-                <TextField
-                  id="reach-out-password"
-                  title="LinkedIn Password"
-                  placeholder="Your LinkedIn password"
-                  type="password"
-                  value={reachOutPassword}
-                  onChange={(value) => setReachOutPassword(value)}
-                  size="small"
-                  disabled={loadingSavedCredentials}
-                />
-              </>
-            )}
-            <TextArea
-              label="Message"
-              value={reachOutMessage}
-              onChange={(event) => setReachOutMessage(event.target.value)}
-              size="small"
-              rows={5}
-            />
-            {savedLinkedInUsername && (
-              <Checkbox
-                checked={useSavedLinkedInCredentials}
-                onChange={(event) => {
-                  const checked = event.target.checked;
-                  setUseSavedLinkedInCredentials(checked);
-                  if (checked) {
-                    setReachOutUsername(savedLinkedInUsername);
-                    setReachOutPassword('');
-                    setSaveLinkedInCredentials(false);
-                  } else {
-                    setReachOutUsername('');
-                  }
-                }}
-                label={`Use ${savedLinkedInUsername} saved credential`}
-              />
-            )}
-            {!useSavedLinkedInCredentials && (
-              <Checkbox
-                checked={saveLinkedInCredentials}
-                onChange={(event) => setSaveLinkedInCredentials(event.target.checked)}
-                label="Save credentials for next time"
-              />
-            )}
-            <div className="flex items-center justify-end gap-2">
-              <Button kind="tertiary" size="small" onClick={handleCloseReachOut}>
-                Cancel
-              </Button>
-              <Button
-                kind="primary"
-                size="small"
-                onClick={handleConfirmReachOut}
-                disabled={reachOutSubmitting || loadingSavedCredentials}
-              >
-                {reachOutSubmitting ? 'Sending...' : 'Send'}
-              </Button>
-            </div>
+              {isNotContacted && (
+                <>
+                  {reachOutStatus === 'failed' && (
+                    <div className="text-xs text-red-600">
+                      Last attempt failed. You can try again.
+                    </div>
+                  )}
+                  {renderLinkedInCredentialFields(true, true)}
+                  <TextArea
+                    label="Message"
+                    value={reachOutMessage}
+                    onChange={(event) => setReachOutMessage(event.target.value)}
+                    size="small"
+                    rows={5}
+                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <Button kind="tertiary" size="small" onClick={handleCloseReachOut}>
+                      Cancel
+                    </Button>
+                    <Button
+                      kind="primary"
+                      size="small"
+                      onClick={handleConfirmReachOut}
+                      disabled={reachOutSubmitting || loadingSavedCredentials}
+                    >
+                      {reachOutSubmitting ? 'Sending...' : 'Send'}
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {reachOutStatus === 'connection_sent' && (
+                <>
+                  <div className="text-center py-2 text-sm text-gray-600">
+                    Connection request pending acceptance.
+                  </div>
+                  {renderLinkedInCredentialFields(false, false)}
+                  <div className="flex items-center justify-end gap-2">
+                    <Button kind="tertiary" size="small" onClick={handleCloseReachOut}>
+                      Cancel
+                    </Button>
+                    <Button
+                      kind="primary"
+                      size="small"
+                      onClick={handleCheckConnection}
+                      disabled={checkingConnection || loadingSavedCredentials}
+                    >
+                      {checkingConnection ? 'Checking...' : 'Check & Send Message'}
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {reachOutStatus === 'message_sent' && (
+                <div className="flex flex-col h-[560px]">
+                  <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                    <span className="text-xs text-gray-500">
+                      Last synced: {formatLastSynced(conversation?.lastSyncedAt)}
+                    </span>
+                    <IconButton
+                      kind="tertiary"
+                      size="small"
+                      icon={Retry}
+                      ariaLabel="Refresh conversation"
+                      onClick={handleRefreshConversation}
+                      disabled={loadingConversation || loadingSavedCredentials}
+                      loading={loadingConversation}
+                      className="!text-blue-600 hover:!text-blue-700"
+                    />
+                  </div>
+                  <div className="flex-1 overflow-y-auto py-4 space-y-3">
+                    {loadingConversation && (
+                      <div className="text-sm text-gray-500">Loading conversation...</div>
+                    )}
+                    {!loadingConversation && (!conversation || conversation.messages.length === 0) && (
+                      <div className="text-sm text-gray-500">No conversation history yet.</div>
+                    )}
+                    {!loadingConversation && conversation?.messages.map((msg, index) => (
+                      <div
+                        key={`${msg.timestamp}-${index}`}
+                        className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[75%] px-3 py-2 text-sm rounded text-gray-900 ${
+                            msg.sender === 'user' ? 'bg-gray-300' : 'bg-gray-100'
+                          }`}
+                        >
+                          <div className="whitespace-pre-wrap">{msg.content}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-3 border-t space-y-3">
+                    {renderLinkedInCredentialFields(false, false)}
+                    <TextArea
+                      label="Reply"
+                      value={replyMessage}
+                      onChange={(event) => setReplyMessage(event.target.value)}
+                      size="small"
+                      rows={3}
+                      placeholder="Type your reply..."
+                    />
+                    <div className="flex items-center justify-between">
+                      <Button
+                        kind="primary"
+                        size="small"
+                        color="positive"
+                        onClick={handleGenerateFollowup}
+                        disabled={generatingFollowup}
+                      >
+                        {generatingFollowup ? 'Generating...' : 'Generate follow-up'}
+                      </Button>
+                      <Button
+                        kind="primary"
+                        size="small"
+                        onClick={handleSendReply}
+                        disabled={!replyMessage.trim() || sendingReply || loadingSavedCredentials}
+                      >
+                        {sendingReply ? 'Sending...' : 'Send Reply'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </NextModalContent>
         </NextModalBasicLayout>

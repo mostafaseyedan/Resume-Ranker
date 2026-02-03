@@ -404,4 +404,80 @@ SCORING GUIDELINES:
             logger.error(f"Error analyzing resume: {e}")
             raise Exception(f"Failed to analyze resume: {str(e)}")
 
+    def generate_followup_message(
+        self,
+        job_title: str,
+        job_description: str,
+        candidate_name: str,
+        conversation_history: List[Dict[str, str]],
+    ) -> str:
+        """
+        Generate a professional follow-up message for a candidate based on
+        job context and conversation history.
+
+        Args:
+            job_title: The job title
+            job_description: The job description text
+            candidate_name: The candidate's name
+            conversation_history: List of messages with 'sender' and 'content' keys
+
+        Returns:
+            Generated follow-up message text
+        """
+        try:
+            # Format conversation history
+            formatted_conversation = "\n".join([
+                f"{'You' if msg['sender'] == 'user' else candidate_name}: {msg['content']}"
+                for msg in conversation_history
+            ]) if conversation_history else "No previous messages."
+
+            response = self.client.models.generate_content(
+                model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+                contents=f"""
+Job Title: {job_title}
+
+Job Description:
+{job_description[:2000]}  # Truncate if too long
+
+Candidate Name: {candidate_name}
+
+Conversation History:
+{formatted_conversation}
+""",
+                config=types.GenerateContentConfig(
+                    system_instruction="""
+You are a professional recruiter writing a follow-up message to a candidate on LinkedIn.
+
+Generate a brief, professional follow-up message (2-4 sentences) that:
+1. Is warm and personalized - use the candidate's first name
+2. References something specific from the conversation history if available
+3. Shows continued interest in the candidate for the role
+4. Includes a clear, gentle call to action (e.g., schedule a call, share availability)
+5. Sounds natural and human, not templated
+
+IMPORTANT:
+- Keep it concise - LinkedIn messages should be short
+- Be professional but friendly
+- Do NOT start with "Hi" or "Hello" repeatedly if conversation already started
+- Do NOT include any quotes, explanations, or meta-text
+- Return ONLY the message text, nothing else
+""",
+                )
+            )
+
+            if response.text is None:
+                raise ValueError("Gemini response text is None")
+
+            # Clean up the response - remove any quotes or extra whitespace
+            message = response.text.strip()
+            if message.startswith('"') and message.endswith('"'):
+                message = message[1:-1]
+
+            logger.info(f"Generated follow-up message for {candidate_name}")
+            return message
+
+        except Exception as e:
+            logger.error(f"Error generating follow-up message: {e}")
+            raise Exception(f"Failed to generate follow-up message: {str(e)}")
+
 

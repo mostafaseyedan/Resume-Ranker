@@ -1,5 +1,6 @@
 from firebase_admin import firestore as firebase_firestore
 from google.cloud import firestore
+import hashlib
 import logging
 import threading
 from datetime import datetime, date, timedelta
@@ -536,6 +537,79 @@ class FirestoreService:
         except Exception as e:
             logger.error(f"Error getting jobs by Monday ID {monday_id}: {e}")
             raise
+
+    # Candidate conversation methods
+    @staticmethod
+    def _hash_url(url: str) -> str:
+        """Create stable hash from profile URL for Firestore doc ID."""
+        normalized = url.rstrip('/').lower()
+        return hashlib.sha256(normalized.encode()).hexdigest()[:16]
+
+    def get_candidate_conversation(self, job_id: str, profile_url: str) -> Optional[Dict[str, Any]]:
+        """Get conversation by job_id + URL hash."""
+        try:
+            url_hash = self._hash_url(profile_url)
+            doc_id = f"{job_id}_{url_hash}"
+
+            doc_ref = (
+                self.db.collection(self.COLLECTION_ROOT)
+                .document('candidate_conversations')
+                .collection('candidate_conversations')
+                .document(doc_id)
+            )
+            doc = doc_ref.get()
+            if doc.exists:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                # Convert timestamp for JSON serialization
+                if 'last_synced_at' in data and data['last_synced_at']:
+                    data['last_synced_at'] = (
+                        data['last_synced_at'].isoformat()
+                        if hasattr(data['last_synced_at'], 'isoformat')
+                        else str(data['last_synced_at'])
+                    )
+                return data
+            return None
+        except Exception as e:
+            logger.error(f"Error getting conversation for job {job_id}, url {profile_url}: {e}")
+            raise
+
+    def save_candidate_conversation(
+        self,
+        job_id: str,
+        profile_url: str,
+        candidate_name: str,
+        messages: List[Dict[str, Any]],
+        connection_status: str = 'connected'
+    ) -> bool:
+        """Save conversation using job_id + URL hash as doc ID."""
+        try:
+            url_hash = self._hash_url(profile_url)
+            doc_id = f"{job_id}_{url_hash}"
+
+            doc_ref = (
+                self.db.collection(self.COLLECTION_ROOT)
+                .document('candidate_conversations')
+                .collection('candidate_conversations')
+                .document(doc_id)
+            )
+
+            payload = {
+                'job_id': job_id,
+                'linkedin_url': profile_url,
+                'url_hash': url_hash,
+                'candidate_name': candidate_name,
+                'messages': self._serialize_for_firestore(messages),
+                'connection_status': connection_status,
+                'last_synced_at': firestore.SERVER_TIMESTAMP,
+            }
+
+            doc_ref.set(payload, merge=True)
+            logger.info(f"Saved conversation for job {job_id}, candidate {candidate_name}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving conversation for job {job_id}, url {profile_url}: {e}")
+            return False
 
     # Utility methods
     def health_check(self):

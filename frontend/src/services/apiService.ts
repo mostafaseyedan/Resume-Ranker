@@ -308,6 +308,62 @@ export interface LinkedInSavedCredentialsResponse {
   error?: string;
 }
 
+// Conversation types
+export interface ConversationMessage {
+  sender: 'user' | 'candidate';
+  content: string;
+  timestamp: string;
+}
+
+export interface CandidateConversation {
+  id?: string;
+  job_id: string;
+  linkedin_url: string;
+  url_hash: string;
+  candidate_name: string;
+  messages: ConversationMessage[];
+  connection_status: 'connected' | 'pending' | 'not_connected';
+  last_synced_at?: string;
+}
+
+export interface GetConversationResponse {
+  success: boolean;
+  conversation: CandidateConversation | null;
+  status?: 'success' | 'upsell_blocked' | 'no_history' | 'not_connected' | 'error';
+  logs?: string[];
+  error?: string;
+}
+
+export interface SendReplyRequest {
+  profileUrl: string;
+  message: string;
+  username?: string;
+  password?: string;
+  useSavedCredentials?: boolean;
+}
+
+export interface SendReplyResponse {
+  success: boolean;
+  logs?: string[];
+  error?: string;
+}
+
+export interface GenerateFollowupResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface CheckConnectionResponse {
+  success: boolean;
+  connectionAccepted?: boolean;
+  connectionStatus?: 'connected' | 'pending' | 'not_connected';
+  messageSent?: boolean;
+  newStatus?: string;
+  logs?: string[];
+  error?: string;
+}
+
 export const apiService = {
   // Authentication
   async login(authCode: string, redirectUri: string) {
@@ -356,6 +412,46 @@ export const apiService = {
 
   async saveLinkedInCredentials(username: string, password: string): Promise<{ success: boolean; username?: string; error?: string }> {
     const response = await apiClient.post('/users/linkedin-credentials', { username, password });
+    return response.data;
+  },
+
+  // Candidate conversation methods
+  async getConversation(
+    jobId: string,
+    profileUrl: string,
+    options: { refresh?: boolean; useSavedCredentials?: boolean; username?: string; password?: string; skipConnectionCheck?: boolean } = {}
+  ): Promise<GetConversationResponse> {
+    const params = new URLSearchParams({ profileUrl });
+    if (options.refresh) params.append('refresh', 'true');
+    if (options.useSavedCredentials !== undefined) params.append('useSavedCredentials', String(options.useSavedCredentials));
+    if (options.username) params.append('username', options.username);
+    if (options.password) params.append('password', options.password);
+    if (options.skipConnectionCheck) params.append('skipConnectionCheck', 'true');
+    const response = await apiClient.get(`/jobs/${jobId}/external-candidates/conversation?${params.toString()}`);
+    return response.data;
+  },
+
+  async sendReply(jobId: string, request: SendReplyRequest): Promise<SendReplyResponse> {
+    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/reply`, request);
+    return response.data;
+  },
+
+  async generateFollowup(jobId: string, profileUrl: string): Promise<GenerateFollowupResponse> {
+    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/generate-followup`, { profileUrl });
+    return response.data;
+  },
+
+  async checkConnectionAndMessage(
+    jobId: string,
+    profileUrl: string,
+    linkedinId: string | undefined,
+    options: { useSavedCredentials?: boolean; username?: string; password?: string } = {}
+  ): Promise<CheckConnectionResponse> {
+    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/check-connection`, {
+      profileUrl,
+      linkedinId,
+      ...options,
+    });
     return response.data;
   },
 

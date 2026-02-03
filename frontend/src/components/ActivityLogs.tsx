@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
+import { Button, IconButton } from '@vibe/core';
+import '@vibe/core/tokens';
 
 interface Activity {
   id: string;
@@ -132,12 +134,13 @@ const ActivityLogs: React.FC = () => {
         <div className="text-center">
           <div className="text-red-600 text-lg mb-2">Error loading activities</div>
           <div className="text-gray-600 mb-4">{error}</div>
-          <button
+          <Button
             onClick={loadActivities}
-            className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700"
+            kind="primary"
+            size="small"
           >
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -147,15 +150,18 @@ const ActivityLogs: React.FC = () => {
     <div className="bg-white shadow p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-gray-900">Activity Logs</h2>
-        <button
+        <IconButton
           onClick={loadActivities}
-          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-          title="Refresh"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
+          tooltipContent="Refresh"
+          kind="tertiary"
+          size="small"
+          icon={() => (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          )}
+          className="text-gray-600 hover:text-gray-900"
+        />
       </div>
 
       {activities.length === 0 ? (

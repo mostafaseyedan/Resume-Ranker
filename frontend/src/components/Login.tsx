@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { loginRequest } from '../config/msalConfig';
+import { Button } from '@vibe/core';
+import '@vibe/core/tokens';
 
 const Login: React.FC = () => {
   const { instance } = useMsal();
@@ -31,18 +33,22 @@ const Login: React.FC = () => {
               </div>
 
               <div className="grid gap-2">
-                <button
+                <Button
                   onClick={handleLogin}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-gray-300 bg-white hover:bg-gray-50 text-gray-900 w-[320px] h-[40px] px-6 shadow-sm"
+                  kind="secondary"
+                  size="medium"
+                  leftIcon={() => (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" style={{ width: '16px', height: '16px', flexShrink: 0 }}>
+                      <path fill="#f35325" d="M1 1h10v10H1z"></path>
+                      <path fill="#81bc06" d="M12 1h10v10H12z"></path>
+                      <path fill="#05a6f0" d="M1 12h10v10H1z"></path>
+                      <path fill="#ffba08" d="M12 12h10v10H12z"></path>
+                    </svg>
+                  )}
+                  className="w-[320px] h-[40px] !bg-white !border-gray-300 !text-gray-900 hover:!bg-gray-50 shadow-sm"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" style={{ width: '16px', height: '16px', flexShrink: 0 }}>
-                    <path fill="#f35325" d="M1 1h10v10H1z"></path>
-                    <path fill="#81bc06" d="M12 1h10v10H12z"></path>
-                    <path fill="#05a6f0" d="M1 12h10v10H1z"></path>
-                    <path fill="#ffba08" d="M12 12h10v10H12z"></path>
-                  </svg>
                   Continue with Microsoft
-                </button>
+                </Button>
               </div>
             </div>
           </div>

@@ -9,7 +9,8 @@ import ActivityLogs from './ActivityLogs';
 import ActivityNotificationDropdown from './ActivityNotificationDropdown';
 import { useAuth } from '../hooks/useAuth';
 import { useMsal } from '@azure/msal-react';
-import { ButtonGroup } from '@vibe/core';
+import { ButtonGroup, Button, IconButton } from '@vibe/core';
+import '@vibe/core/tokens';
 
 // Type for grouped candidate (matching CandidateSidebar)
 interface GroupedCandidate {
@@ -195,12 +196,14 @@ const Dashboard: React.FC = () => {
         <div className="text-red-600 text-center">
           <div className="text-xl mb-2">Error</div>
           <div>{error}</div>
-          <button
+          <Button
             onClick={loadJobs}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            kind="primary"
+            size="small"
+            className="mt-4"
           >
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -257,20 +260,23 @@ const Dashboard: React.FC = () => {
               </a>
             </nav>
             <ActivityNotificationDropdown onViewAll={handleShowLogs} />
-            <button
+            <IconButton
               onClick={handleLogout}
-              className="inline-flex items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
-              title="Logout"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-            </button>
+              tooltipContent="Logout"
+              kind="tertiary"
+              size="small"
+              icon={() => (
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+              )}
+              className="text-gray-600 hover:text-gray-900"
+            />
           </div>
         </div>
       </header>
@@ -323,12 +329,13 @@ const Dashboard: React.FC = () => {
                 {candidatesError ? (
                   <div className="text-center py-12">
                     <div className="text-red-600 mb-4">{candidatesError}</div>
-                    <button
+                    <Button
                       onClick={loadCandidates}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      kind="primary"
+                      size="small"
                     >
                       Retry
-                    </button>
+                    </Button>
                   </div>
                 ) : selectedGroupedCandidate ? (
                   <CandidateDashboardView

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Candidate } from '../services/apiService';
 import RadialProgress from './RadialProgress';
+import { IconButton } from '@vibe/core';
+import '@vibe/core/tokens';
 
 interface SharePointFile {
   name: string;
@@ -215,19 +217,23 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                       </span>
                     )}
                   </div>
-                  <button
+                  <IconButton
                     onClick={(e) => toggleExpand(candidate.id, e)}
-                    className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 transition-colors"
-                  >
-                    <svg
-                      className={`w-4 h-4 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
+                    kind="tertiary"
+                    size="xs"
+                    icon={() => (
+                      <svg
+                        className={`w-4 h-4 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                    className="text-gray-400 hover:text-gray-600"
+                    tooltipContent={isExpanded ? "Collapse" : "Expand"}
+                  />
                 </div>
 
                 {/* Highlights: Experience & Strengths & Weaknesses (Collapsible) */}
@@ -302,20 +308,21 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                   <div>
                     By: <span className="font-medium text-gray-700">{candidate.uploaded_by || 'Unknown'}</span>
                   </div>
-                  <button
+                  <IconButton
                     onClick={(e) => handleDeleteCandidate(candidate.id, candidate.name || 'Unnamed', e)}
                     disabled={deletingCandidateId === candidate.id}
-                    className="text-gray-400 hover:text-red-500 p-1.5 hover:bg-red-50 transition-colors disabled:opacity-50"
-                    title="Delete candidate"
-                  >
-                    {deletingCandidateId === candidate.id ? (
-                      <div className="animate-spin h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full"></div>
-                    ) : (
+                    loading={deletingCandidateId === candidate.id}
+                    kind="tertiary"
+                    color="negative"
+                    size="xs"
+                    icon={() => (
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                       </svg>
                     )}
-                  </button>
+                    tooltipContent="Delete candidate"
+                    className="text-gray-400 hover:text-red-500"
+                  />
                 </div>
               </div>
             </div>

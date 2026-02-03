@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Button, Label } from '@vibe/core';
+import { Button, Label, TextField, TextArea } from '@vibe/core';
+import { Dropdown } from '@vibe/core/next';
 import '@vibe/core/tokens';
 import { Job, apiService, CreateJobRequest } from '../services/apiService';
 
@@ -18,7 +19,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
   const [creating, setCreating] = useState(false);
   const [creatingFromPDF, setCreatingFromPDF] = useState(false);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
-  const [syncingMonday, setSyncingMonday] = useState(false);
   const [formData, setFormData] = useState<CreateJobRequest>({
     title: '',
     description: '',
@@ -52,9 +52,10 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
           }
         }
       });
-      return Array.from(map.entries())
-        .map(([key, label]) => ({ key, label }))
+      const options = Array.from(map.entries())
+        .map(([value, label]) => ({ value, label }))
         .sort((a, b) => a.label.localeCompare(b.label));
+      return [{ value: 'all', label: 'All statuses' }, ...options];
     },
     [jobs]
   );
@@ -68,7 +69,10 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
           clients.add(client.trim());
         }
       });
-      return Array.from(clients).sort((a, b) => a.localeCompare(b));
+      const options = Array.from(clients)
+        .map((client) => ({ value: client, label: client }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+      return [{ value: 'all', label: 'All clients' }, ...options];
     },
     [jobs]
   );
@@ -162,30 +166,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
       toast.error('Failed to delete job. Please try again.');
     } finally {
       setDeletingJobId(null);
-    }
-  };
-
-  const handleSyncMonday = async () => {
-    try {
-      setSyncingMonday(true);
-      const response = await apiService.syncJobsFromMonday();
-
-      if (response.success) {
-        toast.success(`Successfully synced ${response.synced_jobs.length} jobs from Monday.com!`);
-
-        // Refresh the job list by calling onJobCreated for each new job
-        // In a real app, you might want to refresh the entire list instead
-        if (response.synced_jobs.some(job => job.action === 'created')) {
-          window.location.reload(); // Simple refresh for now
-        }
-      } else {
-        toast.error('Failed to sync jobs from Monday.com');
-      }
-    } catch (error: any) {
-      console.error('Monday sync error:', error);
-      toast.error('Failed to sync jobs from Monday.com: ' + (error.response?.data?.error || error.message));
-    } finally {
-      setSyncingMonday(false);
     }
   };
 
@@ -483,110 +463,96 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
       <CustomColorStyles jobs={jobs} />
       {/* Header Section */}
       <div className="p-4 border-b">
-        <div className="flex flex-wrap justify-between items-center gap-3">
-          <div className="flex items-center flex-wrap gap-2 text-sm text-gray-700">
-            <select
-              id="status-filter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-sm border border-gray-300 px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="all">All statuses</option>
-              {statusOptions.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              id="client-filter"
-              value={clientFilter}
-              onChange={(e) => setClientFilter(e.target.value)}
-              className="text-sm border border-gray-300 px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="all">All clients</option>
-              {clientOptions.map((client) => (
-                <option key={client} value={client}>
-                  {client}
-                </option>
-              ))}
-            </select>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-44">
+              <Dropdown
+                id="status-filter"
+                size="small"
+                options={statusOptions}
+                value={statusOptions.find(opt => opt.value === statusFilter)}
+                onChange={(option: { value: string; label: string } | null) =>
+                  setStatusFilter(option?.value ?? 'all')
+                }
+                placeholder="All statuses"
+              />
+            </div>
+            <div className="w-36">
+              <Dropdown
+                id="client-filter"
+                size="small"
+                options={clientOptions}
+                value={clientOptions.find(opt => opt.value === clientFilter)}
+                onChange={(option: { value: string; label: string } | null) =>
+                  setClientFilter(option?.value ?? 'all')
+                }
+                placeholder="All clients"
+              />
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleSyncMonday}
-              disabled={syncingMonday}
-              title={syncingMonday ? 'Syncing...' : 'Sync Monday jobs'}
-              aria-label={syncingMonday ? 'Syncing Monday jobs' : 'Sync Monday jobs'}
-              className="h-9 w-9 bg-white hover:bg-gray-100 disabled:opacity-50 flex items-center justify-center"
-            >
-              {syncingMonday ? (
-                <div className="animate-spin h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full"></div>
-              ) : (
-                <img src="/monday.svg" alt="" aria-hidden="true" className="h-6 w-6" />
-              )}
-            </button>
-            <Button
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              size="small"
-              kind="primary"
-            >
-              + New Job
-            </Button>
-          </div>
+          <Button
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            size="small"
+            kind="primary"
+          >
+            + New Job
+          </Button>
         </div>
       </div>
 
       {showCreateForm && (
         <div className="p-4 border-b bg-gray-50">
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Job Title *</label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="e.g. Senior Frontend Developer"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Job Description *</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={4}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Enter detailed job description including required skills, experience, and responsibilities..."
-                required
-              />
-            </div>
+            <TextField
+              id="job-title-field"
+              title="Job Title"
+              value={formData.title}
+              onChange={(value) => setFormData({ ...formData, title: value })}
+              placeholder="e.g. Senior Frontend Developer"
+              required
+              size="small"
+              wrapperClassName="w-full"
+            />
+            <TextArea
+              label="Job Description *"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Enter detailed job description including required skills, experience, and responsibilities..."
+              size="small"
+            />
             <div className="flex space-x-2">
-              <button
+              <Button
                 type="submit"
                 disabled={creating}
-                className="px-4 py-1 bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-50"
+                loading={creating}
+                kind="primary"
+                color="positive"
+                size="small"
+                className="px-4 py-1"
               >
                 {creating ? 'Creating...' : 'Create Job'}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => {
                   setShowPDFForm(true);
                   setShowCreateForm(false);
                 }}
-                className="px-4 py-1 bg-blue-600 text-white text-sm hover:bg-blue-700"
+                kind="primary"
+                size="small"
+                className="px-4 py-1"
               >
                 From file
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => setShowCreateForm(false)}
-                className="px-4 py-1 bg-gray-300 text-gray-700 text-sm hover:bg-gray-400"
+                kind="tertiary"
+                size="small"
+                className="px-4 py-1"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -596,13 +562,14 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
         <div className="p-4 border-b bg-green-50">
           <form onSubmit={handlePDFSubmit} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Job Title</label>
-              <input
-                type="text"
+              <TextField
+                id="job-title-pdf-field"
+                title="Job Title"
                 value={pdfFormData.title}
-                onChange={(e) => setPdfFormData({ ...pdfFormData, title: e.target.value })}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                onChange={(value) => setPdfFormData({ ...pdfFormData, title: value })}
                 placeholder="Leave empty to auto-extract from file"
+                size="small"
+                wrapperClassName="w-full"
               />
               <p className="text-xs text-gray-500 mt-1">Optional - The system will extract job title from the file if not provided</p>
             </div>
@@ -618,20 +585,26 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               <p className="text-xs text-gray-500 mt-1">Upload a PDF or DOCX file containing the job description</p>
             </div>
             <div className="flex space-x-2">
-              <button
+              <Button
                 type="submit"
                 disabled={creatingFromPDF}
-                className="px-4 py-1 bg-green-600 text-white text-sm hover:bg-green-700 disabled:opacity-50"
+                loading={creatingFromPDF}
+                kind="primary"
+                color="positive"
+                size="small"
+                className="px-4 py-1"
               >
                 {creatingFromPDF ? 'Creating...' : 'Create from file'}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => setShowPDFForm(false)}
-                className="px-4 py-1 bg-gray-300 text-gray-700 text-sm hover:bg-gray-400"
+                kind="tertiary"
+                size="small"
+                className="px-4 py-1"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
