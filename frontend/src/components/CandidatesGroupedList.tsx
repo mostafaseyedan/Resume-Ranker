@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Candidate } from '../services/apiService';
+import { IconButton } from '@vibe/core';
+import { Delete } from '@vibe/icons';
+import '@vibe/core/tokens';
 
 interface GroupedCandidate {
   name: string;
@@ -238,20 +241,17 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
                           <span className={`font-semibold ${getScoreColor(resume.overall_score || 0).split(' ')[0]}`}>
                             {resume.overall_score || 0}%
                           </span>
-                          <button
+                          <IconButton
                             onClick={(e) => handleDeleteCandidate(resume.id, resume.name || 'Unnamed', e)}
                             disabled={deletingCandidateId === resume.id}
-                            className="text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 transition-colors disabled:opacity-50"
-                            title="Delete resume"
-                          >
-                            {deletingCandidateId === resume.id ? (
-                              <div className="animate-spin h-3 w-3 border-2 border-red-500 border-t-transparent rounded-full"></div>
-                            ) : (
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                              </svg>
-                            )}
-                          </button>
+                            loading={deletingCandidateId === resume.id}
+                            kind="tertiary"
+                            color="negative"
+                            size="xs"
+                            icon={Delete}
+                            tooltipContent="Delete resume"
+                            className="text-gray-400 hover:text-red-500"
+                          />
                         </div>
                       </div>
                     );

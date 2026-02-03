@@ -1023,12 +1023,40 @@ def search_external_candidates(job_id):
         if not search_result.get('success'):
             return jsonify(search_result), 500
 
-        # Save the external candidates to Firestore
+        # Save the external candidates to Firestore (merge to preserve statuses)
         external_candidates = search_result.get('results', [])
+        existing_candidates = job.get('external_candidates', []) or []
+        existing_by_url = {c.get('linkedinUrl'): c for c in existing_candidates if c.get('linkedinUrl')}
+        existing_by_id = {c.get('linkedinId'): c for c in existing_candidates if c.get('linkedinId')}
+
+        merged_candidates = []
+        seen_urls = set()
+        for candidate in external_candidates:
+            key_url = candidate.get('linkedinUrl')
+            key_id = candidate.get('linkedinId')
+            existing = existing_by_url.get(key_url) or existing_by_id.get(key_id)
+            if existing:
+                merged = {**candidate, **existing}
+                merged_candidates.append(merged)
+            else:
+                merged_candidates.append(candidate)
+            if key_url:
+                seen_urls.add(key_url)
+
+        # Keep existing candidates not in the new results
+        for candidate in existing_candidates:
+            key_url = candidate.get('linkedinUrl')
+            if key_url and key_url in seen_urls:
+                continue
+            merged_candidates.append(candidate)
+
+        # Keep response consistent with merged set
+        search_result['results'] = merged_candidates
+        search_result['count'] = len(merged_candidates)
 
         try:
             update_data = {
-                'external_candidates': external_candidates,
+                'external_candidates': merged_candidates,
                 'external_candidates_last_search': firestore.SERVER_TIMESTAMP,
                 'external_candidates_parsed_query': parsed_query
             }

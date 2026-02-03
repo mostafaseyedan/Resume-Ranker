@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { apiService } from '../services/apiService';
+import { IconButton, Button } from '@vibe/core';
+import { Notifications } from '@vibe/icons';
+import '@vibe/core/tokens';
 
 interface Activity {
   id: string;
@@ -144,29 +147,29 @@ const ActivityNotificationDropdown: React.FC<ActivityNotificationDropdownProps> 
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      <IconButton
         onClick={() => setIsOpen(!isOpen)}
-        className="relative inline-flex items-center justify-center rounded-lg p-2 text-gray-600 transition-colors hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900"
-        title="Activity Notifications"
-      >
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
-      </button>
+        tooltipContent="Activity Notifications"
+        kind="tertiary"
+        size="small"
+        icon={Notifications}
+        className="text-gray-600 hover:text-gray-900"
+      />
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-96 sm:w-[28rem] origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50 border border-gray-200">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900">Recent Activity</h3>
-            <button
+            <Button
               onClick={() => {
                 onViewAll();
                 setIsOpen(false);
               }}
-              className="text-xs text-primary hover:text-[#0060b9] font-medium"
+              kind="tertiary"
+              size="xs"
             >
               View all
-            </button>
+            </Button>
           </div>
 
           <div className="max-h-[400px] overflow-y-auto">

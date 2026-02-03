@@ -9,12 +9,10 @@ import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
-import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label, NumberField, TextField, TextArea, IconButton } from '@vibe/core';
+import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label, NumberField, TextField, TextArea, IconButton, Icon } from '@vibe/core';
 import { Modal as NextModal, ModalHeader as NextModalHeader, ModalContent as NextModalContent, ModalBasicLayout as NextModalBasicLayout } from '@vibe/core/next';
 import '@vibe/core/tokens';
-import { AiOutlineFile } from 'react-icons/ai';
-import { BsFiletypePdf, BsFiletypeDocx, BsFiletypeXlsx, BsCheck } from 'react-icons/bs';
-import { Retry } from '@vibe/icons';
+import { Retry, PDF, File as FileIcon, Check } from '@vibe/icons';
 
 interface JobDetailProps {
   job: Job;
@@ -1208,15 +1206,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
     switch (ext) {
       case 'pdf':
-        return <BsFiletypePdf {...iconProps} className="w-5 h-5 text-red-600" />;
+        return <Icon icon={PDF} iconSize={20} className="text-red-600" />;
       case 'doc':
       case 'docx':
-        return <BsFiletypeDocx {...iconProps} className="w-5 h-5 text-blue-600" />;
+        return <Icon icon={FileIcon} iconSize={20} className="text-blue-600" />;
       case 'xls':
       case 'xlsx':
-        return <BsFiletypeXlsx {...iconProps} className="w-5 h-5 text-green-600" />;
+        return <Icon icon={FileIcon} iconSize={20} className="text-green-600" />;
       default:
-        return <AiOutlineFile {...iconProps} className="w-5 h-5 text-gray-400" />;
+        return <Icon icon={FileIcon} iconSize={20} className="text-gray-400" />;
     }
   };
 
@@ -1575,13 +1573,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                 id="resume-gemini"
                                 title="Gemini Flash"
                                 onClick={() => setResumeProvider('gemini')}
-                                rightIcon={resumeProvider === 'gemini' ? () => <BsCheck /> : undefined}
+                                rightIcon={resumeProvider === 'gemini' ? Check : undefined}
                               />
                               <MenuItem
                                 id="resume-openai"
                                 title="ChatGPT 5.1"
                                 onClick={() => setResumeProvider('openai')}
-                                rightIcon={resumeProvider === 'openai' ? () => <BsCheck /> : undefined}
+                                rightIcon={resumeProvider === 'openai' ? Check : undefined}
                               />
                             </SplitButtonMenu>
                           }
@@ -1605,13 +1603,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                 id="job-gemini"
                                 title="Gemini Flash"
                                 onClick={() => setJobProvider('gemini')}
-                                rightIcon={jobProvider === 'gemini' ? () => <BsCheck /> : undefined}
+                                rightIcon={jobProvider === 'gemini' ? Check : undefined}
                               />
                               <MenuItem
                                 id="job-openai"
                                 title="ChatGPT 5.1"
                                 onClick={() => setJobProvider('openai')}
-                                rightIcon={jobProvider === 'openai' ? () => <BsCheck /> : undefined}
+                                rightIcon={jobProvider === 'openai' ? Check : undefined}
                               />
                             </SplitButtonMenu>
                           }
@@ -2442,13 +2440,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                   id="potential-resume-gemini"
                                   title="Gemini Flash"
                                   onClick={() => setResumeProvider('gemini')}
-                                  rightIcon={resumeProvider === 'gemini' ? () => <BsCheck /> : undefined}
+                                  rightIcon={resumeProvider === 'gemini' ? Check : undefined}
                                 />
                                 <MenuItem
                                   id="potential-resume-openai"
                                   title="ChatGPT 5.1"
                                   onClick={() => setResumeProvider('openai')}
-                                  rightIcon={resumeProvider === 'openai' ? () => <BsCheck /> : undefined}
+                                  rightIcon={resumeProvider === 'openai' ? Check : undefined}
                                 />
                               </SplitButtonMenu>
                             }

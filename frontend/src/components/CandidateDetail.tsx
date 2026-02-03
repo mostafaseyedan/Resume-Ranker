@@ -4,7 +4,8 @@ import { Candidate, Job, apiService, WebVerificationResult } from '../services/a
 import ResumeTemplateSelector from './ResumeTemplateSelector';
 import RadialProgress from './RadialProgress';
 import { Button, Label, MenuItem, SplitButton, SplitButtonMenu } from '@vibe/core';
-import { BsCheck } from 'react-icons/bs';
+import { Check } from '@vibe/icons';
+import '@vibe/core/tokens';
 
 interface CandidateDetailProps {
   candidate: Candidate;
@@ -733,13 +734,13 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                             id="verify-gemini"
                             title="Gemini"
                             onClick={() => setVerificationProvider('gemini')}
-                            rightIcon={verificationProvider === 'gemini' ? () => <BsCheck /> : undefined}
+                            rightIcon={verificationProvider === 'gemini' ? Check : undefined}
                           />
                           <MenuItem
                             id="verify-openai"
                             title="OpenAI"
                             onClick={() => setVerificationProvider('openai')}
-                            rightIcon={verificationProvider === 'openai' ? () => <BsCheck /> : undefined}
+                            rightIcon={verificationProvider === 'openai' ? Check : undefined}
                           />
                         </SplitButtonMenu>
                       }
@@ -1143,13 +1144,13 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                           id="verify-empty-gemini"
                           title="Gemini"
                           onClick={() => setVerificationProvider('gemini')}
-                          rightIcon={verificationProvider === 'gemini' ? () => <BsCheck /> : undefined}
+                          rightIcon={verificationProvider === 'gemini' ? Check : undefined}
                         />
                         <MenuItem
                           id="verify-empty-openai"
                           title="OpenAI"
                           onClick={() => setVerificationProvider('openai')}
-                          rightIcon={verificationProvider === 'openai' ? () => <BsCheck /> : undefined}
+                          rightIcon={verificationProvider === 'openai' ? Check : undefined}
                         />
                       </SplitButtonMenu>
                     }
