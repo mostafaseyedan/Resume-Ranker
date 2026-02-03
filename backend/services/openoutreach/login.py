@@ -8,6 +8,7 @@ from playwright.sync_api import sync_playwright
 from playwright_stealth import Stealth
 
 from .utils import goto_page
+from .session import download_storage_state, upload_storage_state
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,8 @@ def init_playwright_session(session: "LinkedInSession") -> None:
     logger.info("Configuring Playwright browser")
     state_path = session.storage_state_path
     storage_state = None
+    if state_path:
+        download_storage_state(state_path)
     if state_path and state_path.exists():
         storage_state = str(state_path)
         logger.info("Using saved LinkedIn session state: %s", storage_state)
@@ -82,8 +85,10 @@ def init_playwright_session(session: "LinkedInSession") -> None:
             if state_path:
                 state_path.parent.mkdir(parents=True, exist_ok=True)
                 session.context.storage_state(path=str(state_path))
+                upload_storage_state(state_path)
     else:
         playwright_login(session)
         if state_path:
             state_path.parent.mkdir(parents=True, exist_ok=True)
             session.context.storage_state(path=str(state_path))
+            upload_storage_state(state_path)
