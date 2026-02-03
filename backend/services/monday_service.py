@@ -68,7 +68,7 @@ class MondayService:
                         id
                         settings_str
                     }
-                    items_page {
+                    items_page(limit: 100) {
                         cursor
                         items {
                             id

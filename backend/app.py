@@ -486,6 +486,16 @@ def delete_job(job_id):
         # For now, allow any authenticated user to delete (in production, check ownership)
         success = firestore_service.delete_job(job_id)
         if success:
+            # Log the job deletion activity
+            activity_logger.log_activity(
+                user_email=session['user']['email'],
+                user_name=session['user']['name'],
+                action='job_deleted',
+                details={
+                    'job_title': job.get('title', 'Unknown job'),
+                    'job_id': job_id
+                }
+            )
             return jsonify({'success': True})
         else:
             return jsonify({'error': 'Failed to delete job'}), 500
@@ -1185,6 +1195,20 @@ def reach_out_external_candidate(job_id):
         except Exception as save_error:
             logger.error(f"Failed to update outreach status for job {job_id}: {save_error}")
 
+        # Log the reach-out activity
+        if result.get('success'):
+            activity_logger.log_activity(
+                user_email=session['user']['email'],
+                user_name=session['user']['name'],
+                action='external_candidate_reach_out',
+                details={
+                    'candidate_name': raw_name,
+                    'job_title': job.get('title', 'Unknown job'),
+                    'outreach_type': result.get('action', 'unknown'),
+                    'status': outreach_status
+                }
+            )
+
         result['status'] = outreach_status
         status_code = 200 if result.get('success') else 500
         return jsonify(result), status_code
@@ -1352,6 +1376,19 @@ def send_external_candidate_reply(job_id):
                         connection_status=conversation.get('connection_status', 'connected'),
                     )
 
+            # Log the reply activity
+            if success:
+                activity_logger.log_activity(
+                    user_email=session['user']['email'],
+                    user_name=session['user']['name'],
+                    action='conversation_reply',
+                    details={
+                        'candidate_name': conversation.get('candidate_name', 'Unknown') if conversation else 'Unknown',
+                        'job_title': job.get('title', 'Unknown job'),
+                        'profile_url': profile_url
+                    }
+                )
+
             return jsonify({
                 'success': success,
                 'logs': logs,
@@ -1404,6 +1441,18 @@ def generate_followup_message(job_id):
             job_description=job_description,
             candidate_name=candidate_name,
             conversation_history=conversation_history,
+        )
+
+        # Log the follow-up generation activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='followup_generated',
+            details={
+                'candidate_name': candidate_name,
+                'job_title': job_title,
+                'profile_url': profile_url
+            }
         )
 
         return jsonify({
@@ -1523,6 +1572,18 @@ def check_connection_and_message(job_id):
                         'error': result.get('error', 'Failed to send message'),
                         'logs': logs + result.get('logs', []),
                     })
+
+            # Log the connection check activity
+            activity_logger.log_activity(
+                user_email=session['user']['email'],
+                user_name=session['user']['name'],
+                action='connection_checked',
+                details={
+                    'profile_url': profile_url,
+                    'connection_status': connection_status,
+                    'job_title': job.get('title', 'Unknown job')
+                }
+            )
 
             return jsonify({
                 'success': True,
@@ -1889,6 +1950,17 @@ def delete_candidate(candidate_id):
             return jsonify({'error': 'Candidate not found'}), 404
 
         firestore_service.delete_candidate(candidate_id)
+
+        # Log the candidate deletion activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='candidate_deleted',
+            details={
+                'candidate_name': candidate.get('name', 'Unknown candidate'),
+                'candidate_id': candidate_id
+            }
+        )
 
         return jsonify({
             'success': True,

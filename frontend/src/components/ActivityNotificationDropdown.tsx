@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { apiService } from '../services/apiService';
-import { IconButton, Button } from '@vibe/core';
-import { Notifications } from '@vibe/icons';
+import { IconButton, Button, Icon } from '@vibe/core';
+import { Notifications, LogIn, Add, Check, Delete, Send, Reply, Prompt, Search } from '@vibe/icons';
 import '@vibe/core/tokens';
 
 interface Activity {
@@ -66,10 +66,26 @@ const ActivityNotificationDropdown: React.FC<ActivityNotificationDropdownProps> 
         return `${user_name} analyzed candidate '${details.candidate_name}' for job '${details.job_title}'`;
       case 'resume_improved':
         return `${user_name} improved resume for candidate '${details.candidate_name}'`;
+      case 'potential_candidates_search':
+        return `${user_name} searched for potential candidates`;
+      case 'external_candidates_search':
+        return `${user_name} searched external candidates`;
+      case 'skill_search':
+        return `${user_name} searched by skill`;
+      case 'candidate_verified':
+        return `${user_name} verified candidate '${details.candidate_name}'`;
       case 'job_deleted':
         return `${user_name} deleted job '${details.job_title}'`;
       case 'candidate_deleted':
         return `${user_name} deleted candidate '${details.candidate_name}'`;
+      case 'external_candidate_reach_out':
+        return `${user_name} reached out to '${details.candidate_name}'`;
+      case 'conversation_reply':
+        return `${user_name} sent a reply to '${details.candidate_name}'`;
+      case 'followup_generated':
+        return `${user_name} generated follow-up message for '${details.candidate_name}'`;
+      case 'connection_checked':
+        return `${user_name} checked LinkedIn connection status`;
       default:
         return `${user_name} performed action: ${action}`;
     }
@@ -78,48 +94,32 @@ const ActivityNotificationDropdown: React.FC<ActivityNotificationDropdownProps> 
   const getActionIcon = (action: string): JSX.Element => {
     switch (action) {
       case 'login':
-        return (
-          <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-        );
+        return <Icon icon={LogIn} iconSize={16} className="text-blue-500" />;
       case 'job_created':
-        return (
-          <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        );
+        return <Icon icon={Add} iconSize={16} className="text-green-500" />;
       case 'candidate_analyzed':
-        return (
-          <svg className="h-4 w-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
+        return <Icon icon={Check} iconSize={16} className="text-purple-500" />;
       case 'resume_improved':
-        return (
-          <svg className="h-4 w-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
+        return <Icon icon={Check} iconSize={16} className="text-yellow-500" />;
       case 'potential_candidates_search':
-        return (
-          <svg className="h-4 w-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        );
+      case 'external_candidates_search':
+      case 'skill_search':
+        return <Icon icon={Search} iconSize={16} className="text-indigo-500" />;
+      case 'candidate_verified':
+        return <Icon icon={Check} iconSize={16} className="text-green-500" />;
       case 'job_deleted':
       case 'candidate_deleted':
-        return (
-          <svg className="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        );
+        return <Icon icon={Delete} iconSize={16} className="text-red-500" />;
+      case 'external_candidate_reach_out':
+        return <Icon icon={Send} iconSize={16} className="text-blue-500" />;
+      case 'conversation_reply':
+        return <Icon icon={Reply} iconSize={16} className="text-teal-500" />;
+      case 'followup_generated':
+        return <Icon icon={Prompt} iconSize={16} className="text-purple-500" />;
+      case 'connection_checked':
+        return <Icon icon={Check} iconSize={16} className="text-cyan-500" />;
       default:
-        return (
-          <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
+        return <Icon icon={Check} iconSize={16} className="text-gray-500" />;
     }
   };
 
