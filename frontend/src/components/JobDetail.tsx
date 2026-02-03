@@ -9,7 +9,8 @@ import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
-import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label, NumberField, TextField } from '@vibe/core';
+import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label, NumberField, TextField, TextArea } from '@vibe/core';
+import { Modal as NextModal, ModalHeader as NextModalHeader, ModalContent as NextModalContent, ModalBasicLayout as NextModalBasicLayout } from '@vibe/core/next';
 import '@vibe/core/tokens';
 import { AiOutlineFile } from 'react-icons/ai';
 import { BsFiletypePdf, BsFiletypeDocx, BsFiletypeXlsx, BsCheck } from 'react-icons/bs';
@@ -204,7 +205,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<string | null>(null);
   // External candidates state (LinkedIn search via Serper.dev)
-  const [externalCandidates, setExternalCandidates] = useState<Array<{ linkedinUrl: string; linkedinId: string; title: string; snippet: string; name?: string; headline?: string; location?: string }>>([]);
+  const [externalCandidates, setExternalCandidates] = useState<Array<{ linkedinUrl: string; linkedinId: string; title: string; snippet: string; name?: string; headline?: string; location?: string; outreach_status?: 'message_sent' | 'connection_sent' | 'failed' }>>([]);
   const [searchingExternalCandidates, setSearchingExternalCandidates] = useState(false);
   const [externalSearchError, setExternalSearchError] = useState<string | null>(null);
   const [externalParsedQuery, setExternalParsedQuery] = useState<{ googleQuery?: string; role?: string | null; location?: string | null } | null>(null);
@@ -212,6 +213,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [externalSearchRole, setExternalSearchRole] = useState<string>('');
   const [externalSearchLocation, setExternalSearchLocation] = useState<string>('');
   const [extractingSearchQuery, setExtractingSearchQuery] = useState(false);
+  const [reachOutOpen, setReachOutOpen] = useState(false);
+  const [reachOutCandidate, setReachOutCandidate] = useState<{ linkedinUrl: string; linkedinId: string; title: string; snippet: string; name?: string; headline?: string; location?: string; outreach_status?: 'message_sent' | 'connection_sent' | 'failed' } | null>(null);
+  const [reachOutUsername, setReachOutUsername] = useState('');
+  const [reachOutPassword, setReachOutPassword] = useState('');
+  const [reachOutMessage, setReachOutMessage] = useState('');
+  const [reachOutSubmitting, setReachOutSubmitting] = useState(false);
+  const [savedLinkedInUsername, setSavedLinkedInUsername] = useState<string | null>(null);
+  const [useSavedLinkedInCredentials, setUseSavedLinkedInCredentials] = useState(false);
+  const [saveLinkedInCredentials, setSaveLinkedInCredentials] = useState(false);
+  const [loadingSavedCredentials, setLoadingSavedCredentials] = useState(false);
   const [chatInitialized, setChatInitialized] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -674,6 +685,127 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
       setExternalSearchError(err.response?.data?.error || err.message || 'Failed to search for external candidates');
     } finally {
       setSearchingExternalCandidates(false);
+    }
+  };
+
+  const buildReachOutMessage = (profile: { name?: string; linkedinId: string }) => {
+    const rawName = profile.name || profile.linkedinId || 'there';
+    const candidateFirstName = rawName.split(' ')[0] || rawName;
+    const role = externalParsedQuery?.role || job.title || 'this role';
+    const location = externalParsedQuery?.location;
+    const locationPart = location ? ` in ${location}` : '';
+    return `Hello ${candidateFirstName}, I'm contacting you about the ${role} role${locationPart}. I came across your profile and thought you could be a great fit.`;
+  };
+
+  const handleOpenReachOut = async (profile: { linkedinUrl: string; linkedinId: string; title: string; snippet: string; name?: string; headline?: string; location?: string; outreach_status?: 'message_sent' | 'connection_sent' | 'failed' }) => {
+    setReachOutCandidate(profile);
+    setReachOutMessage(buildReachOutMessage(profile));
+    setReachOutOpen(true);
+    setReachOutUsername('');
+    setReachOutPassword('');
+    setSaveLinkedInCredentials(false);
+    setUseSavedLinkedInCredentials(false);
+    setLoadingSavedCredentials(true);
+
+    try {
+      const response = await apiService.getLinkedInSavedCredentials();
+      if (response.success && response.hasSaved && response.username) {
+        setSavedLinkedInUsername(response.username);
+        setUseSavedLinkedInCredentials(true);
+        setReachOutUsername(response.username);
+      } else {
+        setSavedLinkedInUsername(null);
+      }
+    } catch (err: any) {
+      setSavedLinkedInUsername(null);
+      toast.error(err.response?.data?.error || err.message || 'Failed to load saved LinkedIn credentials');
+    } finally {
+      setLoadingSavedCredentials(false);
+    }
+  };
+
+  const handleCloseReachOut = () => {
+    setReachOutOpen(false);
+    setReachOutCandidate(null);
+    setReachOutPassword('');
+    setReachOutUsername('');
+    setReachOutMessage('');
+    setReachOutSubmitting(false);
+    setSavedLinkedInUsername(null);
+    setUseSavedLinkedInCredentials(false);
+    setSaveLinkedInCredentials(false);
+    setLoadingSavedCredentials(false);
+  };
+
+  const handleConfirmReachOut = async () => {
+    if (!reachOutCandidate) {
+      toast.error('No candidate selected');
+      return;
+    }
+    if (!useSavedLinkedInCredentials && (!reachOutUsername.trim() || !reachOutPassword.trim())) {
+      toast.error('Please enter your LinkedIn username and password.');
+      return;
+    }
+
+    try {
+      setReachOutSubmitting(true);
+      const response = await apiService.reachOutExternalCandidate(job.id, {
+        linkedinUrl: reachOutCandidate.linkedinUrl,
+        linkedinId: reachOutCandidate.linkedinId,
+        username: reachOutUsername.trim(),
+        password: reachOutPassword,
+        message: reachOutMessage.trim(),
+        useSavedCredentials: useSavedLinkedInCredentials,
+        saveCredentials: saveLinkedInCredentials,
+      });
+
+      const nextStatus = response.success
+        ? response.action === 'connect'
+          ? 'connection_sent'
+          : 'message_sent'
+        : 'failed';
+
+      setExternalCandidates((prev) =>
+        prev.map((candidate) => {
+          if (
+            candidate.linkedinUrl === reachOutCandidate.linkedinUrl ||
+            (reachOutCandidate.linkedinId && candidate.linkedinId === reachOutCandidate.linkedinId)
+          ) {
+            return { ...candidate, outreach_status: nextStatus };
+          }
+          return candidate;
+        })
+      );
+
+      if (response.success) {
+        if (response.action === 'connect') {
+          toast.success('Connection request sent. Follow up after they accept.');
+        } else {
+          toast.success('Reach out sent successfully!');
+        }
+        handleCloseReachOut();
+      } else {
+        toast.error('Reach out failed', {
+          description: (response.logs || []).join('\n') || response.error || 'Unknown error',
+        });
+      }
+    } catch (err: any) {
+      setExternalCandidates((prev) =>
+        prev.map((candidate) => {
+          if (
+            candidate.linkedinUrl === reachOutCandidate.linkedinUrl ||
+            (reachOutCandidate.linkedinId && candidate.linkedinId === reachOutCandidate.linkedinId)
+          ) {
+            return { ...candidate, outreach_status: 'failed' };
+          }
+          return candidate;
+        })
+      );
+      toast.error('Reach out failed', {
+        description: err.response?.data?.logs?.join('\n') || err.response?.data?.error || err.message,
+      });
+    } finally {
+      setReachOutSubmitting(false);
     }
   };
 
@@ -2252,12 +2384,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     {/* Profile Cards - Grid Layout */}
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {externalCandidates.map((profile, index) => (
-                        <a
+                        <div
                           key={profile.linkedinId || index}
-                          href={profile.linkedinUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 transition-all shadow-sm hover:shadow-md flex flex-col self-start"
+                          onClick={() => window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer')}
+                          className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col h-[207px] overflow-hidden"
                         >
                           {/* Header: Name and LinkedIn icon */}
                           <div className="flex justify-between items-start mb-2">
@@ -2297,15 +2427,40 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                           )}
 
                           {/* Footer */}
-                          <div className="border-t border-gray-100 pt-3 mt-3">
-                            <span className="inline-flex items-center text-xs font-medium text-blue-600">
-                              View LinkedIn Profile
-                              <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                              </svg>
-                            </span>
+                          <div className="border-t border-gray-100 pt-3 mt-auto">
+                            <div className="flex items-center justify-between gap-2">
+                              <span
+                                className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 ${
+                                  profile.outreach_status === 'message_sent'
+                                    ? 'bg-green-100 text-green-800'
+                                    : profile.outreach_status === 'connection_sent'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : profile.outreach_status === 'failed'
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-gray-100 text-gray-600'
+                                }`}
+                              >
+                                {profile.outreach_status === 'message_sent'
+                                  ? 'Message sent'
+                                  : profile.outreach_status === 'connection_sent'
+                                    ? 'Connection sent'
+                                    : profile.outreach_status === 'failed'
+                                      ? 'Failed'
+                                      : 'Not contacted'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenReachOut(profile);
+                                }}
+                                className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                              >
+                                Reach out
+                              </button>
+                            </div>
                           </div>
-                        </a>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -2315,6 +2470,99 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           </div>
         )}
       </div>
+      <NextModal
+        id="reach-out-modal"
+        show={reachOutOpen}
+        onClose={handleCloseReachOut}
+        size="medium"
+        aria-labelledby="reach-out-modal-title"
+        style={{
+          ['--top-actions-margin-block' as string]: 'var(--spacing-medium)',
+          ['--top-actions-margin-inline' as string]: 'var(--spacing-medium)',
+          ['--border-radius-big' as string]: '4px',
+        }}
+      >
+        <NextModalBasicLayout>
+          <NextModalHeader
+            title={
+              <span id="reach-out-modal-title" className="text-base font-semibold text-gray-700">
+                Reach out on LinkedIn
+              </span>
+            }
+          />
+          <NextModalContent>
+            <div className="space-y-4">
+            {!useSavedLinkedInCredentials && (
+              <>
+                <TextField
+                  id="reach-out-username"
+                  title="LinkedIn Email/Username"
+                  placeholder="you@example.com"
+                  value={reachOutUsername}
+                  onChange={(value) => setReachOutUsername(value)}
+                  size="small"
+                  disabled={loadingSavedCredentials}
+                />
+                <TextField
+                  id="reach-out-password"
+                  title="LinkedIn Password"
+                  placeholder="Your LinkedIn password"
+                  type="password"
+                  value={reachOutPassword}
+                  onChange={(value) => setReachOutPassword(value)}
+                  size="small"
+                  disabled={loadingSavedCredentials}
+                />
+              </>
+            )}
+            <TextArea
+              label="Message"
+              value={reachOutMessage}
+              onChange={(event) => setReachOutMessage(event.target.value)}
+              size="small"
+              rows={5}
+            />
+            {savedLinkedInUsername && (
+              <Checkbox
+                checked={useSavedLinkedInCredentials}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setUseSavedLinkedInCredentials(checked);
+                  if (checked) {
+                    setReachOutUsername(savedLinkedInUsername);
+                    setReachOutPassword('');
+                    setSaveLinkedInCredentials(false);
+                  } else {
+                    setReachOutUsername('');
+                  }
+                }}
+                label={`Use ${savedLinkedInUsername} saved credential`}
+              />
+            )}
+            {!useSavedLinkedInCredentials && (
+              <Checkbox
+                checked={saveLinkedInCredentials}
+                onChange={(event) => setSaveLinkedInCredentials(event.target.checked)}
+                label="Save credentials for next time"
+              />
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <Button kind="tertiary" size="small" onClick={handleCloseReachOut}>
+                Cancel
+              </Button>
+              <Button
+                kind="primary"
+                size="small"
+                onClick={handleConfirmReachOut}
+                disabled={reachOutSubmitting || loadingSavedCredentials}
+              >
+                {reachOutSubmitting ? 'Sending...' : 'Send'}
+              </Button>
+            </div>
+            </div>
+          </NextModalContent>
+        </NextModalBasicLayout>
+      </NextModal>
     </div>
   );
 };

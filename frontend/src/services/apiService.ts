@@ -262,6 +262,7 @@ export interface ExternalCandidateProfile {
   name?: string;
   headline?: string;
   location?: string;
+  outreach_status?: 'message_sent' | 'connection_sent' | 'failed';
 }
 
 export interface ParsedSearchQuery {
@@ -280,6 +281,30 @@ export interface ExternalCandidatesSearchResult {
   parsedQuery: ParsedSearchQuery;
   cached: boolean;
   timestamp: number;
+  error?: string;
+}
+
+export interface LinkedInReachOutRequest {
+  linkedinUrl: string;
+  linkedinId?: string;
+  username: string;
+  password: string;
+  message?: string;
+  useSavedCredentials?: boolean;
+  saveCredentials?: boolean;
+}
+
+export interface LinkedInReachOutResponse {
+  success: boolean;
+  error?: string;
+  logs?: string[];
+  action?: 'message' | 'connect' | 'failed';
+}
+
+export interface LinkedInSavedCredentialsResponse {
+  success: boolean;
+  hasSaved: boolean;
+  username?: string | null;
   error?: string;
 }
 
@@ -316,6 +341,21 @@ export const apiService = {
       baseURL: API_BASE_URL,
       withCredentials: true,
     }).post('/jobs/upload-pdf', formData);
+    return response.data;
+  },
+
+  async reachOutExternalCandidate(jobId: string, payload: LinkedInReachOutRequest): Promise<LinkedInReachOutResponse> {
+    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/reach-out`, payload);
+    return response.data;
+  },
+
+  async getLinkedInSavedCredentials(): Promise<LinkedInSavedCredentialsResponse> {
+    const response = await apiClient.get('/users/linkedin-credentials');
+    return response.data;
+  },
+
+  async saveLinkedInCredentials(username: string, password: string): Promise<{ success: boolean; username?: string; error?: string }> {
+    const response = await apiClient.post('/users/linkedin-credentials', { username, password });
     return response.data;
   },
 

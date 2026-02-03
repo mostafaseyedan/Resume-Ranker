@@ -241,6 +241,48 @@ class FirestoreService:
             logger.error(f"Error updating candidate {candidate_id}: {e}")
             raise
 
+    # User settings
+    def get_user_settings(self, user_email: str) -> Optional[Dict[str, Any]]:
+        """Get user settings by email."""
+        try:
+            cache_key = f'user:{user_email}'
+            cached = self._cache_get(cache_key)
+            if cached is not None:
+                return cached
+
+            doc_ref = (
+                self.db.collection(self.COLLECTION_ROOT)
+                .document('users')
+                .collection('users')
+                .document(user_email)
+            )
+            doc = doc_ref.get()
+            if doc.exists:
+                data = doc.to_dict() or {}
+                self._cache_set(cache_key, data)
+                return data
+            return None
+        except Exception as e:
+            logger.error(f"Error getting user settings for {user_email}: {e}")
+            raise
+
+    def set_user_settings(self, user_email: str, update_data: Dict[str, Any]) -> None:
+        """Set user settings by email (merge)."""
+        try:
+            doc_ref = (
+                self.db.collection(self.COLLECTION_ROOT)
+                .document('users')
+                .collection('users')
+                .document(user_email)
+            )
+            update_data['updated_at'] = firestore.SERVER_TIMESTAMP
+            doc_ref.set(update_data, merge=True)
+            self._cache_invalidate('user:')
+            self._cache_invalidate(f'user:{user_email}')
+        except Exception as e:
+            logger.error(f"Error setting user settings for {user_email}: {e}")
+            raise
+
     def save_improved_resume(self, candidate_id: str, job_id: str, improved_data: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None) -> bool:
         """Save latest improved resume JSON for a candidate."""
         try:

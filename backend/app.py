@@ -17,6 +17,8 @@ from services.vertex_search_service import VertexSearchService
 from services.openai_analyzer import OpenAIAnalyzer
 from services.web_verification_service import WebVerificationService
 from services.external_search_service import ExternalSearchService
+from services.linkedin_outreach_service import reach_out_via_linkedin
+from services.linkedin_credentials_store import LinkedInCredentialsStore
 import logging
 import base64
 import json
@@ -62,6 +64,7 @@ except Exception as e:
 # Initialize services
 firestore_cache_ttl = int(os.getenv('FIRESTORE_CACHE_TTL_SECONDS', '30'))
 firestore_service = FirestoreService(cache_ttl_seconds=firestore_cache_ttl)
+linkedin_credentials_store = LinkedInCredentialsStore(firestore_service)
 gemini_analyzer = GeminiAnalyzer(os.getenv('GEMINI_API_KEY'))
 openai_analyzer = OpenAIAnalyzer(os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
 monday_cache_ttl = int(os.getenv('MONDAY_CACHE_TTL_SECONDS', '60'))
@@ -298,6 +301,38 @@ def logout():
 @require_auth
 def get_user():
     return jsonify({'user': session['user']})
+
+
+@app.route('/api/users/linkedin-credentials', methods=['GET'])
+@require_auth
+def get_linkedin_credentials():
+    try:
+        has_saved, username = linkedin_credentials_store.has_saved_credentials(session['user']['email'])
+        return jsonify({
+            'success': True,
+            'hasSaved': has_saved,
+            'username': username
+        })
+    except Exception as e:
+        logger.error(f"Get LinkedIn credentials error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to get LinkedIn credentials'}), 500
+
+
+@app.route('/api/users/linkedin-credentials', methods=['POST'])
+@require_auth
+def save_linkedin_credentials():
+    try:
+        request_data = request.get_json() or {}
+        username = (request_data.get('username') or '').strip()
+        password = (request_data.get('password') or '').strip()
+        if not username or not password:
+            return jsonify({'success': False, 'error': 'LinkedIn credentials are required'}), 400
+
+        linkedin_credentials_store.save_credentials(session['user']['email'], username, password)
+        return jsonify({'success': True, 'username': username})
+    except Exception as e:
+        logger.error(f"Save LinkedIn credentials error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 # Job position routes
 @app.route('/api/jobs', methods=['POST'])
@@ -1024,6 +1059,110 @@ def search_external_candidates(job_id):
             'success': False,
             'error': 'Failed to search for external candidates'
         }), 500
+
+
+@app.route('/api/jobs/<job_id>/external-candidates/reach-out', methods=['POST'])
+@require_auth
+def reach_out_external_candidate(job_id):
+    """Reach out to a LinkedIn external candidate using Playwright (OpenOutreach-derived)."""
+    try:
+        job = firestore_service.get_job(job_id)
+        if not job:
+            return jsonify({'success': False, 'error': 'Job not found'}), 404
+
+        request_data = request.get_json() or {}
+        username = (request_data.get('username') or '').strip()
+        password = (request_data.get('password') or '').strip()
+        linkedin_url = (request_data.get('linkedinUrl') or '').strip()
+        linkedin_id = (request_data.get('linkedinId') or '').strip()
+        message_override = (request_data.get('message') or '').strip()
+        use_saved_credentials = bool(request_data.get('useSavedCredentials'))
+        save_credentials = bool(request_data.get('saveCredentials'))
+
+        if use_saved_credentials:
+            try:
+                saved = linkedin_credentials_store.get_saved_credentials(session['user']['email'])
+            except Exception as exc:
+                return jsonify({'success': False, 'error': str(exc)}), 400
+            if not saved:
+                return jsonify({'success': False, 'error': 'No saved LinkedIn credentials found'}), 400
+            username = saved.username
+            password = saved.password
+        else:
+            if not username or not password:
+                return jsonify({'success': False, 'error': 'LinkedIn credentials are required'}), 400
+            if save_credentials:
+                try:
+                    linkedin_credentials_store.save_credentials(session['user']['email'], username, password)
+                except Exception as exc:
+                    return jsonify({'success': False, 'error': str(exc)}), 400
+        if not linkedin_url:
+            return jsonify({'success': False, 'error': 'LinkedIn profile URL is required'}), 400
+
+        external_candidates = job.get('external_candidates', []) or []
+        candidate = next(
+            (
+                c for c in external_candidates
+                if (c.get('linkedinUrl') == linkedin_url)
+                or (linkedin_id and c.get('linkedinId') == linkedin_id)
+            ),
+            None
+        )
+        if not candidate:
+            return jsonify({'success': False, 'error': 'Candidate not found on job record'}), 404
+
+        raw_name = candidate.get('name') or candidate.get('linkedinId') or linkedin_id or 'there'
+        candidate_name = raw_name.split(' ')[0] or raw_name
+        parsed_query = job.get('external_candidates_parsed_query', {}) or {}
+        role = parsed_query.get('role') or job.get('title') or 'this role'
+        location = parsed_query.get('location')
+
+        default_message = f"Hello {candidate_name}, I'm contacting you about the {role} role"
+        if location:
+            default_message += f" in {location}"
+        default_message += ". I came across your profile and thought you could be a great fit."
+
+        message = message_override or default_message
+
+        session_key = f"{session['user']['email']}:{username or 'saved'}"
+        result = reach_out_via_linkedin(
+            profile_url=linkedin_url,
+            full_name=candidate_name,
+            message=message,
+            username=username,
+            password=password,
+            headless=os.getenv('LINKEDIN_HEADLESS', 'true').lower() == 'true',
+            session_key=session_key,
+        )
+
+        outreach_status = 'failed'
+        if result.get('success'):
+            outreach_status = 'connection_sent' if result.get('action') == 'connect' else 'message_sent'
+
+        # Persist status on the candidate record in the job doc
+        try:
+            updated_candidates = []
+            for existing in external_candidates:
+                if (
+                    existing.get('linkedinUrl') == linkedin_url
+                    or (linkedin_id and existing.get('linkedinId') == linkedin_id)
+                ):
+                    updated = dict(existing)
+                    updated['outreach_status'] = outreach_status
+                    updated_candidates.append(updated)
+                else:
+                    updated_candidates.append(existing)
+            firestore_service.update_job(job_id, {'external_candidates': updated_candidates})
+        except Exception as save_error:
+            logger.error(f"Failed to update outreach status for job {job_id}: {save_error}")
+
+        result['status'] = outreach_status
+        status_code = 200 if result.get('success') else 500
+        return jsonify(result), status_code
+
+    except Exception as e:
+        logger.error(f"Reach out error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to reach out via LinkedIn'}), 500
 
 # Job chat routes
 @app.route('/api/jobs/<job_id>/chat', methods=['GET'])
