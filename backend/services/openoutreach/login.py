@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright
 from playwright_stealth import Stealth
 
 from .utils import goto_page
-from .session import download_storage_state, upload_storage_state
+from .state_store import download_storage_state, upload_storage_state
 
 logger = logging.getLogger(__name__)
 
