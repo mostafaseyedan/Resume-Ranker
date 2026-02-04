@@ -35,8 +35,9 @@ class ExternalSearchService:
     def __init__(self):
         """Initialize the external search service."""
         self.serper_api_key = os.getenv("SERPER_API_KEY")
-        if not self.serper_api_key:
-            raise ValueError("SERPER_API_KEY environment variable is required")
+        self.serpapi_api_key = os.getenv("SERPAPI_API_KEY")
+        if not self.serper_api_key and not self.serpapi_api_key:
+            raise ValueError("SERPER_API_KEY or SERPAPI_API_KEY environment variable is required")
 
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         if not gemini_api_key:
@@ -49,7 +50,8 @@ class ExternalSearchService:
         # Initialize Gemini client
         self.gemini_client = genai.Client(api_key=gemini_api_key)
 
-        logger.info(f"ExternalSearchService initialized with model: {self.gemini_model}")
+        provider = "serpapi" if self.serpapi_api_key else "serper"
+        logger.info("ExternalSearchService initialized with model: %s (provider=%s)", self.gemini_model, provider)
 
     def search_candidates(
         self,
@@ -118,7 +120,8 @@ class ExternalSearchService:
                 search_results = self._execute_search(
                     query=parsed_query["googleQuery"],
                     count=count,
-                    country_code=parsed_query.get("countryCode")
+                    country_code=parsed_query.get("countryCode"),
+                    location=parsed_query.get("location"),
                 )
             except SerperAPIError as e:
                 return {
@@ -168,7 +171,10 @@ class ExternalSearchService:
 
 Rules:
 1. Extract the main job role/title - use common, broad titles (e.g., "Software Engineer", "Data Scientist", "Product Manager")
-2. Identify the location if mentioned (city, state, or country)
+2. Identify the location if mentioned. Prefer CITY or STATE or COUNTRY. Avoid counties.
+   - If location mentions a county, remove the county label and return the nearest city or the state instead.
+   - Format for city/state must be: "City, State, United States" (full state name, not abbreviation).
+   - If only a state is known, use: "State, United States".
 3. Convert location to 2-letter ISO country code (e.g., "US", "IL", "GB", "DE"). Set to null if not mentioned.
 4. DO NOT add niche skills or technologies to the query - they severely limit results
 5. Create a SIMPLE Google search query:
@@ -240,6 +246,16 @@ Keep it simple: just role + location. No skills."""
                 google_query = f"site:linkedin.com/in {google_query}"
                 parsed["googleQuery"] = google_query
 
+            # Normalize county locations to state (SerpAPI does not accept counties)
+            location = parsed.get("location")
+            if isinstance(location, str) and re.search(r"\bcounty\b", location, re.IGNORECASE):
+                logger.info("County location detected, normalizing: %s", location)
+                location = re.sub(r"\s*county\b", "", location, flags=re.IGNORECASE).strip()
+                # Keep only last comma segment (state/country) if present
+                if "," in location:
+                    location = location.split(",")[-1].strip()
+                parsed["location"] = location or None
+
             return parsed
 
         except Exception as e:
@@ -285,10 +301,11 @@ Keep it simple: just role + location. No skills."""
         self,
         query: str,
         count: int = 10,
-        country_code: Optional[str] = None
+        country_code: Optional[str] = None,
+        location: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Execute Google search via Serper.dev API.
+        Execute Google search via Serper.dev or SerpAPI.
 
         Args:
             query: The Google search query
@@ -301,6 +318,16 @@ Keep it simple: just role + location. No skills."""
         Raises:
             SerperAPIError: If the API call fails
         """
+        if self.serpapi_api_key:
+            return self._execute_search_serpapi(query, count, country_code, location)
+        return self._execute_search_serper(query, count, country_code)
+
+    def _execute_search_serper(
+        self,
+        query: str,
+        count: int = 10,
+        country_code: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         headers = {
             "X-API-KEY": self.serper_api_key,
             "Content-Type": "application/json"
@@ -339,6 +366,54 @@ Keep it simple: just role + location. No skills."""
         logger.info(f"[SERPER RAW] Requested: {count}, Returned: {len(organic_results)}")
         for i, result in enumerate(organic_results):
             logger.info(f"[SERPER RAW] Result {i+1}: {result.get('link', 'N/A')} | {result.get('title', 'N/A')[:50]}")
+
+        return organic_results
+
+    def _execute_search_serpapi(
+        self,
+        query: str,
+        count: int = 10,
+        country_code: Optional[str] = None,
+        location: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        params: Dict[str, Any] = {
+            "engine": "google",
+            "q": query,
+            "num": count,
+            "api_key": self.serpapi_api_key,
+        }
+
+        if location:
+            # Avoid county-level locations; SerpAPI does not accept them
+            if re.search(r"\bcounty\b", location, re.IGNORECASE):
+                logger.info("[SERPAPI] Skipping county location: %s", location)
+            else:
+                params["location"] = location
+        if country_code:
+            params["gl"] = country_code.lower()
+
+        try:
+            response = requests.get(
+                "https://serpapi.com/search.json",
+                params=params,
+                timeout=30
+            )
+        except requests.RequestException as e:
+            raise SerperAPIError(f"Request failed: {str(e)}")
+
+        if response.status_code != 200:
+            raise SerperAPIError(f"HTTP {response.status_code}: {response.text[:200]}")
+
+        try:
+            data = response.json()
+        except json.JSONDecodeError as e:
+            raise SerperAPIError(f"Invalid JSON response: {str(e)}")
+
+        organic_results = data.get("organic_results", [])
+        logger.info(f"[SERPAPI RAW] Query: {query}")
+        logger.info(f"[SERPAPI RAW] Requested: {count}, Returned: {len(organic_results)}")
+        for i, result in enumerate(organic_results):
+            logger.info(f"[SERPAPI RAW] Result {i+1}: {result.get('link', 'N/A')} | {result.get('title', 'N/A')[:50]}")
 
         return organic_results
 
