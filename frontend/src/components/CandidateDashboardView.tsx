@@ -318,7 +318,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
   const structuredClaims = verificationResult?.claim_verifications || [];
 
   return (
-    <div className="bg-white shadow">
+    <div className="bg-white dark:bg-[#30324e] shadow">
       {/* Header */}
       <div className="border-b border-gray-200 dark:border-[#4b4e69] px-6 py-4">
         <div className="flex items-center justify-between">
@@ -629,7 +629,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                 </div>
 
                 {/* Online Presence */}
-                <div className="requirement-card" style={cardStyle}>
+                <div className={`requirement-card ${cardStyle}`}>
                   <div className={cardHeaderStyle}>
                     <h5 className={cardTitleStyle}>Online Presence</h5>
                     <Label
@@ -685,7 +685,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                 </div>
 
                 {/* Identity Resolution */}
-                <div className="requirement-card" style={cardStyle}>
+                <div className={`requirement-card ${cardStyle}`}>
                   <div className={cardHeaderStyle}>
                     <h5 className={cardTitleStyle}>Identity Resolution</h5>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -718,7 +718,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
 
                 {/* Claims */}
                 {structuredClaims.length > 0 && (
-                  <div className="requirement-card" style={cardStyle}>
+                  <div className={`requirement-card ${cardStyle}`}>
                     <div className={cardHeaderStyle}>
                       <h5 className={cardTitleStyle}>Claims</h5>
                       <Label

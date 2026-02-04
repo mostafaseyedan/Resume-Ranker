@@ -214,7 +214,7 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
                   <div className="flex-1">
                     <div className="flex justify-between items-center text-xs mr-2">
                       <span className="text-gray-500 dark:text-[#9699a6]">Number of Resume files:</span>
-                      <span className="text-gray-700 font-medium font-mono">
+                      <span className="text-gray-700 dark:text-[#d5d8df] font-medium font-mono">
                         {candidate.resumeCount}
                       </span>
                     </div>

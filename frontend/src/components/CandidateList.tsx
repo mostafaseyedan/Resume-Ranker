@@ -243,7 +243,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                     {candidate.experience_match && (
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-gray-500 dark:text-[#9699a6]">Experience:</span>
-                        <span className="text-gray-700 font-medium">
+                        <span className="text-gray-700 dark:text-[#d5d8df] font-medium">
                           {candidate.experience_match.total_years} years
                         </span>
                       </div>
@@ -303,10 +303,10 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
               </div>
 
               {/* Footer / Actions */}
-              <div className="border-t border-gray-100 pt-3 mt-2">
+              <div className="border-t border-gray-100 dark:border-[#4b4e69] pt-3 mt-2">
                 <div className="flex justify-between items-center text-xs text-gray-500 dark:text-[#9699a6]">
                   <div>
-                    By: <span className="font-medium text-gray-700">{candidate.uploaded_by || 'Unknown'}</span>
+                    By: <span className="font-medium text-gray-700 dark:text-[#d5d8df]">{candidate.uploaded_by || 'Unknown'}</span>
                   </div>
                   <IconButton
                     onClick={(e) => handleDeleteCandidate(candidate.id, candidate.name || 'Unnamed', e)}

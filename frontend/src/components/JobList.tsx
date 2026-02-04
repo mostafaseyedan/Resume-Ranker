@@ -99,7 +99,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
   const [resumeCounts, setResumeCounts] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [groupSort, setGroupSort] = useState<Record<string, 'asc' | 'desc' | null>>({});
   const hasInitializedGroups = useRef(false);
   const knownGroupIdsRef = useRef<Set<string>>(new Set());
 
@@ -689,23 +688,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     };
   };
 
-  const sortItemsByDue = (items: Job[], direction: 'asc' | 'desc') => {
-    const factor = direction === 'asc' ? 1 : -1;
-    return [...items].sort((a, b) => {
-      const dateA = a.monday_metadata?.due_date ? new Date(a.monday_metadata.due_date).getTime() : null;
-      const dateB = b.monday_metadata?.due_date ? new Date(b.monday_metadata.due_date).getTime() : null;
-
-      const hasA = dateA !== null && !Number.isNaN(dateA);
-      const hasB = dateB !== null && !Number.isNaN(dateB);
-
-      if (!hasA && !hasB) return 0;
-      if (!hasA) return 1;
-      if (!hasB) return -1;
-
-      return (dateA! - dateB!) * factor;
-    });
-  };
-
   // Fetch candidate counts for visible jobs to drive the R badge
   useEffect(() => {
     const missingJobIds = filteredJobs
@@ -917,8 +899,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
             {Array.from(groupedJobs.entries()).map(([groupId, { items, groupTitle }]) => {
               const isCollapsed = collapsedGroups.has(groupId);
               const groupColor = items.length > 0 ? getGroupColor(items[0]) : MONDAY_COLORS.BLUE;
-              const sortState = groupSort[groupId] || null;
-              const sortedItems = sortState ? sortItemsByDue(items, sortState) : items;
 
               return (
                 <div
@@ -974,7 +954,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
 
                   {!isCollapsed && (
                     <div className="border-t border-gray-200 dark:border-[#4b4e69]">
-                      {sortedItems.map((job, idx) => {
+                      {items.map((job, idx) => {
                         const dueInfo = getDueInfo(job.monday_metadata?.due_date);
 
                         const itemContent = (
@@ -990,18 +970,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                               borderBottomStyle: 'solid'
                             }}
                           >
-                            {idx === 0 && (
-                              <SortControl
-                                state={sortState}
-                                onToggle={() => {
-                                  setGroupSort((prev) => {
-                                    const current = prev[groupId] || null;
-                                    const next = current === null ? 'asc' : current === 'asc' ? 'desc' : null;
-                                    return { ...prev, [groupId]: next };
-                                  });
-                                }}
-                              />
-                            )}
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <h3 className="text-[15px] font-normal text-gray-900 dark:text-[#d5d8df] whitespace-normal break-words pb-2" title={job.title ?? ''}>
@@ -1085,76 +1053,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
           </div>
         )}
       </div>
-    </div>
-  );
-};
-
-const SortIcon = ({
-  state,
-  onToggle,
-  className = ''
-}: {
-  state: 'asc' | 'desc' | null;
-  onToggle: (e: React.MouseEvent) => void;
-  className?: string;
-}) => {
-  const inactiveChevronClass = 'text-gray-500 opacity-70 group-hover:text-white group-hover:opacity-100';
-
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`
-        relative flex flex-col items-center justify-center group
-        w-[18px] h-[18px] rounded-full
-        ${state ? 'bg-primary' : 'bg-gray-100'}
-        hover:bg-primary/90 active:bg-primary/95
-        transition-all duration-200 ease-in-out
-        shadow-sm focus:outline-none focus:ring-1 focus:ring-primary focus:ring-offset-1
-        ${className}
-      `}
-      title="Sort"
-    >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 14 14"
-        fill="currentColor"
-        className="block"
-        aria-hidden="true"
-      >
-        <path
-          d="M7 2.5L3.5 6h7L7 2.5z"
-          className={`transition-colors duration-200 ${state === 'asc' ? 'text-white' : inactiveChevronClass}`}
-        />
-        <path
-          d="M7 11.5l3.5-3.5h-7L7 11.5z"
-          className={`transition-colors duration-200 ${state === 'desc' ? 'text-white' : inactiveChevronClass}`}
-        />
-      </svg>
-    </button>
-  );
-};
-
-const SortControl = ({
-  state,
-  onToggle
-}: {
-  state: 'asc' | 'desc' | null;
-  onToggle: () => void;
-}) => {
-  return (
-    <div
-      className="absolute right-4 top-0 -translate-y-1/2 z-20"
-      title="Sort by due date"
-    >
-      <SortIcon
-        state={state}
-        onToggle={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-      />
     </div>
   );
 };

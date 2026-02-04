@@ -1659,7 +1659,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                               <div
                                 key={index}
                                 onClick={() => handleFileToggle(file.name)}
-                                className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]'
+                                className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]'
                                   }`}
                               >
                                 <div className="flex items-center space-x-3 flex-1 overflow-hidden">
@@ -2372,7 +2372,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             <div
                               key={index}
                               onClick={() => handlePotentialFileToggle(candidate.filename)}
-                              className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]'}`}
+                              className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]'}`}
                             >
                               <div className="flex items-center space-x-3 flex-1 overflow-hidden">
                                 <div className="flex-shrink-0 pointer-events-none">
