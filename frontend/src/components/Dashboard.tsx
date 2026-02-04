@@ -7,6 +7,7 @@ import CandidateSidebar from './CandidateSidebar';
 import CandidateDashboardView from './CandidateDashboardView';
 import ActivityLogs from './ActivityLogs';
 import ActivityNotificationDropdown from './ActivityNotificationDropdown';
+import ThemeToggle from './ThemeToggle';
 import { useAuth } from '../hooks/useAuth';
 import { useMsal } from '@azure/msal-react';
 import { ButtonGroup, Button, IconButton } from '@vibe/core';
@@ -210,11 +211,11 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
-      <header className="bg-white shadow-sm border-b flex-shrink-0">
+    <div className="h-screen bg-gray-50 dark:bg-[#181b34] flex flex-col overflow-hidden">
+      <header className="bg-white dark:bg-[#30324e] shadow-sm border-b dark:border-[#4b4e69] flex-shrink-0">
         <div className="flex w-full items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <div className="min-w-0 flex items-center gap-4">
-            <h1 className="text-base font-semibold text-gray-700">TalentMax</h1>
+            <h1 className="text-base font-semibold text-gray-700 dark:text-[#d5d8df]">TalentMax</h1>
             {/* View Mode Toggle */}
             <ButtonGroup
               options={viewModeOptions}
@@ -225,12 +226,12 @@ const Dashboard: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-5">
-            <nav className="flex items-center gap-3 text-sm text-gray-600 sm:gap-5">
+            <nav className="flex items-center gap-3 text-sm text-gray-600 dark:text-[#9699a6] sm:gap-5">
               <a
                 href="https://reconrfp.cendien.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 hover:text-gray-900"
+                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 dark:hover:bg-[#3a3d5c] hover:text-gray-900 dark:hover:text-white"
               >
                 RFPHub
               </a>
@@ -238,7 +239,7 @@ const Dashboard: React.FC = () => {
                 href="https://sales.cendien.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 hover:text-gray-900"
+                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 dark:hover:bg-[#3a3d5c] hover:text-gray-900 dark:hover:text-white"
               >
                 SalesIQ
               </a>
@@ -246,7 +247,7 @@ const Dashboard: React.FC = () => {
                 href="https://cendien.monday.com/boards/18004940852"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 hover:text-gray-900"
+                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 dark:hover:bg-[#3a3d5c] hover:text-gray-900 dark:hover:text-white"
               >
                 Monday
               </a>
@@ -254,12 +255,13 @@ const Dashboard: React.FC = () => {
                 href="https://rag.cendien.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 hover:text-gray-900"
+                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 dark:hover:bg-[#3a3d5c] hover:text-gray-900 dark:hover:text-white"
               >
                 RAG
               </a>
             </nav>
             <ActivityNotificationDropdown onViewAll={handleShowLogs} />
+            <ThemeToggle />
             <IconButton
               onClick={handleLogout}
               tooltipContent="Logout"
@@ -275,7 +277,7 @@ const Dashboard: React.FC = () => {
                   />
                 </svg>
               )}
-              className="text-gray-600 hover:text-gray-900"
+              className="text-gray-600 dark:text-[#9699a6] hover:text-gray-900 dark:hover:text-white"
             />
           </div>
         </div>
@@ -285,7 +287,7 @@ const Dashboard: React.FC = () => {
         {viewMode === 'jobs' ? (
           <>
             {/* Job List Sidebar - Responsive width */}
-            <div className="flex-shrink-0 basis-[60%] sm:basis-[52%] md:basis-[42%] lg:flex-[0_0_32%] xl:flex-[0_0_30%] 2xl:flex-[0_0_27%] min-w-[19rem] bg-white border-r border-gray-200">
+            <div className="flex-shrink-0 basis-[60%] sm:basis-[52%] md:basis-[42%] lg:flex-[0_0_32%] xl:flex-[0_0_30%] 2xl:flex-[0_0_27%] min-w-[19rem] bg-white dark:bg-[#30324e] border-r border-gray-200 dark:border-[#4b4e69]">
               <JobList
                 jobs={jobs}
                 selectedJob={selectedJob}
@@ -299,7 +301,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Job Detail Main Content - Takes remaining space */}
-            <div className="flex-1 bg-gray-50 overflow-y-auto">
+            <div className="flex-1 bg-gray-50 dark:bg-[#181b34] overflow-y-auto">
               <div className="p-6">
                 {selectedJob ? (
                   <JobDetail job={selectedJob} onJobUpdated={handleJobUpdated} />
@@ -312,7 +314,7 @@ const Dashboard: React.FC = () => {
         ) : (
           <>
             {/* Candidate Sidebar - Responsive width */}
-            <div className="flex-shrink-0 basis-[60%] sm:basis-[52%] md:basis-[42%] lg:flex-[0_0_32%] xl:flex-[0_0_30%] 2xl:flex-[0_0_27%] min-w-[19rem] bg-white border-r border-gray-200">
+            <div className="flex-shrink-0 basis-[60%] sm:basis-[52%] md:basis-[42%] lg:flex-[0_0_32%] xl:flex-[0_0_30%] 2xl:flex-[0_0_27%] min-w-[19rem] bg-white dark:bg-[#30324e] border-r border-gray-200 dark:border-[#4b4e69]">
               <CandidateSidebar
                 candidates={candidates}
                 selectedCandidate={selectedGroupedCandidate}
@@ -324,11 +326,11 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Candidate Detail Main Content - Takes remaining space */}
-            <div className="flex-1 bg-gray-50 overflow-y-auto">
+            <div className="flex-1 bg-gray-50 dark:bg-[#181b34] overflow-y-auto">
               <div className="p-6">
                 {candidatesError ? (
                   <div className="text-center py-12">
-                    <div className="text-red-600 mb-4">{candidatesError}</div>
+                    <div className="text-red-600 dark:text-red-400 mb-4">{candidatesError}</div>
                     <Button
                       onClick={loadCandidates}
                       kind="primary"
@@ -347,7 +349,7 @@ const Dashboard: React.FC = () => {
                 ) : (
                   <div className="text-center py-12">
                     <svg
-                      className="mx-auto h-12 w-12 text-gray-400"
+                      className="mx-auto h-12 w-12 text-gray-400 dark:text-[#9699a6]"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -359,8 +361,8 @@ const Dashboard: React.FC = () => {
                         d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                       />
                     </svg>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900">Select a Candidate</h3>
-                    <p className="mt-2 text-sm text-gray-500">
+                    <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">Select a Candidate</h3>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">
                       Choose a candidate from the sidebar to view their resumes, jobs, and verification details.
                     </p>
                   </div>

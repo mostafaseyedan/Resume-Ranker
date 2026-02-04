@@ -39,32 +39,32 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
   };
 
   const getScoreColor = (score: number | undefined): string => {
-    if (score === undefined) return 'text-gray-600 bg-gray-100';
-    if (score >= 90) return 'text-green-600 bg-green-100';
-    if (score >= 80) return 'text-green-600 bg-green-50';
-    if (score >= 70) return 'text-yellow-600 bg-yellow-50';
-    if (score >= 60) return 'text-orange-600 bg-orange-50';
-    return 'text-red-600 bg-red-50';
+    if (score === undefined) return 'text-gray-600 dark:text-[#9699a6] bg-gray-100 dark:bg-[#30324e]';
+    if (score >= 90) return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30';
+    if (score >= 80) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
+    if (score >= 70) return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
+    if (score >= 60) return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
+    return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
   };
 
   const getVerificationBadge = (candidate: Candidate): { label: string; style: string } => {
     const status = candidate.web_verification?.overall_verification_status;
     if (!candidate.web_verification) {
-      return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+      return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
     }
     switch (status) {
       case 'verified':
-        return { label: 'Verified', style: 'bg-green-100 text-green-800' };
+        return { label: 'Verified', style: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' };
       case 'partially_verified':
-        return { label: 'Partially Verified', style: 'bg-yellow-100 text-yellow-800' };
+        return { label: 'Partially Verified', style: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' };
       case 'contradicted':
-        return { label: 'Verification Denied', style: 'bg-red-100 text-red-800' };
+        return { label: 'Verification Denied', style: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400' };
       case 'limited_information':
-        return { label: 'Limited Verification Info', style: 'bg-yellow-100 text-yellow-800' };
+        return { label: 'Limited Verification Info', style: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' };
       case 'no_information_found':
-        return { label: 'No Verification Info', style: 'bg-gray-100 text-gray-600' };
+        return { label: 'No Verification Info', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
       default:
-        return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+        return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
     }
   };
 
@@ -140,8 +140,8 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
             d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
           />
         </svg>
-        <h3 className="text-lg font-medium text-gray-900 mb-2 mt-4">No candidates yet</h3>
-        <p className="text-gray-500">Upload your first resume to get started with analysis.</p>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-[#d5d8df] mb-2 mt-4">No candidates yet</h3>
+        <p className="text-gray-500 dark:text-[#9699a6]">Upload your first resume to get started with analysis.</p>
       </div>
     );
   }
@@ -159,18 +159,18 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
             <div
               key={candidate.id}
               onClick={() => onCandidateSelect(candidate)}
-              className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col self-start"
+              className="bg-white dark:bg-[#30324e] border border-gray-200 dark:border-[#4b4e69] p-4 hover:bg-gray-50 dark:hover:bg-[#3a3d5c] hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col self-start"
             >
               {/* Header: Name and Score */}
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1 min-w-0 pr-2">
-                    <h4 className="font-semibold text-gray-900 text-base truncate" title={candidate.name}>
+                    <h4 className="font-semibold text-gray-900 dark:text-white text-base truncate" title={candidate.name}>
                       {candidate.name || 'Unnamed Candidate'}
                     </h4>
                     <div className="flex items-center gap-2 mt-1">
                       {isImproved && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
                           Improved
                         </span>
                       )}
@@ -182,7 +182,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                           </span>
                         );
                       })()}
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-[#9699a6]">
                         {formatDate(sharepointFile?.created_datetime || candidate.created_at)}
                       </span>
                     </div>
@@ -212,7 +212,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                         <span className="truncate">{candidate.resume_filename}</span>
                       </a>
                     ) : (
-                      <span className="text-xs text-gray-500 truncate block" title={candidate.resume_filename}>
+                      <span className="text-xs text-gray-500 dark:text-[#9699a6] truncate block" title={candidate.resume_filename}>
                         {candidate.resume_filename} <span className="italic text-gray-400">(File is removed)</span>
                       </span>
                     )}
@@ -231,7 +231,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                       </svg>
                     )}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 dark:text-[#9699a6]"
                     tooltipContent={isExpanded ? "Collapse" : "Expand"}
                   />
                 </div>
@@ -242,7 +242,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                     {/* Experience */}
                     {candidate.experience_match && (
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-gray-500">Experience:</span>
+                        <span className="text-gray-500 dark:text-[#9699a6]">Experience:</span>
                         <span className="text-gray-700 font-medium">
                           {candidate.experience_match.total_years} years
                         </span>
@@ -252,10 +252,10 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                     {/* Top Strengths */}
                     {candidate.strengths && candidate.strengths.length > 0 && (
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Top Strengths:</div>
+                        <div className="text-xs text-gray-500 dark:text-[#9699a6] mb-1">Top Strengths:</div>
                         <div className="space-y-1">
                           {candidate.strengths.slice(0, 2).map((s, i) => (
-                            <div key={i} className="px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 truncate max-w-full">
+                            <div key={i} className="px-2 py-1 text-xs bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 truncate max-w-full">
                               {s.strength}
                             </div>
                           ))}
@@ -266,10 +266,10 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
                     {/* Weaknesses */}
                     {candidate.weaknesses && candidate.weaknesses.length > 0 && (
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Areas for Improvement:</div>
+                        <div className="text-xs text-gray-500 dark:text-[#9699a6] mb-1">Areas for Improvement:</div>
                         <div className="space-y-1">
                           {candidate.weaknesses.slice(0, 2).map((w, i) => (
-                            <div key={i} className="px-2 py-1 text-xs bg-red-50 text-red-700 border border-red-200 truncate max-w-full">
+                            <div key={i} className="px-2 py-1 text-xs bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 truncate max-w-full">
                               {w.weakness}
                             </div>
                           ))}
@@ -286,10 +286,10 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
 
                         return (
                           <div>
-                            <div className="text-xs text-gray-500 mb-1">Skill Gaps:</div>
+                            <div className="text-xs text-gray-500 dark:text-[#9699a6] mb-1">Skill Gaps:</div>
                             <div className="flex flex-wrap gap-1">
                               {lowSkills.slice(0, 2).map((s, i) => (
-                                <span key={i} className="inline-flex px-2 py-0.5 text-xs bg-orange-50 text-orange-700 border border-orange-100 truncate max-w-full">
+                                <span key={i} className="inline-flex px-2 py-0.5 text-xs bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-100 dark:border-orange-700 truncate max-w-full">
                                   {s.skill} ({s.score * 10}%)
                                 </span>
                               ))}
@@ -304,7 +304,7 @@ const CandidateList: React.FC<CandidateListProps> = ({ candidates, onCandidateSe
 
               {/* Footer / Actions */}
               <div className="border-t border-gray-100 pt-3 mt-2">
-                <div className="flex justify-between items-center text-xs text-gray-500">
+                <div className="flex justify-between items-center text-xs text-gray-500 dark:text-[#9699a6]">
                   <div>
                     By: <span className="font-medium text-gray-700">{candidate.uploaded_by || 'Unknown'}</span>
                   </div>

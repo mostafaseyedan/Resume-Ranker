@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from .utils import goto_page
+from .login import ensure_logged_in
 
 if TYPE_CHECKING:
     from .session import LinkedInSession
@@ -156,6 +157,14 @@ def check_connection_status(
             timeout=30_000,
             error_message="Failed to navigate to profile",
         )
+        if ensure_logged_in(session):
+            goto_page(
+                session,
+                action=lambda: page.goto(profile_url),
+                expected_url_pattern="/in/",
+                timeout=30_000,
+                error_message="Failed to navigate to profile after login",
+            )
     except Exception as exc:
         _log(logs, f"Navigation failed: {exc}")
         return "not_connected"
@@ -260,6 +269,14 @@ def fetch_conversation(
             timeout=30_000,
             error_message="Failed to navigate to profile",
         )
+        if ensure_logged_in(session):
+            goto_page(
+                session,
+                action=lambda: page.goto(profile_url),
+                expected_url_pattern="/in/",
+                timeout=30_000,
+                error_message="Failed to navigate to profile after login",
+            )
     except Exception as exc:
         _log(logs, f"Navigation failed: {exc}")
         result['error'] = str(exc)
@@ -422,6 +439,14 @@ def send_reply(
             timeout=30_000,
             error_message="Failed to navigate to profile",
         )
+        if ensure_logged_in(session):
+            goto_page(
+                session,
+                action=lambda: page.goto(profile_url),
+                expected_url_pattern="/in/",
+                timeout=30_000,
+                error_message="Failed to navigate to profile after login",
+            )
     except Exception as exc:
         _log(logs, f"Navigation failed: {exc}")
         return False

@@ -31,23 +31,11 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libgbm1 \
-    libgtk-3-0 \
-    libnss3 \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libpangocairo-1.0-0 \
     libcairo2 \
     libgdk-pixbuf-2.0-0 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxkbcommon0 \
-    libxrandr2 \
-    libxshmfence1 \
     libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
@@ -55,7 +43,6 @@ COPY backend/requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python -m playwright install chromium
 
 COPY backend/ ./
 

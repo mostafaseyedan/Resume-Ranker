@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from .utils import goto_page
 from .connect import attempt_connect
+from .login import ensure_logged_in
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,14 @@ def send_message_to_profile(
         timeout=30_000,
         error_message="Failed to navigate to profile",
     )
+    if ensure_logged_in(session):
+        goto_page(
+            session,
+            action=lambda: session.page.goto(profile_url),
+            expected_url_pattern="/in/",
+            timeout=30_000,
+            error_message="Failed to navigate to profile after login",
+        )
 
     if _send_msg_pop_up(session, message, logs):
         return "message"

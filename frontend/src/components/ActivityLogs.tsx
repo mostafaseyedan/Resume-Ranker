@@ -124,7 +124,7 @@ const ActivityLogs: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600">Loading activity logs...</div>
+        <div className="text-lg text-gray-600 dark:text-[#9699a6]">Loading activity logs...</div>
       </div>
     );
   }
@@ -133,8 +133,8 @@ const ActivityLogs: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="text-red-600 text-lg mb-2">Error loading activities</div>
-          <div className="text-gray-600 mb-4">{error}</div>
+          <div className="text-red-600 dark:text-red-400 text-lg mb-2">Error loading activities</div>
+          <div className="text-gray-600 dark:text-[#9699a6] mb-4">{error}</div>
           <Button
             onClick={loadActivities}
             kind="primary"
@@ -148,39 +148,39 @@ const ActivityLogs: React.FC = () => {
   }
 
   return (
-    <div className="bg-white shadow p-6">
+    <div className="bg-white dark:bg-[#30324e] shadow p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Activity Logs</h2>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-[#d5d8df]">Activity Logs</h2>
         <IconButton
           onClick={loadActivities}
           tooltipContent="Refresh"
           kind="tertiary"
           size="small"
           icon={Retry}
-          className="text-gray-600 hover:text-gray-900"
+          className="text-gray-600 dark:text-[#9699a6] hover:text-gray-900 dark:hover:text-white"
         />
       </div>
 
       {activities.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-gray-500 dark:text-[#9699a6]">
 
           <h3 className="text-lg font-medium mb-2">No activities yet</h3>
           <p>User activities will appear here</p>
         </div>
       ) : (
-        <div className="border-t border-gray-200">
+        <div className="border-t border-gray-200 dark:border-[#4b4e69]">
           {activities.map((activity) => (
             <div
               key={activity.id}
-              className="flex items-center gap-3 py-3 px-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-3 py-3 px-4 border-b border-gray-100 dark:border-[#4b4e69] hover:bg-gray-50 dark:hover:bg-[#3a3d5c] transition-colors"
             >
               <div className="flex-shrink-0">
                 {getActionIcon(activity.action)}
               </div>
-              <span className="flex-1 text-sm text-gray-700">
+              <span className="flex-1 text-sm text-gray-700 dark:text-[#d5d8df]">
                 {formatActivityMessage(activity)}
               </span>
-              <span className="text-xs text-gray-500 whitespace-nowrap">
+              <span className="text-xs text-gray-500 dark:text-[#9699a6] whitespace-nowrap">
                 {formatTimestamp(activity.timestamp)}
               </span>
             </div>

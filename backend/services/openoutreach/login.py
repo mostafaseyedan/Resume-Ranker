@@ -21,6 +21,15 @@ SELECTORS = {
     "submit": 'button[type="submit"]',
 }
 
+AUTHWALL_SELECTORS = {
+    "join_form": "form.join-form",
+    "sign_in_toggle": "button.authwall-join-form__form-toggle--bottom, button.form-toggle",
+    "signin_form": "form[data-id='sign-in-form'], form.authwall-sign-in-form__body",
+    "signin_email": "input#session_key",
+    "signin_password": "input#session_password",
+    "signin_submit": "button[data-id='sign-in-form__submit-btn'], button.sign-in-form__submit-btn",
+}
+
 
 def build_playwright(headless: bool = False, slow_mo: int = 200, storage_state: str | None = None):
     playwright = sync_playwright().start()
@@ -31,27 +40,67 @@ def build_playwright(headless: bool = False, slow_mo: int = 200, storage_state: 
     return page, context, browser, playwright
 
 
+def _is_authwall(page) -> bool:
+    return (
+        page.locator(AUTHWALL_SELECTORS["join_form"]).count() > 0
+        or page.locator(AUTHWALL_SELECTORS["signin_form"]).count() > 0
+    )
+
+
+def _wait_for_post_login(page, timeout: int = 40_000) -> None:
+    page.wait_for_url(
+        lambda url: "/feed" in url or "/in/" in url or "/checkpoint" in url,
+        timeout=timeout,
+    )
+    current = page.url
+    if "/checkpoint" in current:
+        raise RuntimeError(
+            "Login failed - LinkedIn checkpoint challenge detected"
+        )
+    if "/feed" not in current and "/in/" not in current:
+        raise RuntimeError(
+            f"Login failed - no redirect to feed/profile (got '{current}')"
+        )
+
+
 def playwright_login(session: "LinkedInSession") -> None:
     page = session.page
     logger.info("LinkedIn login sequence starting")
 
-    goto_page(
-        session,
-        action=lambda: page.goto(LINKEDIN_LOGIN_URL),
-        expected_url_pattern="/login",
-        error_message="Failed to load login page",
-    )
+    page.goto(LINKEDIN_LOGIN_URL)
+    page.wait_for_load_state("load")
+
+    if _is_authwall(page):
+        toggle = page.locator(AUTHWALL_SELECTORS["sign_in_toggle"])
+        if toggle.count() > 0:
+            toggle.first.click()
+            page.wait_for_timeout(500)
+
+        if page.locator(AUTHWALL_SELECTORS["signin_form"]).count() > 0:
+            page.locator(AUTHWALL_SELECTORS["signin_email"]).fill(session.credentials.username)
+            page.locator(AUTHWALL_SELECTORS["signin_password"]).fill(session.credentials.password)
+            page.locator(AUTHWALL_SELECTORS["signin_submit"]).click()
+            _wait_for_post_login(page)
+            return
+
+    if page.locator(SELECTORS["email"]).count() == 0:
+        raise RuntimeError("Login failed - username input not found")
 
     page.locator(SELECTORS["email"]).type(session.credentials.username, delay=80)
     page.locator(SELECTORS["password"]).type(session.credentials.password, delay=80)
+    page.locator(SELECTORS["submit"]).click()
+    _wait_for_post_login(page)
 
-    goto_page(
-        session,
-        action=lambda: page.locator(SELECTORS["submit"]).click(),
-        expected_url_pattern="/feed",
-        timeout=40_000,
-        error_message="Login failed - no redirect to feed",
-    )
+
+def ensure_logged_in(session: "LinkedInSession") -> bool:
+    page = session.page
+    if not page:
+        return False
+    if _is_authwall(page):
+        logger.info("Authwall detected, attempting login")
+        playwright_login(session)
+        return True
+    return False
 
 
 def init_playwright_session(session: "LinkedInSession") -> None:

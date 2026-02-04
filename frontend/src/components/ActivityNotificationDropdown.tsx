@@ -153,13 +153,13 @@ const ActivityNotificationDropdown: React.FC<ActivityNotificationDropdownProps> 
         kind="tertiary"
         size="small"
         icon={Notifications}
-        className="text-gray-600 hover:text-gray-900"
+        className="text-gray-600 dark:text-[#d5d8df] hover:text-gray-900 dark:hover:text-white"
       />
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 sm:w-[28rem] origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50 border border-gray-200">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-900">Recent Activity</h3>
+        <div className="absolute right-0 mt-2 w-96 sm:w-[28rem] origin-top-right rounded-md bg-white dark:bg-[#30324e] shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50 border border-gray-200 dark:border-[#4b4e69]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#4b4e69]">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-[#d5d8df]">Recent Activity</h3>
             <Button
               onClick={() => {
                 onViewAll();
@@ -174,19 +174,19 @@ const ActivityNotificationDropdown: React.FC<ActivityNotificationDropdownProps> 
 
           <div className="max-h-[400px] overflow-y-auto">
             {loading ? (
-              <div className="px-4 py-8 text-center text-gray-500">
+              <div className="px-4 py-8 text-center text-gray-500 dark:text-[#9699a6]">
                 <p className="text-sm">Loading...</p>
               </div>
             ) : activities.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500">
+              <div className="px-4 py-8 text-center text-gray-500 dark:text-[#9699a6]">
                 <p className="text-sm">No recent activity</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-gray-100 dark:divide-[#4b4e69]">
                 {activities.map((activity) => (
                   <div
                     key={activity.id}
-                    className="px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                    className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-[#3a3d5c] transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center">
@@ -194,13 +194,13 @@ const ActivityNotificationDropdown: React.FC<ActivityNotificationDropdownProps> 
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 dark:text-[#d5d8df]">
                           {formatActivityMessage(activity)}
                         </p>
                       </div>
 
                       <div className="flex flex-col items-end min-w-[60px]">
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-[10px] text-gray-400 dark:text-[#9699a6]">
                           {formatTime(activity.timestamp)}
                         </span>
                       </div>

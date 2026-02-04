@@ -17,7 +17,7 @@ from services.vertex_search_service import VertexSearchService
 from services.openai_analyzer import OpenAIAnalyzer
 from services.web_verification_service import WebVerificationService
 from services.external_search_service import ExternalSearchService
-from services.linkedin_outreach_service import reach_out_via_linkedin
+from services import linkedin_agent_client
 from services.linkedin_credentials_store import LinkedInCredentialsStore
 import logging
 import base64
@@ -100,6 +100,31 @@ try:
 except Exception as e:
     external_search_service = None
     logger.warning(f"External Search service not initialized: {e}")
+
+
+@app.route('/api/agent-logs', methods=['POST'])
+def ingest_agent_logs():
+    token = os.getenv('LINKEDIN_AGENT_TOKEN') or os.getenv('AGENT_AUTH_TOKEN')
+    auth_header = (request.headers.get('Authorization') or '').strip()
+    if token:
+        if auth_header != f"Bearer {token}" and (request.headers.get('X-Agent-Token') or '').strip() != token:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    payload = request.get_json(silent=True) or {}
+    level = (payload.get('level') or 'INFO').upper()
+    message = payload.get('message') or ''
+    source = payload.get('logger') or 'agent'
+
+    level_map = {
+        'DEBUG': logging.DEBUG,
+        'INFO': logging.INFO,
+        'WARNING': logging.WARNING,
+        'ERROR': logging.ERROR,
+        'CRITICAL': logging.CRITICAL,
+    }
+    log_level = level_map.get(level, logging.INFO)
+    logger.log(log_level, "AGENT %s: %s", source, message)
+    return jsonify({'success': True})
 
 
 def build_job_analysis_payload(job_description, extraction_data=None, analyzer=None):
@@ -1105,6 +1130,7 @@ def search_external_candidates(job_id):
 def reach_out_external_candidate(job_id):
     """Reach out to a LinkedIn external candidate using Playwright (OpenOutreach-derived)."""
     try:
+        logger.info("Reach-out start job=%s", job_id)
         job = firestore_service.get_job(job_id)
         if not job:
             return jsonify({'success': False, 'error': 'Job not found'}), 404
@@ -1117,6 +1143,13 @@ def reach_out_external_candidate(job_id):
         message_override = (request_data.get('message') or '').strip()
         use_saved_credentials = bool(request_data.get('useSavedCredentials'))
         save_credentials = bool(request_data.get('saveCredentials'))
+        logger.info(
+            "Reach-out request job=%s profile=%s use_saved=%s agent=%s",
+            job_id,
+            linkedin_url,
+            use_saved_credentials,
+            linkedin_agent_client.is_enabled(),
+        )
 
         if use_saved_credentials:
             try:
@@ -1164,19 +1197,32 @@ def reach_out_external_candidate(job_id):
         message = message_override or default_message
 
         session_key = f"{session['user']['email']}:{username or 'saved'}"
-        result = reach_out_via_linkedin(
+        if not linkedin_agent_client.is_enabled():
+            return jsonify({
+                'success': False,
+                'error': 'LinkedIn agent is not configured on the server',
+            }), 503
+
+        result = linkedin_agent_client.reach_out(
             profile_url=linkedin_url,
             full_name=candidate_name,
             message=message,
             username=username,
             password=password,
-            headless=os.getenv('LINKEDIN_HEADLESS', 'true').lower() == 'true',
             session_key=session_key,
         )
 
         outreach_status = 'failed'
         if result.get('success'):
             outreach_status = 'connection_sent' if result.get('action') == 'connect' else 'message_sent'
+        logger.info(
+            "Reach-out result job=%s profile=%s success=%s action=%s status=%s",
+            job_id,
+            linkedin_url,
+            result.get('success'),
+            result.get('action'),
+            outreach_status,
+        )
 
         # Persist status on the candidate record in the job doc
         try:
@@ -1232,15 +1278,18 @@ def get_external_candidate_conversation(job_id):
             return jsonify({'success': False, 'error': 'profileUrl is required'}), 400
 
         refresh = request.args.get('refresh', 'false').lower() == 'true'
+        logger.info(
+            "Conversation request job=%s profile=%s refresh=%s agent=%s",
+            job_id,
+            profile_url,
+            refresh,
+            linkedin_agent_client.is_enabled(),
+        )
 
         # Get stored conversation
         conversation = firestore_service.get_candidate_conversation(job_id, profile_url)
 
         if refresh:
-            # Fetch fresh from LinkedIn
-            from services.openoutreach.conversation import fetch_conversation
-            from services.openoutreach.session import LinkedInSession, LinkedInCredentials
-
             # Get credentials
             use_saved = request.args.get('useSavedCredentials', 'true').lower() == 'true'
             if use_saved:
@@ -1255,52 +1304,56 @@ def get_external_candidate_conversation(job_id):
                     return jsonify({'success': False, 'error': 'LinkedIn credentials required'}), 400
 
             session_key = f"{session['user']['email']}:{username}"
-            storage_state_path = LinkedInSession.build_storage_state_path(session_key)
-            linkedin_session = LinkedInSession(
-                credentials=LinkedInCredentials(username=username, password=password),
-                headless=os.getenv('LINKEDIN_HEADLESS', 'true').lower() == 'true',
-                storage_state_path=storage_state_path,
-            )
-
             logs = []
-            try:
-                skip_connection_check = request.args.get('skipConnectionCheck', 'false').lower() == 'true'
-                result = fetch_conversation(
-                    linkedin_session,
-                    profile_url,
-                    logs,
-                    skip_connection_check=skip_connection_check,
+            skip_connection_check = request.args.get('skipConnectionCheck', 'false').lower() == 'true'
+            logger.info(
+                "Conversation refresh job=%s profile=%s skip_connection_check=%s",
+                job_id,
+                profile_url,
+                skip_connection_check,
+            )
+            if not linkedin_agent_client.is_enabled():
+                return jsonify({
+                    'success': False,
+                    'error': 'LinkedIn agent is not configured on the server',
+                }), 503
+
+            result = linkedin_agent_client.fetch_conversation(
+                profile_url=profile_url,
+                username=username,
+                password=password,
+                session_key=session_key,
+                skip_connection_check=skip_connection_check,
+            )
+            logs = result.get('logs', logs)
+
+            if result.get('status') == 'success':
+                # Find candidate name from job's external_candidates
+                external_candidates = job.get('external_candidates', []) or []
+                candidate = next(
+                    (c for c in external_candidates if c.get('linkedinUrl') == profile_url),
+                    None
+                )
+                candidate_name = candidate.get('name', 'Unknown') if candidate else 'Unknown'
+
+                # Save to Firestore
+                firestore_service.save_candidate_conversation(
+                    job_id=job_id,
+                    profile_url=profile_url,
+                    candidate_name=candidate_name,
+                    messages=result.get('messages', []),
+                    connection_status=result.get('connection_status'),
                 )
 
-                if result['status'] == 'success':
-                    # Find candidate name from job's external_candidates
-                    external_candidates = job.get('external_candidates', []) or []
-                    candidate = next(
-                        (c for c in external_candidates if c.get('linkedinUrl') == profile_url),
-                        None
-                    )
-                    candidate_name = candidate.get('name', 'Unknown') if candidate else 'Unknown'
+                conversation = firestore_service.get_candidate_conversation(job_id, profile_url)
 
-                    # Save to Firestore
-                    firestore_service.save_candidate_conversation(
-                        job_id=job_id,
-                        profile_url=profile_url,
-                        candidate_name=candidate_name,
-                        messages=result['messages'],
-                        connection_status=result['connection_status'],
-                    )
-
-                    conversation = firestore_service.get_candidate_conversation(job_id, profile_url)
-
-                return jsonify({
-                    'success': result['status'] == 'success',
-                    'status': result['status'],
-                    'conversation': conversation,
-                    'logs': logs,
-                    'error': result.get('error'),
-                })
-            finally:
-                linkedin_session.close()
+            return jsonify({
+                'success': result.get('status') == 'success',
+                'status': result.get('status'),
+                'conversation': conversation,
+                'logs': logs,
+                'error': result.get('error'),
+            })
 
         return jsonify({
             'success': True,
@@ -1325,6 +1378,13 @@ def send_external_candidate_reply(job_id):
         profile_url = (request_data.get('profileUrl') or '').strip()
         message = (request_data.get('message') or '').strip()
         use_saved_credentials = bool(request_data.get('useSavedCredentials'))
+        logger.info(
+            "Reply request job=%s profile=%s use_saved=%s agent=%s",
+            job_id,
+            profile_url,
+            use_saved_credentials,
+            linkedin_agent_client.is_enabled(),
+        )
 
         if not profile_url:
             return jsonify({'success': False, 'error': 'profileUrl is required'}), 400
@@ -1343,59 +1403,60 @@ def send_external_candidate_reply(job_id):
             if not username or not password:
                 return jsonify({'success': False, 'error': 'LinkedIn credentials required'}), 400
 
-        from services.openoutreach.conversation import send_reply
-        from services.openoutreach.session import LinkedInSession, LinkedInCredentials
-
         session_key = f"{session['user']['email']}:{username}"
-        storage_state_path = LinkedInSession.build_storage_state_path(session_key)
-        linkedin_session = LinkedInSession(
-            credentials=LinkedInCredentials(username=username, password=password),
-            headless=os.getenv('LINKEDIN_HEADLESS', 'true').lower() == 'true',
-            storage_state_path=storage_state_path,
-        )
-
         logs = []
-        try:
-            success = send_reply(linkedin_session, profile_url, message, logs)
+        if not linkedin_agent_client.is_enabled():
+            return jsonify({
+                'success': False,
+                'error': 'LinkedIn agent is not configured on the server',
+            }), 503
 
-            if success:
-                # Append message to stored conversation
-                conversation = firestore_service.get_candidate_conversation(job_id, profile_url)
-                if conversation:
-                    messages = conversation.get('messages', [])
-                    messages.append({
-                        'sender': 'user',
-                        'content': message,
-                        'timestamp': datetime.utcnow().isoformat(),
-                    })
-                    firestore_service.save_candidate_conversation(
-                        job_id=job_id,
-                        profile_url=profile_url,
-                        candidate_name=conversation.get('candidate_name', 'Unknown'),
-                        messages=messages,
-                        connection_status=conversation.get('connection_status', 'connected'),
-                    )
+        result = linkedin_agent_client.send_reply(
+            profile_url=profile_url,
+            message=message,
+            username=username,
+            password=password,
+            session_key=session_key,
+        )
+        success = bool(result.get('success'))
+        logs = result.get('logs', [])
 
-            # Log the reply activity
-            if success:
-                activity_logger.log_activity(
-                    user_email=session['user']['email'],
-                    user_name=session['user']['name'],
-                    action='conversation_reply',
-                    details={
-                        'candidate_name': conversation.get('candidate_name', 'Unknown') if conversation else 'Unknown',
-                        'job_title': job.get('title', 'Unknown job'),
-                        'profile_url': profile_url
-                    }
+        if success:
+            # Append message to stored conversation
+            conversation = firestore_service.get_candidate_conversation(job_id, profile_url)
+            if conversation:
+                messages = conversation.get('messages', [])
+                messages.append({
+                    'sender': 'user',
+                    'content': message,
+                    'timestamp': datetime.utcnow().isoformat(),
+                })
+                firestore_service.save_candidate_conversation(
+                    job_id=job_id,
+                    profile_url=profile_url,
+                    candidate_name=conversation.get('candidate_name', 'Unknown'),
+                    messages=messages,
+                    connection_status=conversation.get('connection_status', 'connected'),
                 )
 
-            return jsonify({
-                'success': success,
-                'logs': logs,
-                'error': None if success else 'Failed to send reply',
-            })
-        finally:
-            linkedin_session.close()
+        # Log the reply activity
+        if success:
+            activity_logger.log_activity(
+                user_email=session['user']['email'],
+                user_name=session['user']['name'],
+                action='conversation_reply',
+                details={
+                    'candidate_name': conversation.get('candidate_name', 'Unknown') if conversation else 'Unknown',
+                    'job_title': job.get('title', 'Unknown job'),
+                    'profile_url': profile_url
+                }
+            )
+
+        return jsonify({
+            'success': success,
+            'logs': logs,
+            'error': None if success else 'Failed to send reply',
+        })
 
     except Exception as e:
         logger.error(f"Send reply error: {e}")
@@ -1478,6 +1539,13 @@ def check_connection_and_message(job_id):
         profile_url = (request_data.get('profileUrl') or '').strip()
         linkedin_id = (request_data.get('linkedinId') or '').strip()
         use_saved_credentials = bool(request_data.get('useSavedCredentials'))
+        logger.info(
+            "Check-connection request job=%s profile=%s use_saved=%s agent=%s",
+            job_id,
+            profile_url,
+            use_saved_credentials,
+            linkedin_agent_client.is_enabled(),
+        )
 
         if not profile_url:
             return jsonify({'success': False, 'error': 'profileUrl is required'}), 400
@@ -1494,107 +1562,102 @@ def check_connection_and_message(job_id):
             if not username or not password:
                 return jsonify({'success': False, 'error': 'LinkedIn credentials required'}), 400
 
-        from services.openoutreach.conversation import check_connection_status
-        from services.openoutreach.session import LinkedInSession, LinkedInCredentials
-
         session_key = f"{session['user']['email']}:{username}"
-        storage_state_path = LinkedInSession.build_storage_state_path(session_key)
-        linkedin_session = LinkedInSession(
-            credentials=LinkedInCredentials(username=username, password=password),
-            headless=os.getenv('LINKEDIN_HEADLESS', 'true').lower() == 'true',
-            storage_state_path=storage_state_path,
-        )
-
         logs = []
-        try:
-            connection_status = check_connection_status(linkedin_session, profile_url, logs)
+        if not linkedin_agent_client.is_enabled():
+            return jsonify({
+                'success': False,
+                'error': 'LinkedIn agent is not configured on the server',
+            }), 503
 
-            if connection_status == 'connected':
-                # Connection accepted! Send the initial message
-                from services.linkedin_outreach_service import reach_out_via_linkedin
+        result = linkedin_agent_client.check_connection(
+            profile_url=profile_url,
+            username=username,
+            password=password,
+            session_key=session_key,
+        )
+        connection_status = result.get('connection_status')
+        logs = result.get('logs', [])
 
-                # Find candidate
-                external_candidates = job.get('external_candidates', []) or []
-                candidate = next(
-                    (c for c in external_candidates if c.get('linkedinUrl') == profile_url or
-                     (linkedin_id and c.get('linkedinId') == linkedin_id)),
-                    None
-                )
-
-                if candidate:
-                    raw_name = candidate.get('name') or candidate.get('linkedinId') or 'there'
-                    candidate_name = raw_name.split(' ')[0]
-                    parsed_query = job.get('external_candidates_parsed_query', {}) or {}
-                    role = parsed_query.get('role') or job.get('title') or 'this role'
-                    location = parsed_query.get('location')
-
-                    default_message = f"Hello {candidate_name}, I'm contacting you about the {role} role"
-                    if location:
-                        default_message += f" in {location}"
-                    default_message += ". I came across your profile and thought you could be a great fit."
-
-                    # Send the message
-                    result = reach_out_via_linkedin(
-                        profile_url=profile_url,
-                        full_name=candidate_name,
-                        message=default_message,
-                        username=username,
-                        password=password,
-                        headless=os.getenv('LINKEDIN_HEADLESS', 'true').lower() == 'true',
-                        session_key=session_key,
-                    )
-
-                    if result.get('success'):
-                        # Update status to message_sent
-                        updated_candidates = []
-                        for existing in external_candidates:
-                            if existing.get('linkedinUrl') == profile_url or \
-                               (linkedin_id and existing.get('linkedinId') == linkedin_id):
-                                updated = dict(existing)
-                                updated['outreach_status'] = 'message_sent'
-                                updated_candidates.append(updated)
-                            else:
-                                updated_candidates.append(existing)
-                        firestore_service.update_job(job_id, {'external_candidates': updated_candidates})
-
-                        return jsonify({
-                            'success': True,
-                            'connectionAccepted': True,
-                            'messageSent': True,
-                            'newStatus': 'message_sent',
-                            'logs': logs + result.get('logs', []),
-                        })
-
-                    return jsonify({
-                        'success': False,
-                        'connectionAccepted': True,
-                        'messageSent': False,
-                        'error': result.get('error', 'Failed to send message'),
-                        'logs': logs + result.get('logs', []),
-                    })
-
-            # Log the connection check activity
-            activity_logger.log_activity(
-                user_email=session['user']['email'],
-                user_name=session['user']['name'],
-                action='connection_checked',
-                details={
-                    'profile_url': profile_url,
-                    'connection_status': connection_status,
-                    'job_title': job.get('title', 'Unknown job')
-                }
+        if connection_status == 'connected':
+            # Connection accepted! Send the initial message
+            external_candidates = job.get('external_candidates', []) or []
+            candidate = next(
+                (c for c in external_candidates if c.get('linkedinUrl') == profile_url or
+                 (linkedin_id and c.get('linkedinId') == linkedin_id)),
+                None
             )
 
-            return jsonify({
-                'success': True,
-                'connectionAccepted': connection_status == 'connected',
-                'connectionStatus': connection_status,
-                'messageSent': False,
-                'logs': logs,
-            })
+            if candidate:
+                raw_name = candidate.get('name') or candidate.get('linkedinId') or 'there'
+                candidate_name = raw_name.split(' ')[0]
+                parsed_query = job.get('external_candidates_parsed_query', {}) or {}
+                role = parsed_query.get('role') or job.get('title') or 'this role'
+                location = parsed_query.get('location')
 
-        finally:
-            linkedin_session.close()
+                default_message = f"Hello {candidate_name}, I'm contacting you about the {role} role"
+                if location:
+                    default_message += f" in {location}"
+                default_message += ". I came across your profile and thought you could be a great fit."
+
+                # Send the message
+                send_result = linkedin_agent_client.reach_out(
+                    profile_url=profile_url,
+                    full_name=candidate_name,
+                    message=default_message,
+                    username=username,
+                    password=password,
+                    session_key=session_key,
+                )
+
+                if send_result.get('success'):
+                    # Update status to message_sent
+                    updated_candidates = []
+                    for existing in external_candidates:
+                        if existing.get('linkedinUrl') == profile_url or \
+                           (linkedin_id and existing.get('linkedinId') == linkedin_id):
+                            updated = dict(existing)
+                            updated['outreach_status'] = 'message_sent'
+                            updated_candidates.append(updated)
+                        else:
+                            updated_candidates.append(existing)
+                    firestore_service.update_job(job_id, {'external_candidates': updated_candidates})
+
+                    return jsonify({
+                        'success': True,
+                        'connectionAccepted': True,
+                        'messageSent': True,
+                        'newStatus': 'message_sent',
+                        'logs': logs + send_result.get('logs', []),
+                    })
+
+                return jsonify({
+                    'success': False,
+                    'connectionAccepted': True,
+                    'messageSent': False,
+                    'error': send_result.get('error', 'Failed to send message'),
+                    'logs': logs + send_result.get('logs', []),
+                })
+
+        # Log the connection check activity
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='connection_checked',
+            details={
+                'profile_url': profile_url,
+                'connection_status': connection_status,
+                'job_title': job.get('title', 'Unknown job')
+            }
+        )
+
+        return jsonify({
+            'success': True,
+            'connectionAccepted': connection_status == 'connected',
+            'connectionStatus': connection_status,
+            'messageSent': False,
+            'logs': logs,
+        })
 
     except Exception as e:
         logger.error(f"Check connection error: {e}")

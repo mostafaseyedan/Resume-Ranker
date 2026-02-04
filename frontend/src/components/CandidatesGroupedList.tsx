@@ -42,11 +42,11 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
   };
 
   const getScoreColor = (score: number): string => {
-    if (score >= 90) return 'text-green-600 bg-green-100';
-    if (score >= 80) return 'text-green-600 bg-green-50';
-    if (score >= 70) return 'text-yellow-600 bg-yellow-50';
-    if (score >= 60) return 'text-orange-600 bg-orange-50';
-    return 'text-red-600 bg-red-50';
+    if (score >= 90) return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30';
+    if (score >= 80) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
+    if (score >= 70) return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
+    if (score >= 60) return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
+    return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
   };
 
   const groupCandidatesByName = (): GroupedCandidate[] => {
@@ -157,8 +157,8 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
             d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
           />
         </svg>
-        <h3 className="text-lg font-medium text-gray-900 mb-2 mt-4">No candidates yet</h3>
-        <p className="text-gray-500">Upload your first resume to get started with analysis.</p>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-[#d5d8df] mb-2 mt-4">No candidates yet</h3>
+        <p className="text-gray-500 dark:text-[#9699a6]">Upload your first resume to get started with analysis.</p>
       </div>
     );
   }
@@ -166,7 +166,7 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
   return (
     <div className="space-y-5">
       <div className="flex justify-end items-center mb-4">
-        <div className="text-xs text-gray-500">Select a candidate to view all versions</div>
+        <div className="text-xs text-gray-500 dark:text-[#9699a6]">Select a candidate to view all versions</div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -178,17 +178,17 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
             <div
               key={candidate.name}
               onClick={() => onCandidateSelect(candidate.resumes)}
-              className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col self-start"
+              className="bg-white dark:bg-[#30324e] border border-gray-200 dark:border-[#4b4e69] p-4 hover:bg-gray-50 dark:hover:bg-[#3a3d5c] hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col self-start"
             >
               {/* Header Info */}
               <div>
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1 min-w-0 pr-2">
-                    <h4 className="font-semibold text-gray-900 text-base truncate" title={candidate.name}>
+                    <h4 className="font-semibold text-gray-900 dark:text-white text-base truncate" title={candidate.name}>
                       {candidate.name}
                     </h4>
                     <div className="mt-1">
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-[#9699a6]">
                         Latest: {new Date(candidate.latestDate).toLocaleDateString()}
                       </span>
                     </div>
@@ -197,7 +197,7 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
                   <div className="flex flex-col items-end">
                     <div className="flex items-center space-x-1">
                       {candidate.scoreImprovement !== null && candidate.scoreImprovement > 0 && (
-                        <span className="text-xs font-bold text-green-600 bg-green-50 px-1.5 py-0.5 border border-green-100">
+                        <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 border border-green-100 dark:border-green-700">
                           +{candidate.scoreImprovement}
                         </span>
                       )}
@@ -205,7 +205,7 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
                         {candidate.bestScore}%
                       </div>
                     </div>
-                    <span className="text-[10px] text-gray-400 mt-1">Best Match</span>
+                    <span className="text-[10px] text-gray-400 dark:text-[#9699a6] mt-1">Best Match</span>
                   </div>
                 </div>
 
@@ -213,7 +213,7 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
                 <div className="flex justify-between items-center mb-2">
                   <div className="flex-1">
                     <div className="flex justify-between items-center text-xs mr-2">
-                      <span className="text-gray-500">Number of Resume files:</span>
+                      <span className="text-gray-500 dark:text-[#9699a6]">Number of Resume files:</span>
                       <span className="text-gray-700 font-medium font-mono">
                         {candidate.resumeCount}
                       </span>
@@ -223,14 +223,14 @@ const CandidatesGroupedList: React.FC<CandidatesGroupedListProps> = ({ candidate
 
                 {/* Always Visible History Section */}
                 <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
-                  <div className="text-xs font-medium text-gray-500 mb-2">Resume History</div>
+                  <div className="text-xs font-medium text-gray-500 dark:text-[#9699a6] mb-2">Resume History</div>
                   {candidate.resumes.map((resume) => {
                     const isImproved = (resume.resume_filename || '').toLowerCase().includes('improved');
                     return (
-                      <div key={resume.id} className="flex justify-between items-center text-xs p-1.5 hover:bg-gray-50">
+                      <div key={resume.id} className="flex justify-between items-center text-xs p-1.5 hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]">
                         <div className="flex items-center space-x-2 truncate">
                           <div className={`w-1.5 h-1.5 rounded-full ${isImproved ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                          <span className={`truncate ${isImproved ? 'text-green-700 font-medium' : 'text-gray-600'}`}>
+                          <span className={`truncate ${isImproved ? 'text-green-700 font-medium' : 'text-gray-600 dark:text-[#9699a6]'}`}>
                             {isImproved ? 'Improved Version' : 'Original Version'}
                           </span>
                         </div>

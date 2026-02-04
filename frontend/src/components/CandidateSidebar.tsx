@@ -222,10 +222,10 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white shadow-sm border border-gray-200">
+    <div className="flex flex-col h-full bg-white dark:bg-[#30324e] shadow-sm border border-gray-200 dark:border-[#4b4e69]">
       {/* Header Section */}
-      <div className="p-4 border-b">
-        <div className="flex items-center gap-2 text-sm text-gray-700">
+      <div className="p-4 border-b dark:border-[#4b4e69]">
+        <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-[#d5d8df]">
           {/* Search */}
           <div className="w-[220px] shrink-0">
             <Search
@@ -256,21 +256,21 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
       {/* Candidates List */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="p-4 text-center text-gray-500">
+          <div className="p-4 text-center text-gray-500 dark:text-[#9699a6]">
             <div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
             <p>Loading candidates...</p>
           </div>
         ) : groupedCandidates.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
+          <div className="p-4 text-center text-gray-500 dark:text-[#9699a6]">
             <p>No candidates yet</p>
             <p className="text-sm">Upload resumes to jobs to see candidates here</p>
           </div>
         ) : filteredCandidates.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
+          <div className="p-4 text-center text-gray-500 dark:text-[#9699a6]">
             <p className="text-sm">No candidates match the filters.</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-gray-200 dark:divide-[#4b4e69]">
             {filteredCandidates.map((candidate) => {
               const isSelected = selectedCandidate?.name === candidate.name;
               const badge = getVerificationBadge(candidate.verificationStatus);
@@ -279,13 +279,13 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
                 <div
                   key={candidate.name}
                   onClick={() => onCandidateSelect(candidate)}
-                  className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                    isSelected ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+                  className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#3a3d5c] transition-colors ${
+                    isSelected ? 'bg-blue-50 dark:bg-[#13377433] border-r-2 border-blue-500' : ''
                   }`}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-gray-900 truncate">{candidate.name}</h3>
+                      <h3 className="font-medium text-gray-900 dark:text-[#d5d8df] truncate">{candidate.name}</h3>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {candidate.hasImproved && (
                           <Label
@@ -309,7 +309,7 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
                   </div>
 
                   {/* Job Info */}
-                  <div className="mt-2 text-xs text-gray-500">
+                  <div className="mt-2 text-xs text-gray-500 dark:text-[#9699a6]">
                     <div className="flex justify-between items-center">
                       <span>
                         {candidate.jobCount} job{candidate.jobCount !== 1 ? 's' : ''}
@@ -322,7 +322,7 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
                       <span>{formatDate(candidate.latestDate)}</span>
                     </div>
                     {candidate.jobTitles.length > 0 && (
-                      <div className="mt-1 truncate text-gray-400">
+                      <div className="mt-1 truncate text-gray-400 dark:text-[#9699a6]">
                         {candidate.jobTitles.slice(0, 2).join(', ')}
                         {candidate.jobTitles.length > 2 && ` +${candidate.jobTitles.length - 2}`}
                       </div>
@@ -336,7 +336,7 @@ const CandidateSidebar: React.FC<CandidateSidebarProps> = ({
       </div>
 
       {/* Footer with count */}
-      <div className="p-3 border-t text-xs text-gray-500 text-center">
+      <div className="p-3 border-t dark:border-[#4b4e69] text-xs text-gray-500 dark:text-[#9699a6] text-center">
         {filteredCandidates.length} of {groupedCandidates.length} candidates
       </div>
     </div>

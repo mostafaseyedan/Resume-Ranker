@@ -107,53 +107,13 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
     }
   };
 
-  const cardStyle: React.CSSProperties = {
-    border: '1px solid #ddd',
-    borderRadius: '0px',
-    padding: '16px',
-    marginBottom: '12px',
-    background: 'white',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  };
-
-  const cardHeaderStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '12px',
-    marginBottom: '12px',
-  };
-
-  const cardTitleStyle: React.CSSProperties = {
-    margin: 0,
-    fontWeight: 600,
-    color: '#333',
-    fontSize: '14px',
-    lineHeight: '1.4',
-  };
-
-  const blockStyle: React.CSSProperties = {
-    border: '1px solid #e2e8f0',
-    borderRadius: '0px',
-    padding: '12px',
-    background: 'white',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-  };
-
-  const sectionLabelStyle: React.CSSProperties = {
-    margin: '0 0 6px 0',
-    fontSize: '12px',
-    fontWeight: 600,
-    color: '#4a5568',
-  };
-
-  const bodyTextStyle: React.CSSProperties = {
-    margin: 0,
-    fontSize: '14px',
-    lineHeight: '1.5',
-    color: '#555',
-    whiteSpace: 'pre-wrap',
-  };
+  // Converted inline styles to Tailwind classes for dark mode support
+  const cardStyle = "border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-white dark:bg-[#30324e] shadow-sm";
+  const cardHeaderStyle = "flex justify-between items-start gap-3 mb-3";
+  const cardTitleStyle = "m-0 font-semibold text-gray-900 dark:text-[#d5d8df] text-sm leading-snug";
+  const blockStyle = "border border-gray-200 dark:border-[#4b4e69] p-3 bg-white dark:bg-[#30324e] shadow-sm";
+  const sectionLabelStyle = "mb-1.5 text-xs font-semibold text-gray-600 dark:text-[#9699a6]";
+  const bodyTextStyle = "m-0 text-sm leading-normal text-gray-700 dark:text-[#d5d8df] whitespace-pre-wrap";
 
   // Unified label color mappings
   const labelColorMaps = {
@@ -182,18 +142,18 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
   const getLabelColorForClaimStatus = getLabelColorForVerificationStatus;
 
-  const getVerificationCardTint = (status: string): React.CSSProperties => {
+  const getVerificationCardTint = (status: string): string => {
     switch (normalizeVerificationStatus(status)) {
       case 'verified':
-        return { background: '#f0fff4', border: '1px solid #9ae6b4' };
+        return 'bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700';
       case 'partially_verified':
-        return { background: '#fffaf0', border: '1px solid #fbd38d' };
+        return 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700';
       case 'contradicted':
-        return { background: '#fff5f5', border: '1px solid #feb2b2' };
+        return 'bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700';
       case 'limited_information':
       case 'no_information_found':
       default:
-        return { background: '#f8f9fa', border: '1px solid #e2e8f0' };
+        return 'bg-gray-50 dark:bg-[#181b34] border border-gray-200 dark:border-[#4b4e69]';
     }
   };
 
@@ -204,21 +164,21 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
     return Label.colors.NEGATIVE;
   };
 
-  const getStrengthCardTint = (level?: 'critical' | 'high' | 'medium' | 'low'): React.CSSProperties => {
+  const getStrengthCardTint = (level?: 'critical' | 'high' | 'medium' | 'low'): string => {
     const p = (level || '').toLowerCase();
-    if (p === 'critical' || p === 'high') return { background: '#f0fff4', border: '1px solid #9ae6b4' };
-    if (p === 'medium') return { background: '#fffaf0', border: '1px solid #fbd38d' };
-    if (p === 'low') return { background: '#fff5f5', border: '1px solid #feb2b2' };
-    return { background: 'white', border: '1px solid #ddd' };
+    if (p === 'critical' || p === 'high') return 'bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700';
+    if (p === 'medium') return 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700';
+    if (p === 'low') return 'bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700';
+    return 'bg-white dark:bg-[#30324e] border border-gray-300 dark:border-[#4b4e69]';
   };
 
-  const getWeaknessCardTint = (level?: 'critical' | 'high' | 'medium' | 'low'): React.CSSProperties => {
+  const getWeaknessCardTint = (level?: 'critical' | 'high' | 'medium' | 'low'): string => {
     const p = (level || '').toLowerCase();
-    if (p === 'critical') return { background: '#fff5f5', border: '1px solid #fc8181' };
-    if (p === 'high') return { background: '#fff5f5', border: '1px solid #feb2b2' };
-    if (p === 'medium') return { background: '#fffaf0', border: '1px solid #fbd38d' };
-    if (p === 'low') return { background: '#f8f9fa', border: '1px solid #e2e8f0' };
-    return { background: 'white', border: '1px solid #ddd' };
+    if (p === 'critical') return 'bg-red-50 dark:bg-red-900/20 border border-red-400 dark:border-red-700';
+    if (p === 'high') return 'bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700';
+    if (p === 'medium') return 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700';
+    if (p === 'low') return 'bg-gray-50 dark:bg-[#181b34] border border-gray-200 dark:border-[#4b4e69]';
+    return 'bg-white dark:bg-[#30324e] border border-gray-300 dark:border-[#4b4e69]';
   };
 
   const analysis = candidate;
@@ -227,21 +187,21 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
   const getVerificationBadge = (): { label: string; style: string } => {
     const status = verificationResult?.overall_verification_status;
     if (!verificationResult) {
-      return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+      return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
     }
     switch (status) {
       case 'verified':
-        return { label: 'Verified', style: 'bg-green-100 text-green-800' };
+        return { label: 'Verified', style: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' };
       case 'partially_verified':
-        return { label: 'Partially Verified', style: 'bg-yellow-100 text-yellow-800' };
+        return { label: 'Partially Verified', style: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' };
       case 'contradicted':
-        return { label: 'Verification Denied', style: 'bg-red-100 text-red-800' };
+        return { label: 'Verification Denied', style: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400' };
       case 'limited_information':
-        return { label: 'Limited Verification Info', style: 'bg-yellow-100 text-yellow-800' };
+        return { label: 'Limited Verification Info', style: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' };
       case 'no_information_found':
-        return { label: 'No Verification Info', style: 'bg-gray-100 text-gray-600' };
+        return { label: 'No Verification Info', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
       default:
-        return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+        return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
     }
   };
   const verificationBadge = getVerificationBadge();
@@ -269,27 +229,27 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
   })();
 
   return (
-    <div className="bg-white shadow max-w-6xl mx-auto">
+    <div className="bg-white dark:bg-[#30324e] shadow max-w-6xl mx-auto">
       {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
+      <div className="border-b border-gray-200 dark:border-[#4b4e69] px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3 flex-1">
             <button
               onClick={onBack}
-              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="p-1 text-gray-400 hover:text-gray-600 dark:text-[#9699a6] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#3a3d5c]"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-[#d5d8df]">
                 {candidate.name}
               </h2>
-              <p className="text-sm text-gray-600">Candidate Analysis for {job.title}</p>
+              <p className="text-sm text-gray-600 dark:text-[#9699a6]">Candidate Analysis for {job.title}</p>
               <div className="mt-2 flex items-center gap-2">
                 {isImprovedResume && (
-                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium whitespace-nowrap bg-green-100 text-green-800">
+                  <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium whitespace-nowrap bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
                     Improved
                   </span>
                 )}
@@ -301,7 +261,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
           </div>
           <div className="text-center flex-1 flex flex-col items-center">
             <RadialProgress score={analysis?.overall_score || 0} size={96} strokeWidth={10} />
-            <div className="text-xs text-gray-500 mt-2">Overall Score</div>
+            <div className="text-xs text-gray-500 dark:text-[#9699a6] mt-2">Overall Score</div>
           </div>
           <div className="flex justify-end flex-1 items-center gap-2">
             <Button
@@ -337,12 +297,12 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
         <div className="mb-6">
           <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center space-x-2">
-              <span className="text-gray-500">Email:</span>
-              <span>{candidate.email || 'Not provided'}</span>
+              <span className="text-gray-500 dark:text-[#9699a6]">Email:</span>
+              <span className="text-gray-900 dark:text-[#d5d8df]">{candidate.email || 'Not provided'}</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-gray-500">Phone:</span>
-              <span>{candidate.phone || 'Not provided'}</span>
+              <span className="text-gray-500 dark:text-[#9699a6]">Phone:</span>
+              <span className="text-gray-900 dark:text-[#d5d8df]">{candidate.phone || 'Not provided'}</span>
             </div>
           </div>
         </div>
@@ -350,21 +310,21 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
         {/* Summary */}
         {analysis?.summary && (
           <div className="mb-6">
-            <div className="bg-blue-50 p-4">
-              <h3 className="text-base font-medium text-gray-900 mb-2">Summary</h3>
-              <p className="text-gray-700">{analysis.summary}</p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700 p-4">
+              <h3 className="text-base font-medium text-gray-900 dark:text-[#d5d8df] mb-2">Summary</h3>
+              <p className="text-gray-700 dark:text-[#d5d8df]">{analysis.summary}</p>
             </div>
           </div>
         )}
 
         {/* Tabs for detailed sections */}
-        <div className="border-b border-gray-200 mb-6">
+        <div className="border-b border-gray-200 dark:border-[#4b4e69] mb-6">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('strengths')}
               className={`py-2 px-1 text-sm font-medium border-b-2 ${activeTab === 'strengths'
                 ? 'text-blue-600 border-blue-500'
-                : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'
+                : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] border-transparent hover:border-gray-300 dark:hover:border-[#4b4e69]'
                 }`}
             >
               Strengths ({analysis?.strengths?.length || 0})
@@ -373,7 +333,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               onClick={() => setActiveTab('weaknesses')}
               className={`py-2 px-1 text-sm font-medium border-b-2 ${activeTab === 'weaknesses'
                 ? 'text-blue-600 border-blue-500'
-                : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'
+                : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] border-transparent hover:border-gray-300 dark:hover:border-[#4b4e69]'
                 }`}
             >
               Weaknesses ({analysis?.weaknesses?.length || 0})
@@ -382,7 +342,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               onClick={() => setActiveTab('skills')}
               className={`py-2 px-1 text-sm font-medium border-b-2 ${activeTab === 'skills'
                 ? 'text-blue-600 border-blue-500'
-                : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'
+                : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] border-transparent hover:border-gray-300 dark:hover:border-[#4b4e69]'
                 }`}
             >
               Skills ({analysis?.skill_analysis?.length || 0})
@@ -391,7 +351,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               onClick={() => setActiveTab('experience')}
               className={`py-2 px-1 text-sm font-medium border-b-2 ${activeTab === 'experience'
                 ? 'text-blue-600 border-blue-500'
-                : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'
+                : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] border-transparent hover:border-gray-300 dark:hover:border-[#4b4e69]'
                 }`}
             >
               Experience
@@ -400,7 +360,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               onClick={() => setActiveTab('verification')}
               className={`py-2 px-1 text-sm font-medium border-b-2 ${activeTab === 'verification'
                 ? 'text-blue-600 border-blue-500'
-                : 'text-gray-500 hover:text-gray-700 border-transparent hover:border-gray-300'
+                : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] border-transparent hover:border-gray-300 dark:hover:border-[#4b4e69]'
                 }`}
             >
               Verification
@@ -418,9 +378,9 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 	                    const { level, label } = extractLevelPrefix(strength.relevance);
 	                    const relevanceDetails = stripLevelPrefix(strength.relevance);
 	                    return (
-	                      <div key={index} className="requirement-card" style={{ ...cardStyle, ...getStrengthCardTint(level) }}>
-	                        <div className="card-header" style={cardHeaderStyle}>
-	                          <h5 style={cardTitleStyle}>{strength.strength}</h5>
+	                      <div key={index} className={`requirement-card ${cardStyle} ${getStrengthCardTint(level)}`}>
+	                        <div className={`card-header ${cardHeaderStyle}`}>
+	                          <h5 className={cardTitleStyle}>{strength.strength}</h5>
 	                          {level && label && (
 	                            <Label
 	                              id={`strength-level-${index}`}
@@ -432,18 +392,18 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 	                          )}
 	                        </div>
 
-	                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+	                        <div className="flex flex-col gap-3">
 	                          {strength.evidence && (
-	                            <div style={blockStyle}>
-	                              <div style={sectionLabelStyle}>Evidence</div>
-	                              <p style={bodyTextStyle}>{strength.evidence}</p>
+	                            <div className={blockStyle}>
+	                              <div className={sectionLabelStyle}>Evidence</div>
+	                              <p className={bodyTextStyle}>{strength.evidence}</p>
 	                            </div>
 	                          )}
 
 	                          {relevanceDetails && (
-	                            <div style={blockStyle}>
-	                              <div style={sectionLabelStyle}>Relevance</div>
-	                              <p style={bodyTextStyle}>{relevanceDetails}</p>
+	                            <div className={blockStyle}>
+	                              <div className={sectionLabelStyle}>Relevance</div>
+	                              <p className={bodyTextStyle}>{relevanceDetails}</p>
 	                            </div>
 	                          )}
 	                        </div>
@@ -456,8 +416,8 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                   <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <h3 className="mt-4 text-lg font-medium text-gray-900">No Strengths</h3>
-                  <p className="mt-2 text-sm text-gray-500">No strengths were identified for this candidate.</p>
+                  <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">No Strengths</h3>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">No strengths were identified for this candidate.</p>
                 </div>
               )}
             </div>
@@ -471,9 +431,9 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 	                    const { level, label } = extractLevelPrefix(weakness.importance);
 	                    const importanceDetails = stripLevelPrefix(weakness.importance);
 	                    return (
-	                      <div key={index} className="requirement-card" style={{ ...cardStyle, ...getWeaknessCardTint(level) }}>
-	                        <div className="card-header" style={cardHeaderStyle}>
-	                          <h5 style={cardTitleStyle}>{weakness.weakness}</h5>
+	                      <div key={index} className={`requirement-card ${cardStyle} ${getWeaknessCardTint(level)}`}>
+	                        <div className={`card-header ${cardHeaderStyle}`}>
+	                          <h5 className={cardTitleStyle}>{weakness.weakness}</h5>
 	                          {level && label && (
 	                            <Label
 	                              id={`weakness-level-${index}`}
@@ -485,25 +445,25 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 	                          )}
 	                        </div>
 
-	                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+	                        <div className="flex flex-col gap-3">
 	                          {importanceDetails && (
-	                            <div style={blockStyle}>
-	                              <div style={sectionLabelStyle}>Notes</div>
-	                              <p style={bodyTextStyle}>{importanceDetails}</p>
+	                            <div className={blockStyle}>
+	                              <div className={sectionLabelStyle}>Notes</div>
+	                              <p className={bodyTextStyle}>{importanceDetails}</p>
 	                            </div>
 	                          )}
 
 	                          {weakness.impact && (
-	                            <div style={blockStyle}>
-	                              <div style={sectionLabelStyle}>Impact</div>
-	                              <p style={bodyTextStyle}>{weakness.impact}</p>
+	                            <div className={blockStyle}>
+	                              <div className={sectionLabelStyle}>Impact</div>
+	                              <p className={bodyTextStyle}>{weakness.impact}</p>
 	                            </div>
 	                          )}
 
 	                          {weakness.recommendation && (
-	                            <div style={blockStyle}>
-	                              <div style={sectionLabelStyle}>Recommendation</div>
-	                              <p style={bodyTextStyle}>{weakness.recommendation}</p>
+	                            <div className={blockStyle}>
+	                              <div className={sectionLabelStyle}>Recommendation</div>
+	                              <p className={bodyTextStyle}>{weakness.recommendation}</p>
 	                            </div>
 	                          )}
 	                        </div>
@@ -516,8 +476,8 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                   <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <h3 className="mt-4 text-lg font-medium text-gray-900">No Weaknesses</h3>
-                  <p className="mt-2 text-sm text-gray-500">No weaknesses were identified for this candidate.</p>
+                  <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">No Weaknesses</h3>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">No weaknesses were identified for this candidate.</p>
                 </div>
               )}
             </div>
@@ -528,31 +488,31 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
               {analysis?.skill_analysis && analysis.skill_analysis.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {analysis.skill_analysis.map((skill, index) => (
-                    <div key={index} className="border border-gray-200 p-4 bg-white hover:shadow-md transition-shadow">
+                    <div key={index} className="border border-gray-200 dark:border-[#4b4e69] p-4 bg-white dark:bg-[#30324e] hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
-                        <h4 className="font-semibold text-gray-900 text-sm">{skill.skill}</h4>
+                        <h4 className="font-semibold text-gray-900 dark:text-[#d5d8df] text-sm">{skill.skill}</h4>
                         <RadialProgress score={skill.score * 10} size={48} strokeWidth={5} />
                       </div>
                       <div className="space-y-2 mb-3">
                         <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">Required:</span>
-                          <span className="font-medium text-gray-700 capitalize">{skill.required_level}</span>
+                          <span className="text-gray-500 dark:text-[#9699a6]">Required:</span>
+                          <span className="font-medium text-gray-700 dark:text-[#d5d8df] capitalize">{skill.required_level}</span>
                         </div>
                         <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">Candidate:</span>
-                          <span className="font-medium text-gray-700 capitalize">{skill.candidate_level}</span>
+                          <span className="text-gray-500 dark:text-[#9699a6]">Candidate:</span>
+                          <span className="font-medium text-gray-700 dark:text-[#d5d8df] capitalize">{skill.candidate_level}</span>
                         </div>
                       </div>
                       {skill.evidence && (
-                        <div className="bg-gray-50 p-2">
-                          <p className="text-xs text-gray-600 leading-relaxed">{skill.evidence}</p>
+                        <div className="bg-gray-50 dark:bg-[#181b34] p-2">
+                          <p className="text-xs text-gray-600 dark:text-[#9699a6] leading-relaxed">{skill.evidence}</p>
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500">No skill analysis available</p>
+                <p className="text-gray-500 dark:text-[#9699a6]">No skill analysis available</p>
               )}
             </div>
           )}
@@ -560,10 +520,10 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
           {activeTab === 'experience' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Experience */}
-	              <div className="border border-gray-200 bg-white p-5">
+	              <div className="border border-gray-200 dark:border-[#4b4e69] bg-white dark:bg-[#30324e] p-5">
 	                <div className="flex items-start justify-between gap-4 mb-4">
 	                  <div>
-	                    <h3 className="text-sm font-semibold text-gray-900">Experience</h3>
+	                    <h3 className="text-sm font-semibold text-gray-900 dark:text-[#d5d8df]">Experience</h3>
 	                  </div>
 	
 	                  {analysis?.experience_match && (
@@ -587,33 +547,33 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 	                </div>
 	
 	                {analysis?.experience_match?.role_progression && (
-	                  <div className="mb-4 border border-blue-200 bg-blue-50 p-3">
-	                    <div className="text-sm font-semibold text-blue-900 mb-1">Role Progression</div>
-	                    <p className="text-sm text-blue-900 leading-relaxed whitespace-pre-wrap">
+	                  <div className="mb-4 border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 p-3">
+	                    <div className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1">Role Progression</div>
+	                    <p className="text-sm text-blue-900 dark:text-blue-200 leading-relaxed whitespace-pre-wrap">
 	                      {analysis.experience_match.role_progression}
 	                    </p>
 	                  </div>
 	                )}
-	
+
 	                {analysis?.experience_match?.industry_match && (
-	                  <div className="mb-4 border border-gray-200 bg-gray-50 p-3">
-	                    <div className="text-sm font-semibold text-gray-700 mb-1">Industry Match</div>
-	                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+	                  <div className="mb-4 border border-gray-200 dark:border-[#4b4e69] bg-gray-50 dark:bg-[#181b34] p-3">
+	                    <div className="text-sm font-semibold text-gray-700 dark:text-[#d5d8df] mb-1">Industry Match</div>
+	                    <p className="text-sm text-gray-700 dark:text-[#d5d8df] leading-relaxed whitespace-pre-wrap">
 	                      {analysis.experience_match.industry_match}
 	                    </p>
 	                  </div>
 	                )}
 	
-	                <div className="text-sm font-semibold text-gray-600 mb-3">Companies</div>
+	                <div className="text-sm font-semibold text-gray-600 dark:text-[#9699a6] mb-3">Companies</div>
 	                {analysis?.experience_match?.companies && analysis.experience_match.companies.length > 0 ? (
-	                  <div className="relative ml-2 border-l-2 border-gray-200">
+	                  <div className="relative ml-2 border-l-2 border-gray-200 dark:border-[#4b4e69]">
 	                    {sortByStartDateDescending(analysis.experience_match.companies).map((company, idx, allCompanies) => {
 	                      const isLast = idx === allCompanies.length - 1;
                       if (typeof company === 'string') {
                         return (
                           <div key={idx} className={`relative pl-6 ${isLast ? '' : 'pb-4'}`}>
-                            <span className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-white border-2 border-blue-500" />
-                            <div className="text-sm font-medium text-gray-900">{company}</div>
+                            <span className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-white dark:bg-[#30324e] border-2 border-blue-500" />
+                            <div className="text-sm font-medium text-gray-900 dark:text-[#d5d8df]">{company}</div>
                           </div>
                         );
                       }
@@ -625,55 +585,55 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
                       return (
                         <div key={idx} className={`relative pl-6 ${isLast ? '' : 'pb-4'}`}>
-                          <span className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-white border-2 border-blue-500" />
+                          <span className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-white dark:bg-[#30324e] border-2 border-blue-500" />
                           <div className="flex items-start justify-between gap-3">
-                            <div className="text-sm font-medium text-gray-900">{company.name}</div>
-                            {dateRange && <div className="text-xs text-gray-500 whitespace-nowrap">{dateRange}</div>}
+                            <div className="text-sm font-medium text-gray-900 dark:text-[#d5d8df]">{company.name}</div>
+                            {dateRange && <div className="text-xs text-gray-500 dark:text-[#9699a6] whitespace-nowrap">{dateRange}</div>}
                           </div>
-                          {company.location && <div className="text-xs text-gray-500 mt-0.5">{company.location}</div>}
+                          {company.location && <div className="text-xs text-gray-500 dark:text-[#9699a6] mt-0.5">{company.location}</div>}
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500">No company history available</p>
+                  <p className="text-sm text-gray-500 dark:text-[#9699a6]">No company history available</p>
                 )}
               </div>
 
               {/* Education */}
-	              <div className="border border-gray-200 bg-white p-5">
+	              <div className="border border-gray-200 dark:border-[#4b4e69] bg-white dark:bg-[#30324e] p-5">
 	                <div className="mb-4">
-	                  <h3 className="text-sm font-semibold text-gray-900">Education</h3>
+	                  <h3 className="text-sm font-semibold text-gray-900 dark:text-[#d5d8df]">Education</h3>
 	                </div>
 	
 	                {analysis?.education_match?.degree_relevance && (
-	                  <div className="mb-4 border border-gray-200 bg-gray-50 p-3">
-	                    <div className="text-sm font-semibold text-gray-700 mb-1">Degree Relevance</div>
-	                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+	                  <div className="mb-4 border border-gray-200 dark:border-[#4b4e69] bg-gray-50 dark:bg-[#181b34] p-3">
+	                    <div className="text-sm font-semibold text-gray-700 dark:text-[#d5d8df] mb-1">Degree Relevance</div>
+	                    <p className="text-sm text-gray-700 dark:text-[#d5d8df] leading-relaxed whitespace-pre-wrap">
 	                      {analysis.education_match.degree_relevance}
 	                    </p>
 	                  </div>
 	                )}
-	
+
 	                {analysis?.education_match?.continuous_learning && (
-	                  <div className="mb-4 border border-green-200 bg-green-50 p-3">
-	                    <div className="text-sm font-semibold text-green-900 mb-1">Continuous Learning</div>
-	                    <p className="text-sm text-green-900 leading-relaxed whitespace-pre-wrap">
+	                  <div className="mb-4 border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 p-3">
+	                    <div className="text-sm font-semibold text-green-900 dark:text-green-300 mb-1">Continuous Learning</div>
+	                    <p className="text-sm text-green-900 dark:text-green-200 leading-relaxed whitespace-pre-wrap">
 	                      {analysis.education_match.continuous_learning}
 	                    </p>
 	                  </div>
 	                )}
 	
-	                <div className="text-sm font-semibold text-gray-600 mb-3">Institutions</div>
+	                <div className="text-sm font-semibold text-gray-600 dark:text-[#9699a6] mb-3">Institutions</div>
 	                {analysis?.education_match?.institutions && analysis.education_match.institutions.length > 0 ? (
-	                  <div className="relative ml-2 border-l-2 border-gray-200">
+	                  <div className="relative ml-2 border-l-2 border-gray-200 dark:border-[#4b4e69]">
 	                    {sortByStartDateDescending(analysis.education_match.institutions).map((inst, idx, allInstitutions) => {
 	                      const isLast = idx === allInstitutions.length - 1;
                       if (typeof inst === 'string') {
                         return (
                           <div key={idx} className={`relative pl-6 ${isLast ? '' : 'pb-4'}`}>
-                            <span className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-white border-2 border-green-600" />
-                            <div className="text-sm font-medium text-gray-900">{inst}</div>
+                            <span className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-white dark:bg-[#30324e] border-2 border-green-600" />
+                            <div className="text-sm font-medium text-gray-900 dark:text-[#d5d8df]">{inst}</div>
                           </div>
                         );
                       }
@@ -685,23 +645,23 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
                       return (
                         <div key={idx} className={`relative pl-6 ${isLast ? '' : 'pb-4'}`}>
-                          <span className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-white border-2 border-green-600" />
+                          <span className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-white dark:bg-[#30324e] border-2 border-green-600" />
                           <div className="flex items-start justify-between gap-3">
-                            <div className="text-sm font-medium text-gray-900">{inst.name}</div>
-                            {dateRange && <div className="text-xs text-gray-500 whitespace-nowrap">{dateRange}</div>}
+                            <div className="text-sm font-medium text-gray-900 dark:text-[#d5d8df]">{inst.name}</div>
+                            {dateRange && <div className="text-xs text-gray-500 dark:text-[#9699a6] whitespace-nowrap">{dateRange}</div>}
                           </div>
-                          {inst.location && <div className="text-xs text-gray-500 mt-0.5">{inst.location}</div>}
+                          {inst.location && <div className="text-xs text-gray-500 dark:text-[#9699a6] mt-0.5">{inst.location}</div>}
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-500">No education history available</p>
+                  <p className="text-sm text-gray-500 dark:text-[#9699a6]">No education history available</p>
 	                )}
 	
 	                {analysis?.education_match?.certifications && analysis.education_match.certifications.length > 0 && (
 	                  <div className="mt-5">
-	                    <div className="text-sm font-semibold text-gray-600 mb-2">Certifications</div>
+	                    <div className="text-sm font-semibold text-gray-600 dark:text-[#9699a6] mb-2">Certifications</div>
 	                    <div className="flex flex-wrap gap-2">
 	                      {analysis.education_match.certifications.map((cert, idx) => (
 	                        <span key={idx} className="inline-flex items-center px-2 py-1 text-xs bg-gray-100 text-gray-700">
@@ -750,11 +710,11 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                   </div>
 
                   {/* Summary */}
-                  <div className="requirement-card" style={{ ...cardStyle, ...getVerificationCardTint(verificationResult.overall_verification_status) }}>
-                    <div style={cardHeaderStyle}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                          <h5 style={cardTitleStyle}>Web Verification</h5>
+                  <div className={`requirement-card ${cardStyle} ${getVerificationCardTint(verificationResult.overall_verification_status)}`}>
+                    <div className={cardHeaderStyle}>
+                      <div className="flex flex-col gap-1.5 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h5 className={cardTitleStyle}>Web Verification</h5>
                           <Label
                             id="verification-overall-status"
                             text={getVerificationStatusLabel(verificationResult.overall_verification_status)}
@@ -770,20 +730,20 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                             className="!rounded-none"
                           />
                         </div>
-                        <div className="text-sm text-gray-600">{verificationResult.candidate_name || candidate.name}</div>
+                        <div className="text-sm text-gray-600 dark:text-[#9699a6]">{verificationResult.candidate_name || candidate.name}</div>
                       </div>
 
                       <div />
                     </div>
 
                     {verificationResult.verification_summary && (
-                      <div style={{ ...blockStyle, background: '#f8f9fa' }}>
-                        <p style={bodyTextStyle}>{verificationResult.verification_summary}</p>
+                      <div className={`${blockStyle} bg-gray-50 dark:bg-[#181b34]`}>
+                        <p className={bodyTextStyle}>{verificationResult.verification_summary}</p>
                       </div>
                     )}
 
-                    <div className="mt-4" style={blockStyle}>
-                      <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-3 text-sm text-gray-600">
+                    <div className={`mt-4 ${blockStyle}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-3 text-sm text-gray-600 dark:text-[#9699a6]">
                         <div className="flex items-center gap-2">
                           <span>Claims</span>
                           <Label
@@ -850,9 +810,9 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                   </div>
 
                   {/* Online presence */}
-                  <div className="requirement-card" style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h5 style={cardTitleStyle}>Online Presence</h5>
+                  <div className={`requirement-card ${cardStyle}`}>
+                    <div className={cardHeaderStyle}>
+                      <h5 className={cardTitleStyle}>Online Presence</h5>
                       <Label
                         id="presence-level"
                         text={verificationResult.online_presence?.presence_level || '—'}
@@ -863,16 +823,16 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                     </div>
 
                     {verificationResult.online_presence?.summary && (
-                      <div style={blockStyle}>
-                        <p style={bodyTextStyle}>{verificationResult.online_presence.summary}</p>
+                      <div className={blockStyle}>
+                        <p className={bodyTextStyle}>{verificationResult.online_presence.summary}</p>
                       </div>
                     )}
 
                     {verificationResult.online_presence?.profiles && verificationResult.online_presence.profiles.length > 0 && (
-                      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div className="mt-3 flex flex-col gap-2.5">
                         {verificationResult.online_presence.profiles.map((profile, idx) => (
-                          <div key={idx} style={blockStyle}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <div key={idx} className={blockStyle}>
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Label
                                 id={`profile-type-${idx}`}
                                 text={profile.type}
@@ -888,7 +848,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                                 className="!rounded-none"
                               />
                             </div>
-                            <div style={{ marginTop: '8px' }}>
+                            <div className="mt-2">
                               <a
                                 href={profile.url}
                                 target="_blank"
@@ -906,10 +866,10 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                   </div>
 
                   {/* Identity resolution */}
-                  <div className="requirement-card" style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h5 style={cardTitleStyle}>Identity Resolution</h5>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div className={`requirement-card ${cardStyle}`}>
+                    <div className={cardHeaderStyle}>
+                      <h5 className={cardTitleStyle}>Identity Resolution</h5>
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Label
                           id="identity-status"
                           text={verificationResult.identity_resolution.status}
@@ -927,10 +887,10 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                       </div>
                     </div>
 
-                    <div style={blockStyle}>
-                      <p style={bodyTextStyle}>{verificationResult.identity_resolution.reason}</p>
+                    <div className={blockStyle}>
+                      <p className={bodyTextStyle}>{verificationResult.identity_resolution.reason}</p>
                       {verificationResult.identity_resolution.signals && verificationResult.identity_resolution.signals.length > 0 && (
-                        <div className="text-xs text-gray-600 mt-2">
+                        <div className="text-xs text-gray-600 dark:text-[#9699a6] mt-2">
                           Signals: {verificationResult.identity_resolution.signals.join(', ')}
                         </div>
                       )}
@@ -938,9 +898,9 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                   </div>
 
                   {/* Claims */}
-                  <div className="requirement-card" style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h5 style={cardTitleStyle}>Claims</h5>
+                  <div className={`requirement-card ${cardStyle}`}>
+                    <div className={cardHeaderStyle}>
+                      <h5 className={cardTitleStyle}>Claims</h5>
                       <Label
                         id="claims-count"
                         text={`${structuredClaims.length} items`}
@@ -950,7 +910,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                       />
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="flex flex-col gap-3">
                       {structuredClaims.map((claim) => {
                         const dateRange =
                           claim.entity?.start_date || claim.entity?.end_date
@@ -967,13 +927,13 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                           .join(' · ');
 
                         return (
-                          <div key={claim.id} style={blockStyle}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-                              <div style={{ flex: 1, minWidth: '220px' }}>
-                                <div style={{ fontSize: '14px', fontWeight: 600, color: '#2d3748' }}>{claim.claim}</div>
-                                {subtitle && <div className="text-xs text-gray-600 mt-1">{subtitle}</div>}
+                          <div key={claim.id} className={blockStyle}>
+                            <div className="flex justify-between items-start gap-3 flex-wrap">
+                              <div className="flex-1 min-w-[220px]">
+                                <div className="text-sm font-semibold text-gray-800 dark:text-[#d5d8df]">{claim.claim}</div>
+                                {subtitle && <div className="text-xs text-gray-600 dark:text-[#9699a6] mt-1">{subtitle}</div>}
                               </div>
-                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              <div className="flex gap-2 flex-wrap justify-end">
                                 <Label
                                   id={`claim-status-${claim.id}`}
                                   text={getVerificationStatusLabel(claim.verification_status)}
@@ -1002,8 +962,8 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
                             {claim.evidence_snippets && claim.evidence_snippets.length > 0 && (
                               <div className="mt-3">
-                                <div style={sectionLabelStyle}>Evidence</div>
-                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 space-y-1" style={{ margin: 0 }}>
+                                <div className={sectionLabelStyle}>Evidence</div>
+                                <ul className="list-disc list-outside ml-5 text-sm text-gray-700 dark:text-[#d5d8df] space-y-1 m-0">
                                   {claim.evidence_snippets.map((snippet, idx) => (
                                     <li key={idx} className="whitespace-pre-wrap">
                                       {snippet}
@@ -1015,7 +975,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
                             {claim.discrepancies && claim.discrepancies.length > 0 && (
                               <div className="mt-3">
-                                <div style={sectionLabelStyle}>Discrepancies</div>
+                                <div className={sectionLabelStyle}>Discrepancies</div>
                                 <div className="space-y-2">
                                   {claim.discrepancies.map((d, idx) => (
                                     <div key={idx} className="text-sm text-gray-700">
@@ -1027,7 +987,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                                           color={getLabelColor('severity',d.severity) as any}
                                           className="!rounded-none"
                                         />
-                                        <span className="text-xs text-gray-500">{d.type}</span>
+                                        <span className="text-xs text-gray-500 dark:text-[#9699a6]">{d.type}</span>
                                       </div>
                                       <div className="mt-2 whitespace-pre-wrap">{d.description}</div>
                                     </div>
@@ -1038,7 +998,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
                             {claim.sources && claim.sources.length > 0 && (
                               <div className="mt-3">
-                                <div style={sectionLabelStyle}>Sources</div>
+                                <div className={sectionLabelStyle}>Sources</div>
                                 <div className="space-y-1 text-sm">
                                   {claim.sources.map((source, idx) => (
                                     <a
@@ -1062,13 +1022,13 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
 
                   {/* Discrepancies summary */}
                   {verificationResult.discrepancies_summary && verificationResult.discrepancies_summary.length > 0 && (
-                    <div className="requirement-card" style={cardStyle}>
-                      <div style={cardHeaderStyle}>
-                        <h5 style={cardTitleStyle}>Discrepancies Summary</h5>
+                    <div className={`requirement-card ${cardStyle}`}>
+                      <div className={cardHeaderStyle}>
+                        <h5 className={cardTitleStyle}>Discrepancies Summary</h5>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div className="flex flex-col gap-3">
                         {verificationResult.discrepancies_summary.map((d, idx) => (
-                          <div key={idx} style={blockStyle}>
+                          <div key={idx} className={blockStyle}>
                             <div className="flex items-center gap-2 flex-wrap">
                               <Label
                                 id={`discrepancy-summary-severity-${idx}`}
@@ -1077,7 +1037,7 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                                 color={getLabelColor('severity',d.severity) as any}
                                 className="!rounded-none"
                               />
-                              <span className="text-xs text-gray-500">{d.type}</span>
+                              <span className="text-xs text-gray-500 dark:text-[#9699a6]">{d.type}</span>
                             </div>
                             <div className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">{d.description}</div>
                           </div>
@@ -1087,10 +1047,10 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                   )}
 
                   {/* Footer: Sources & Search Queries */}
-	                  <div className="pt-2 border-t border-gray-200">
+	                  <div className="pt-2 border-t border-gray-200 dark:border-[#4b4e69]">
 	                    <div className="flex flex-col gap-4">
 	                      <div>
-	                        <div className="text-sm font-semibold text-gray-600">Sources Consulted</div>
+	                        <div className="text-sm font-semibold text-gray-600 dark:text-[#9699a6]">Sources Consulted</div>
 	                        {verificationResult.sources && verificationResult.sources.length > 0 ? (
 	                          <div className="mt-1 space-y-1 text-sm">
 	                            {verificationResult.sources.map((source, idx) => (
@@ -1106,18 +1066,18 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                             ))}
                           </div>
                         ) : (
-                          <div className="text-sm text-gray-500">No sources available</div>
+                          <div className="text-sm text-gray-500 dark:text-[#9699a6]">No sources available</div>
                         )}
 	                      </div>
 	
 	                      <div>
-	                        <div className="text-sm font-semibold text-gray-600">Search Queries</div>
+	                        <div className="text-sm font-semibold text-gray-600 dark:text-[#9699a6]">Search Queries</div>
 	                        {verificationResult.search_queries_used && verificationResult.search_queries_used.length > 0 ? (
 	                          <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
 	                            {verificationResult.search_queries_used.join('\n')}
 	                          </div>
                         ) : (
-                          <div className="text-sm text-gray-500">No search queries available</div>
+                          <div className="text-sm text-gray-500 dark:text-[#9699a6]">No search queries available</div>
                         )}
                       </div>
                     </div>
@@ -1128,8 +1088,8 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
                   <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <h3 className="mt-4 text-lg font-medium text-gray-900">No Verification Data</h3>
-                  <p className="mt-2 text-sm text-gray-500">Run web verification to validate key claims.</p>
+                  <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">No Verification Data</h3>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">Run web verification to validate key claims.</p>
                   <SplitButton
                     id="verify-empty-split-button"
                     ariaLabel="Verify split button"

@@ -4,6 +4,7 @@ import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate } from '@a
 import { PublicClientApplication } from '@azure/msal-browser';
 import { Toaster } from 'sonner';
 import { msalConfig } from './config/msalConfig';
+import { ThemeProvider } from './context/ThemeContext';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import './index.css';
@@ -31,26 +32,28 @@ initializeMsal();
 const App: React.FC = () => {
   return (
     <MsalProvider instance={msalInstance}>
-      <Router>
-        <div className="App">
-          <Toaster position="top-right" richColors closeButton />
-          <AuthenticatedTemplate>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </AuthenticatedTemplate>
+      <ThemeProvider>
+        <Router>
+          <div className="App">
+            <Toaster position="top-right" richColors closeButton />
+            <AuthenticatedTemplate>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </AuthenticatedTemplate>
 
-          <UnauthenticatedTemplate>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/auth/callback" element={<Login />} />
-              <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
-          </UnauthenticatedTemplate>
-        </div>
-      </Router>
+            <UnauthenticatedTemplate>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/auth/callback" element={<Login />} />
+                <Route path="*" element={<Navigate to="/login" replace />} />
+              </Routes>
+            </UnauthenticatedTemplate>
+          </div>
+        </Router>
+      </ThemeProvider>
     </MsalProvider>
   );
 };

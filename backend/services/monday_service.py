@@ -64,6 +64,12 @@ class MondayService:
             query = """
             query {
                 boards (ids: %s) {
+                    groups {
+                        id
+                        title
+                        color
+                        position
+                    }
                     columns {
                         id
                         settings_str
@@ -76,6 +82,8 @@ class MondayService:
                             group {
                                 id
                                 title
+                                color
+                                position
                             }
                             column_values {
                                 id
@@ -157,7 +165,12 @@ class MondayService:
         data = self.get_board_data(board_id, use_cache=use_cache)
         return data.get('items_page', {}).get('items', [])
 
-    def parse_job_item(self, item: Dict, color_map: Dict[str, Dict[str, str]] = None) -> Dict:
+    def parse_job_item(
+        self,
+        item: Dict,
+        color_map: Dict[str, Dict[str, str]] = None,
+        group_map: Optional[Dict[str, Dict[str, any]]] = None
+    ) -> Dict:
         """
         Parse a Monday.com job item into our job format
         """
@@ -168,8 +181,21 @@ class MondayService:
                 'status': 'active'
             }
 
+            item_group = item.get('group', {}) or {}
+            group_id = item_group.get('id')
+            group_info = (group_map or {}).get(group_id, {})
+            group_title = item_group.get('title') or group_info.get('title')
+            group_color = item_group.get('color') or group_info.get('color')
+            group_position = item_group.get('position')
+            if group_position is None:
+                group_position = group_info.get('position')
+
             metadata = {
-                'group': item.get('group', {}).get('title'),
+                'group': group_title,
+                'group_id': group_id,
+                'group_title': group_title,
+                'group_color': group_color,
+                'group_position': group_position,
                 'column_values': {}
             }
 
@@ -242,6 +268,21 @@ class MondayService:
             
             monday_items = board_data.get('items_page', {}).get('items', [])
             columns = board_data.get('columns', [])
+            groups = board_data.get('groups', [])
+
+            group_map = {}
+            for idx, group in enumerate(groups):
+                group_id = group.get('id')
+                if not group_id:
+                    continue
+                position = group.get('position')
+                if position is None:
+                    position = idx
+                group_map[group_id] = {
+                    'title': group.get('title'),
+                    'color': group.get('color'),
+                    'position': position
+                }
             
             # Parse colors
             color_map = self.parse_column_colors(columns)
@@ -251,7 +292,7 @@ class MondayService:
 
             def process_item(item: Dict):
                 try:
-                    job_data = self.parse_job_item(item, color_map)
+                    job_data = self.parse_job_item(item, color_map, group_map)
 
                     if not job_data:
                         return {'error': f"Failed to parse item {item.get('id', 'unknown')}"}

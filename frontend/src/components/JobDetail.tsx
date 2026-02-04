@@ -1063,7 +1063,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
       if (response.success && response.response_text) {
         toast.success(
           <div className="max-w-md">
-            <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+            <div className="prose prose-sm max-w-none text-gray-700 dark:text-[#d5d8df] whitespace-pre-wrap">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -1206,7 +1206,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
     switch (ext) {
       case 'pdf':
-        return <Icon icon={PDF} iconSize={20} className="text-red-600" />;
+        return <Icon icon={PDF} iconSize={20} className="text-red-600 dark:text-red-400" />;
       case 'doc':
       case 'docx':
         return <Icon icon={FileIcon} iconSize={20} className="text-blue-600" />;
@@ -1312,13 +1312,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   }
 
   return (
-    <div className="bg-white shadow">
+    <div className="bg-white dark:bg-[#30324e] shadow">
       <CustomColorStyles />
       {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
+      <div className="border-b border-gray-200 dark:border-[#4b4e69] dark:border-[#4b4e69] px-6 py-4">
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">{job.title}</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-[#d5d8df] dark:text-[#d5d8df]">{job.title}</h2>
             <div className="flex flex-wrap gap-1 items-center mt-2">
               {/* Employment Type Tag */}
               {job.monday_metadata?.employment_type && (
@@ -1352,14 +1352,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-blue-600">{getUniqueCandidateCount()}</div>
-            <div className="text-sm text-gray-500">Candidate{getUniqueCandidateCount() !== 1 ? 's' : ''}</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{getUniqueCandidateCount()}</div>
+            <div className="text-sm text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6]">Candidate{getUniqueCandidateCount() !== 1 ? 's' : ''}</div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-[#4b4e69] dark:border-[#4b4e69]">
         <nav className="-mb-px flex items-center justify-between">
           <button
             onClick={() => {
@@ -1369,8 +1369,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               }
             }}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'files'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
               }`}
           >
             Files
@@ -1382,7 +1382,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 	            }}
 	            className={`py-2 px-4 text-sm font-medium ${activeTab === 'candidates'
 	              ? 'border-b-2 border-blue-500 text-blue-600'
-	              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+	              : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] hover:border-gray-300'
 	              }`}
 	          >
 	            Candidates ({getUniqueCandidateCount()})
@@ -1390,8 +1390,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           <button
             onClick={() => setActiveTab('resumes')}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'resumes'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
               }`}
           >
             Resumes ({candidates.length})
@@ -1399,8 +1399,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           <button
             onClick={() => setActiveTab('potential-candidates')}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'potential-candidates'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
               }`}
           >
             Internal Candidates
@@ -1408,8 +1408,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           <button
             onClick={() => setActiveTab('external-candidates')}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'external-candidates'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
               }`}
           >
             External Candidates
@@ -1422,8 +1422,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               }
             }}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'job-details'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
               }`}
           >
             Job Details
@@ -1431,15 +1431,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           <button
             onClick={() => setActiveTab('ai-chat')}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'ai-chat'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
               }`}
           >
             Chat
           </button>
           <button
             onClick={(e) => handleDeleteJob(job.id, e as any)}
-            className="ml-auto mr-4 text-gray-400 hover:text-red-600 p-2"
+            className="ml-auto mr-4 text-gray-400 dark:text-[#9699a6] hover:text-red-600 dark:text-red-400 dark:hover:text-red-400 p-2"
             title="Delete job"
             aria-label="Delete job"
           >
@@ -1463,7 +1463,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 <div className="text-lg">Loading candidates...</div>
               </div>
             ) : error ? (
-              <div className="text-center py-8 text-red-600">
+              <div className="text-center py-8 text-red-600 dark:text-red-400">
                 <div className="text-lg mb-2">Error</div>
                 <div>{error}</div>
                 <button
@@ -1508,7 +1508,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 <div className="text-lg">Loading resumes...</div>
               </div>
             ) : error ? (
-              <div className="text-center py-8 text-red-600">
+              <div className="text-center py-8 text-red-600 dark:text-red-400">
                 <div className="text-lg mb-2">Error</div>
                 <div>{error}</div>
                 <button
@@ -1544,7 +1544,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 ) : sharepointFiles ? (
                   <div className="space-y-4">
                     {/* Action Bar */}
-                    <div className="flex flex-wrap items-start justify-between gap-3 bg-gray-50 p-3 border border-gray-200">
+                    <div className="flex flex-wrap items-start justify-between gap-3 bg-gray-50 dark:bg-[#181b34] p-3 border border-gray-200 dark:border-[#4b4e69]">
                       <div className="flex items-center space-x-4 text-sm mt-1">
                         <button
                           onClick={handleSelectAll}
@@ -1552,7 +1552,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                         >
                           {selectedFiles.size === getUniqueFiles().length ? 'Deselect All' : 'Select All'}
                         </button>
-                        <span className="text-gray-600">
+                        <span className="text-gray-600 dark:text-[#9699a6]">
                           {selectedFiles.size} selected
                         </span>
                       </div>
@@ -1640,7 +1640,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
                       return sortedFiles.length > 0 ? (
 
-                        <div className="bg-white border border-gray-200 overflow-hidden">
+                        <div className="bg-white dark:bg-[#30324e] border border-gray-200 dark:border-[#4b4e69] overflow-hidden">
                           {sortedFiles.map((file, index) => {
                             const isSelected = selectedFiles.has(file.name);
                             const normalizedName = String(file?.name || '').toLowerCase().trim();
@@ -1659,7 +1659,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                               <div
                                 key={index}
                                 onClick={() => handleFileToggle(file.name)}
-                                className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                                className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]'
                                   }`}
                               >
                                 <div className="flex items-center space-x-3 flex-1 overflow-hidden">
@@ -1688,14 +1688,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           onClick={(e) => e.stopPropagation()}
-                                          className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline truncate"
+                                          className="text-sm font-medium text-gray-900 dark:text-[#d5d8df] hover:text-blue-600 hover:underline truncate"
                                           title={file.name}
                                         >
                                           {file.name}
                                         </a>
                                         {getFileIcon(file.name)}
                                       </div>
-                                      <div className="text-xs text-gray-500 flex items-center gap-2">
+                                      <div className="text-xs text-gray-500 dark:text-[#9699a6] flex items-center gap-2">
                                         <span className="truncate">{file.path}</span>
                                         <span>•</span>
                                         <span>{Math.round(file.size / 1024)} KB</span>
@@ -1722,13 +1722,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                           })}
                         </div>
                       ) : (
-                        <div className="bg-gray-50 p-8 text-center text-gray-500 border border-dashed border-gray-300">
+                        <div className="bg-gray-50 dark:bg-[#181b34] p-8 text-center text-gray-500 dark:text-[#9699a6] border border-dashed border-gray-300">
                           No files found in SharePoint folder
                         </div>
                       );
                     })()}
 
-                    <div className="text-xs text-gray-500 mt-2 text-right">
+                    <div className="text-xs text-gray-500 dark:text-[#9699a6] mt-2 text-right">
                       <a href={sharepointFiles.sharepoint_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">
                         Open SharePoint folder
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
@@ -1736,7 +1736,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 p-4">
+                  <div className="bg-gray-50 dark:bg-[#181b34] p-4">
                     <button
                       onClick={loadSharePointFiles}
                       className="text-blue-600 hover:text-blue-800 text-sm"
@@ -1762,13 +1762,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           <div className="flex flex-col">
 
             {/* Context Header (between tabs) */}
-            <div className="border-b border-gray-200 py-3 px-6 flex items-center justify-between">
+            <div className="border-b border-gray-200 dark:border-[#4b4e69] py-3 px-6 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-gray-900">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-[#d5d8df]">
                   {job.source_filename || sharepointFiles?.job_files?.[0]?.name}
                 </h2>
                 {job.reviewed_by && (
-                  <div className="flex items-center gap-2 mt-1 text-gray-500" style={{ fontSize: '12px' }}>
+                  <div className="flex items-center gap-2 mt-1 text-gray-500 dark:text-[#9699a6] text-xs">
                     <span>{job.reviewed_by}</span>
                     <span>•</span>
                     <span>Updated {(job as any).updated_at ? new Date((job as any).updated_at).toLocaleDateString() : 'N/A'}</span>
@@ -1812,7 +1812,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             </div>
 
             {/* Secondary Tabs Navigation */}
-            <div className="border-b border-gray-200 px-6">
+            <div className="border-b border-gray-200 dark:border-[#4b4e69] px-6">
               <nav className="flex w-full items-center gap-6" aria-label="Job Detail Sections">
                 {JOB_DETAIL_SECTIONS.map((section) => (
                   <button
@@ -1820,7 +1820,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     onClick={() => setActiveJobDetailSection(section.key)}
                     className={`whitespace-nowrap py-3 text-sm font-medium border-b-2 transition-colors ${activeJobDetailSection === section.key
                       ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      : 'border-transparent text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] hover:border-gray-300'
                       }`}
                   >
                     {section.label}
@@ -1843,16 +1843,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               {/* Content Sections */}
               {activeJobDetailSection === 'description' && (
                 <div>
-                  <div style={{
-                    border: '1px solid #ddd',
-                    borderRadius: '0px',
-                    padding: '16px',
-                    marginBottom: '12px',
-                    background: '#f9fafb',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}>
+                  <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
 
-                    <div className="prose prose-sm max-w-none" style={{ fontSize: '14px', lineHeight: '1.6', color: '#555' }}>
+                    <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-[#d5d8df]">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -1869,7 +1862,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             <p className="my-2 whitespace-pre-wrap" {...props} />
                           ),
                           strong: ({ ...props }) => (
-                            <strong className="font-bold text-gray-900" {...props} />
+                            <strong className="font-bold text-gray-900 dark:text-[#d5d8df]" {...props} />
                           ),
                           table: ({ ...props }) => (
                             <div className="overflow-x-auto my-4">
@@ -1877,19 +1870,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             </div>
                           ),
                           thead: ({ ...props }) => (
-                            <thead className="bg-gray-100" {...props} />
+                            <thead className="bg-gray-100 dark:bg-[#30324e]" {...props} />
                           ),
                           tbody: ({ ...props }) => (
                             <tbody className="divide-y divide-gray-200 bg-white" {...props} />
                           ),
                           tr: ({ ...props }) => (
-                            <tr className="hover:bg-gray-50" {...props} />
+                            <tr className="hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]" {...props} />
                           ),
                           th: ({ ...props }) => (
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0" {...props} />
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 dark:text-[#d5d8df] border-r border-gray-300 last:border-r-0" {...props} />
                           ),
                           td: ({ ...props }) => (
-                            <td className="px-4 py-2 text-sm text-gray-700 border-r border-gray-300 last:border-r-0" {...props} />
+                            <td className="px-4 py-2 text-sm text-gray-700 dark:text-[#d5d8df] border-r border-gray-300 last:border-r-0" {...props} />
                           ),
                         }}
                       >
@@ -1904,24 +1897,17 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 <div className="space-y-6">
                   {/* Requirements Analysis from job.requirements */}
                   {displayedJob.requirements && Object.keys(displayedJob.requirements).length > 0 && (
-                    <div style={{
-                      border: '1px solid #ddd',
-                      borderRadius: '0px',
-                      padding: '16px',
-                      marginBottom: '12px',
-                      background: '#f9fafb',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
-                      <div style={{ marginBottom: '12px' }}>
-                        <h3 style={{ margin: 0, fontWeight: 600, color: '#333' }}>Analysis Summary</h3>
+                    <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
+                      <div className="mb-3">
+                        <h3 className="m-0 font-semibold text-gray-900 dark:text-[#d5d8df]">Analysis Summary</h3>
                       </div>
-                      <div className="space-y-2" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                      <div className="space-y-2 text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
                         {Object.entries(displayedJob.requirements).map(([key, value]) => (
                           <div key={key} className="flex flex-col sm:flex-row">
-                            <span className="font-medium text-gray-600 capitalize sm:w-32 mb-1 sm:mb-0">
+                            <span className="font-medium text-gray-600 dark:text-[#9699a6] capitalize sm:w-32 mb-1 sm:mb-0">
                               {key.replace('_', ' ')}:
                             </span>
-                            <span style={{ color: '#555' }}>
+                            <span className="text-gray-700 dark:text-[#d5d8df]">
                               {Array.isArray(value) ? value.join(', ') : String(value)}
                             </span>
                           </div>
@@ -1934,23 +1920,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Required Skills */}
                       {displayedJob.extracted_data.required_skills && displayedJob.extracted_data.required_skills.length > 0 && (
-                        <div style={{
-                          border: '1px solid #feb2b2',
-                          borderRadius: '0px',
-                          padding: '16px',
-                          marginBottom: '12px',
-                          background: '#fff5f5',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                        }}>
-                          <div style={{ marginBottom: '12px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 600, color: '#742a2a' }}>Required Skills</h3>
+                        <div className="border border-red-200 dark:border-red-700 p-4 mb-3 bg-red-50 dark:bg-red-900/20 shadow-sm">
+                          <div className="mb-3">
+                            <h3 className="m-0 font-semibold text-red-800 dark:text-red-300">Required Skills</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {displayedJob.extracted_data.required_skills.map((skill: string, index: number) => (
                               <button
                                 key={index}
                                 onClick={() => handleSkillClick(skill)}
-                                className="px-3 py-1 bg-white border border-red-200 text-red-800 text-sm font-medium hover:bg-red-50 hover:shadow-sm transition-all cursor-pointer"
+                                className="px-3 py-1 bg-white dark:bg-[#30324e] border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/30 hover:shadow-sm transition-all cursor-pointer"
                               >
                                 {skill}
                               </button>
@@ -1961,23 +1940,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
                       {/* Preferred Skills */}
                       {displayedJob.extracted_data.preferred_skills && displayedJob.extracted_data.preferred_skills.length > 0 && (
-                        <div style={{
-                          border: '1px solid #90cdf4',
-                          borderRadius: '0px',
-                          padding: '16px',
-                          marginBottom: '12px',
-                          background: '#ebf8ff',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                        }}>
-                          <div style={{ marginBottom: '12px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 600, color: '#2c5282' }}>Preferred Skills</h3>
+                        <div className="border border-blue-200 dark:border-blue-700 p-4 mb-3 bg-blue-50 dark:bg-blue-900/20 shadow-sm">
+                          <div className="mb-3">
+                            <h3 className="m-0 font-semibold text-blue-800 dark:text-blue-300">Preferred Skills</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {displayedJob.extracted_data.preferred_skills.map((skill: string, index: number) => (
                               <button
                                 key={index}
                                 onClick={() => handleSkillClick(skill)}
-                                className="px-3 py-1 bg-white border border-blue-200 text-blue-800 text-sm font-medium hover:bg-blue-50 hover:shadow-sm transition-all cursor-pointer"
+                                className="px-3 py-1 bg-white dark:bg-[#30324e] border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:shadow-sm transition-all cursor-pointer"
                               >
                                 {skill}
                               </button>
@@ -1989,21 +1961,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       {/* Experience Requirements */}
                       {displayedJob.extracted_data.experience_requirements && (
                         <div
-                          style={{
-                            border: '1px solid #9ae6b4',
-                            borderRadius: '0px',
-                            padding: '16px',
-                            marginBottom: '12px',
-                            background: '#f0fff4',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                            cursor: 'pointer'
-                          }}
+                          className="border border-green-300 dark:border-green-700 p-4 mb-3 bg-green-50 dark:bg-green-900/20 shadow-sm cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
                           onClick={() => handleSkillClick(displayedJob.extracted_data.experience_requirements!)}
                         >
-                          <div style={{ marginBottom: '12px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 600, color: '#22543d' }}>Experience Requirements</h3>
+                          <div className="mb-3">
+                            <h3 className="m-0 font-semibold text-green-800 dark:text-green-300">Experience Requirements</h3>
                           </div>
-                          <p style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                          <p className="text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
                             {displayedJob.extracted_data.experience_requirements}
                           </p>
                         </div>
@@ -2011,23 +1975,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
                       {/* Education Requirements */}
                       {displayedJob.extracted_data && displayedJob.extracted_data.education_requirements && displayedJob.extracted_data.education_requirements.length > 0 && (
-                        <div style={{
-                          border: '1px solid #d6bcfa',
-                          borderRadius: '0px',
-                          padding: '16px',
-                          marginBottom: '12px',
-                          background: '#faf5ff',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                        }}>
-                          <div style={{ marginBottom: '12px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 600, color: '#44337a' }}>Education Requirements</h3>
+                        <div className="border border-purple-200 dark:border-purple-700 p-4 mb-3 bg-purple-50 dark:bg-purple-900/20 shadow-sm">
+                          <div className="mb-3">
+                            <h3 className="m-0 font-semibold text-purple-800 dark:text-purple-300">Education Requirements</h3>
                           </div>
-                          <ul className="list-disc list-inside space-y-1" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                          <ul className="list-disc list-inside space-y-1 text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
                             {displayedJob.extracted_data.education_requirements.map((edu: string, index: number) => (
                               <li
                                 key={index}
                                 onClick={() => handleSkillClick(edu)}
-                                className="cursor-pointer hover:text-purple-800 hover:font-medium transition-all"
+                                className="cursor-pointer hover:text-purple-800 dark:hover:text-purple-300 hover:font-medium transition-all"
                               >
                                 {edu}
                               </li>
@@ -2038,23 +1995,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
                       {/* Certifications */}
                       {displayedJob.extracted_data.certifications && displayedJob.extracted_data.certifications.length > 0 && (
-                        <div style={{
-                          border: '1px solid #fbd38d',
-                          borderRadius: '0px',
-                          padding: '16px',
-                          marginBottom: '12px',
-                          background: '#fffaf0',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                        }}>
-                          <div style={{ marginBottom: '12px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 600, color: '#744210' }}>Certifications</h3>
+                        <div className="border border-yellow-200 dark:border-yellow-700 p-4 mb-3 bg-yellow-50 dark:bg-yellow-900/20 shadow-sm">
+                          <div className="mb-3">
+                            <h3 className="m-0 font-semibold text-yellow-800 dark:text-yellow-300">Certifications</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {displayedJob.extracted_data.certifications.map((cert: string, index: number) => (
                               <button
                                 key={index}
                                 onClick={() => handleSkillClick(cert)}
-                                className="px-3 py-1 bg-white border border-yellow-200 text-yellow-800 text-sm font-medium hover:bg-yellow-50 hover:shadow-sm transition-all cursor-pointer"
+                                className="px-3 py-1 bg-white dark:bg-[#30324e] border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 text-sm font-medium hover:bg-yellow-50 dark:hover:bg-yellow-900/30 hover:shadow-sm transition-all cursor-pointer"
                               >
                                 {cert}
                               </button>
@@ -2065,18 +2015,11 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
                       {/* Key Responsibilities */}
                       {displayedJob.extracted_data.key_responsibilities && displayedJob.extracted_data.key_responsibilities.length > 0 && (
-                        <div style={{
-                          border: '1px solid #a3bffa',
-                          borderRadius: '0px',
-                          padding: '16px',
-                          marginBottom: '12px',
-                          background: '#ebf4ff',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                        }}>
-                          <div style={{ marginBottom: '12px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 600, color: '#3c366b' }}>Key Responsibilities</h3>
+                        <div className="border border-indigo-200 dark:border-indigo-700 p-4 mb-3 bg-indigo-50 dark:bg-indigo-900/20 shadow-sm">
+                          <div className="mb-3">
+                            <h3 className="m-0 font-semibold text-indigo-800 dark:text-indigo-300">Key Responsibilities</h3>
                           </div>
-                          <ul className="list-disc list-inside space-y-2" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                          <ul className="list-disc list-inside space-y-2 text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
                             {displayedJob.extracted_data.key_responsibilities.map((responsibility: string, index: number) => (
                               <li key={index}>{responsibility}</li>
                             ))}
@@ -2086,22 +2029,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
                       {/* Soft Skills */}
                       {displayedJob.extracted_data.soft_skills && displayedJob.extracted_data.soft_skills.length > 0 && (
-                        <div style={{
-                          border: '1px solid #fbb6ce',
-                          borderRadius: '0px',
-                          padding: '16px',
-                          marginBottom: '12px',
-                          background: '#fff5f7',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                        }}>
-                          <div style={{ marginBottom: '12px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 600, color: '#702459' }}>Soft Skills</h3>
+                        <div className="border border-pink-200 dark:border-pink-700 p-4 mb-3 bg-pink-50 dark:bg-pink-900/20 shadow-sm">
+                          <div className="mb-3">
+                            <h3 className="m-0 font-semibold text-pink-800 dark:text-pink-300">Soft Skills</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {displayedJob.extracted_data.soft_skills.map((skill: string, index: number) => (
                               <span
                                 key={index}
-                                className="px-3 py-1 bg-white border border-pink-200 text-pink-800 text-sm font-medium"
+                                className="px-3 py-1 bg-white dark:bg-[#30324e] border border-pink-200 dark:border-pink-700 text-pink-800 dark:text-pink-300 text-sm font-medium"
                               >
                                 {skill}
                               </span>
@@ -2117,23 +2053,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               {activeJobDetailSection === 'additional' && (
                 <div>
                   {displayedJob.extracted_data && displayedJob.extracted_data.other && displayedJob.extracted_data.other.length > 0 ? (
-                    <div style={{
-                      border: '1px solid #ddd',
-                      borderRadius: '0px',
-                      padding: '16px',
-                      marginBottom: '12px',
-                      background: '#f9fafb',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
+                    <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
 
-                      <ul className="list-disc list-inside space-y-1" style={{ fontSize: '14px', lineHeight: '1.5', color: '#555' }}>
+                      <ul className="list-disc list-inside space-y-1 text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
                         {displayedJob.extracted_data.other.map((item: string, index: number) => (
                           <li key={index}>{item}</li>
                         ))}
                       </ul>
                     </div>
                   ) : (
-                    <div className="text-gray-500 italic">No additional information extracted.</div>
+                    <div className="text-gray-500 dark:text-[#9699a6] italic">No additional information extracted.</div>
                   )}
                 </div>
               )}
@@ -2141,19 +2070,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               {activeJobDetailSection === 'weights' && (
                 <div>
                   {displayedJob.skill_weights && Object.keys(displayedJob.skill_weights).length > 0 ? (
-                    <div style={{
-                      border: '1px solid #ddd',
-                      borderRadius: '0px',
-                      padding: '16px',
-                      marginBottom: '12px',
-                      background: '#f9fafb',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
+                    <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {Object.entries(displayedJob.skill_weights).map(([skill, weight]) => (
-                          <div key={skill} className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100">
-                            <span className="text-sm font-medium text-gray-700">{skill}</span>
+                          <div key={skill} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#181b34] border border-gray-100">
+                            <span className="text-sm font-medium text-gray-700 dark:text-[#d5d8df]">{skill}</span>
                             <div className="flex items-center space-x-3">
                               <div className="w-20 bg-gray-200 rounded-full h-2">
                                 <div
@@ -2161,14 +2083,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                   style={{ width: `${(Number(weight) / 10) * 100}%` }}
                                 ></div>
                               </div>
-                              <div className="text-sm text-gray-900">{Number(displayedJob.skill_weights![skill] || 0)}%</div>
+                              <div className="text-sm text-gray-900 dark:text-[#d5d8df]">{Number(displayedJob.skill_weights![skill] || 0)}%</div>
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-gray-500 italic">No skill weights available.</div>
+                    <div className="text-gray-500 dark:text-[#9699a6] italic">No skill weights available.</div>
                   )}
                 </div>
               )}
@@ -2176,30 +2098,23 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               {activeJobDetailSection === 'questions' && (
                 <div>
                   {displayedJob.extracted_data && displayedJob.extracted_data.questions_for_candidate && displayedJob.extracted_data.questions_for_candidate.length > 0 ? (
-                    <div style={{
-                      border: '1px solid #ddd',
-                      borderRadius: '0px',
-                      padding: '16px',
-                      marginBottom: '12px',
-                      background: '#f9fafb',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
-                      <div style={{ marginBottom: '16px' }}>
-                        <h3 style={{ margin: 0, fontWeight: 600, color: '#333', fontSize: '16px' }}>
+                    <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
+                      <div className="mb-4">
+                        <h3 className="m-0 font-semibold text-base text-gray-900 dark:text-[#d5d8df]">
                           Questions for Candidate
                         </h3>
-                        <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#666' }}>
+                        <p className="mt-2 text-xs text-gray-600 dark:text-[#9699a6]">
                           Key questions to assess candidate suitability
                         </p>
                       </div>
-                      <ol className="list-decimal list-inside space-y-3" style={{ fontSize: '14px', lineHeight: '1.6', color: '#555' }}>
+                      <ol className="list-decimal list-inside space-y-3 text-sm leading-relaxed text-gray-700 dark:text-[#d5d8df]">
                         {displayedJob.extracted_data.questions_for_candidate.map((question: string, index: number) => (
                           <li key={index} className="pl-2">{question}</li>
                         ))}
                       </ol>
                     </div>
                   ) : (
-                    <div className="text-gray-500 italic">No interview questions generated for this position.</div>
+                    <div className="text-gray-500 dark:text-[#9699a6] italic">No interview questions generated for this position.</div>
                   )}
                 </div>
               )}
@@ -2212,20 +2127,20 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
             <div className="flex h-full w-full flex-col bg-white">
               {chatLoading ? (
                 <div className="flex flex-1 items-center justify-center">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-[#9699a6]">
                     <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                     Loading chat history...
                   </div>
                 </div>
               ) : chatError ? (
                 <div className="flex flex-1 items-center justify-center p-6">
-                  <div className="text-sm text-red-600">{chatError}</div>
+                  <div className="text-sm text-red-600 dark:text-red-400">{chatError}</div>
                 </div>
               ) : (
                 <>
                   <div className="flex-1 overflow-y-auto px-4 py-4">
                     {chatMessages.length === 0 && !chatStreaming ? (
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 dark:text-[#9699a6]">
                         Ask about the job, candidates, or resume improvements to get started.
                       </div>
                     ) : (
@@ -2236,7 +2151,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                             <div key={message.id || index} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                               <div
                                 className={`max-w-[75%] rounded-md px-3 py-2 text-sm leading-relaxed ${
-                                  isUser ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'
+                                  isUser ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-[#30324e] text-gray-900 dark:text-[#d5d8df]'
                                 }`}
                               >
                                 <div className="prose prose-sm max-w-none whitespace-pre-wrap">
@@ -2250,7 +2165,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                         })}
                         {chatStreaming && (
                           <div className="flex justify-start">
-                            <div className="max-w-[75%] rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
+                            <div className="max-w-[75%] rounded-md bg-gray-100 dark:bg-[#30324e] px-3 py-2 text-sm text-gray-700 dark:text-[#d5d8df]">
                               Generating response...
                             </div>
                           </div>
@@ -2260,7 +2175,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     <div ref={chatEndRef} />
                   </div>
 
-                  <form onSubmit={handleChatSubmit} className="border-t border-gray-200 px-4 py-2">
+                  <form onSubmit={handleChatSubmit} className="border-t border-gray-200 dark:border-[#4b4e69] px-4 py-2">
                     <div className="flex items-center bg-white">
                       <textarea
                         value={chatInput}
@@ -2268,7 +2183,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                         placeholder="Type your question"
                         rows={2}
                         disabled={chatStreaming}
-                        className="w-full resize-none border-0 px-3 py-2 text-sm text-gray-900 focus:outline-none"
+                        className="w-full resize-none border-0 px-3 py-2 text-sm text-gray-900 dark:text-[#d5d8df] focus:outline-none"
                       />
                       <div className="border-l border-transparent px-2 py-2">
                         <Button
@@ -2295,8 +2210,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900">Internal Candidates</h3>
-                <p className="mt-2 text-sm text-gray-500">
+                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">Internal Candidates</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">
                   Search the knowledge base to find candidates whose skills and experience match this position.
                 </p>
                 <div className="mt-6">
@@ -2322,16 +2237,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                         </svg>
                       </div>
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Searching Knowledge Base</h4>
-                    <p className="text-gray-600">AI is analyzing resumes to find the best matches...</p>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-[#d5d8df] mb-2">Searching Knowledge Base</h4>
+                    <p className="text-gray-600 dark:text-[#9699a6]">AI is analyzing resumes to find the best matches...</p>
                   </div>
                 ) : searchError ? (
                   <div className="text-center py-12">
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900">Search Failed</h3>
-                    <p className="mt-2 text-sm text-gray-500">{searchError}</p>
+                    <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">Search Failed</h3>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">{searchError}</p>
                     <div className="mt-6">
                       <Button onClick={handleSearchPotentialCandidates} size="small" kind="primary">
                         Try Again
@@ -2341,7 +2256,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 ) : (
                   <div>
                     <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-base font-semibold text-gray-900">Internal Candidates</h3>
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-[#d5d8df]">Internal Candidates</h3>
                       <button
                         onClick={handleSearchPotentialCandidates}
                         className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors"
@@ -2355,15 +2270,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     </div>
 
                     {geminiResponse && (
-                      <div style={{
-                        border: '1px solid #ddd',
-                        borderRadius: '0px',
-                        padding: '16px',
-                        marginBottom: '24px',
-                        background: '#f9fafb',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                      }}>
-                        <div className="prose prose-sm max-w-none" style={{ fontSize: '14px', lineHeight: '1.6', color: '#555' }}>
+                      <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-6 bg-gray-50 dark:bg-[#181b34] shadow-sm">
+                        <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-[#d5d8df]">
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
@@ -2380,7 +2288,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                 <p className="my-2" {...props} />
                               ),
                               strong: ({ ...props }) => (
-                                <strong className="font-bold text-gray-900" {...props} />
+                                <strong className="font-bold text-gray-900 dark:text-[#d5d8df]" {...props} />
                               ),
                               table: ({ ...props }) => (
                                 <div className="overflow-x-auto my-4">
@@ -2388,19 +2296,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                 </div>
                               ),
                               thead: ({ ...props }) => (
-                                <thead className="bg-gray-100" {...props} />
+                                <thead className="bg-gray-100 dark:bg-[#30324e]" {...props} />
                               ),
                               tbody: ({ ...props }) => (
                                 <tbody className="divide-y divide-gray-200 bg-white" {...props} />
                               ),
                               tr: ({ ...props }) => (
-                                <tr className="hover:bg-gray-50" {...props} />
+                                <tr className="hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]" {...props} />
                               ),
                               th: ({ ...props }) => (
-                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 border-r border-gray-300 last:border-r-0" {...props} />
+                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 dark:text-[#d5d8df] border-r border-gray-300 last:border-r-0" {...props} />
                               ),
                               td: ({ ...props }) => (
-                                <td className="px-4 py-2 text-sm text-gray-700 border-r border-gray-300 last:border-r-0" {...props} />
+                                <td className="px-4 py-2 text-sm text-gray-700 dark:text-[#d5d8df] border-r border-gray-300 last:border-r-0" {...props} />
                               ),
                             }}
                           >
@@ -2412,7 +2320,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
                     <div className="space-y-4">
                       {/* Action Bar */}
-                      <div className="flex flex-wrap items-start justify-between gap-3 bg-gray-50 p-3 border border-gray-200">
+                      <div className="flex flex-wrap items-start justify-between gap-3 bg-gray-50 dark:bg-[#181b34] p-3 border border-gray-200 dark:border-[#4b4e69]">
                         <div className="flex items-center space-x-4 text-sm mt-1">
                           <button
                             onClick={handleSelectAllPotential}
@@ -2420,7 +2328,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                           >
                             {selectedPotentialFiles.size === potentialCandidates.length && potentialCandidates.length > 0 ? 'Deselect All' : 'Select All'}
                           </button>
-                          <span className="text-gray-600">
+                          <span className="text-gray-600 dark:text-[#9699a6]">
                             {selectedPotentialFiles.size} selected
                           </span>
                         </div>
@@ -2457,14 +2365,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                       </div>
 
                       {/* File List */}
-                      <div className="bg-white border border-gray-200 overflow-hidden">
+                      <div className="bg-white dark:bg-[#30324e] border border-gray-200 dark:border-[#4b4e69] overflow-hidden">
                         {potentialCandidates.map((candidate, index) => {
                           const isSelected = selectedPotentialFiles.has(candidate.filename);
                           return (
                             <div
                               key={index}
                               onClick={() => handlePotentialFileToggle(candidate.filename)}
-                              className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                              className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]'}`}
                             >
                               <div className="flex items-center space-x-3 flex-1 overflow-hidden">
                                 <div className="flex-shrink-0 pointer-events-none">
@@ -2482,18 +2390,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
-                                        className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline truncate"
+                                        className="text-sm font-medium text-gray-900 dark:text-[#d5d8df] hover:text-blue-600 hover:underline truncate"
                                         title={candidate.filename}
                                       >
                                         {candidate.filename}
                                       </a>
                                     ) : (
-                                      <span className="text-sm font-medium text-gray-900 truncate" title={candidate.filename}>{candidate.filename}</span>
+                                      <span className="text-sm font-medium text-gray-900 dark:text-[#d5d8df] truncate" title={candidate.filename}>{candidate.filename}</span>
                                     )}
                                     {getFileIcon(candidate.filename)}
                                   </div>
                                   {/* Placeholder for metadata to match height/spacing if needed, or actual metadata if we have it */}
-                                  <div className="text-xs text-gray-500 flex items-center gap-2">
+                                  <div className="text-xs text-gray-500 dark:text-[#9699a6] flex items-center gap-2">
                                     <span>Potential Match</span>
                                   </div>
                                 </div>
@@ -2527,8 +2435,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         {activeTab === 'external-candidates' && (
           <div className="p-6">
             {/* Search Form - Always visible */}
-            <h4 className="text-base font-semibold text-gray-900 mb-3">LinkedIn Search Query</h4>
-            <div className="bg-gray-50 border border-gray-200 p-4 mb-6">
+            <h4 className="text-base font-semibold text-gray-900 dark:text-[#d5d8df] mb-3">LinkedIn Search Query</h4>
+            <div className="bg-gray-50 dark:bg-[#181b34] border border-gray-200 dark:border-[#4b4e69] p-4 mb-6">
               <div className="flex flex-wrap items-end gap-8">
                 <div className="min-w-64 max-w-md" style={{ width: `${Math.max(256, externalSearchRole.length * 9 + 24)}px` }}>
                   <TextField
@@ -2582,7 +2490,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 </div>
               </div>
               {externalSearchRole && (
-                <p className="mt-3 text-xs text-gray-500">
+                <p className="mt-3 text-xs text-gray-500 dark:text-[#9699a6]">
                   Query: site:linkedin.com/in "{externalSearchRole}"{externalSearchLocation ? ` ${externalSearchLocation}` : ''}
                 </p>
               )}
@@ -2594,7 +2502,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                 </svg>
-                <p className="mt-4 text-sm text-gray-500">
+                <p className="mt-4 text-sm text-gray-500 dark:text-[#9699a6]">
                   Click "Extract" to get suggested role and location from the job description, then click "Search".
                 </p>
               </div>
@@ -2610,19 +2518,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                         </svg>
                       </div>
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">Searching LinkedIn</h4>
-                    <p className="text-gray-600">Finding matching profiles...</p>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-[#d5d8df] mb-2">Searching LinkedIn</h4>
+                    <p className="text-gray-600 dark:text-[#9699a6]">Finding matching profiles...</p>
                   </div>
                 ) : externalSearchError && externalCandidates.length === 0 ? (
                   <div className="text-center py-8">
                     <svg className="mx-auto h-12 w-12 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="mt-4 text-sm text-gray-500">{externalSearchError}</p>
+                    <p className="mt-4 text-sm text-gray-500 dark:text-[#9699a6]">{externalSearchError}</p>
                   </div>
                 ) : (
                   <div>
-                    <div className="mb-4 text-sm text-gray-600">
+                    <div className="mb-4 text-sm text-gray-600 dark:text-[#9699a6]">
                       Found {externalCandidates.length} LinkedIn profile{externalCandidates.length !== 1 ? 's' : ''}
                     </div>
 
@@ -2632,12 +2540,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                         <div
                           key={profile.linkedinId || index}
                           onClick={() => handleOpenReachOut(profile)}
-                          className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col h-[207px] overflow-hidden"
+                          className="bg-white dark:bg-[#30324e] border-l-4 border-l-blue-500 dark:border-l-blue-400 border border-gray-200 dark:border-[#4b4e69] p-4 hover:bg-blue-50 dark:hover:bg-[#323861] hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col h-[207px] overflow-hidden"
                         >
                           {/* Header: Name and LinkedIn icon */}
                           <div className="flex justify-between items-start mb-2">
                             <div className="flex-1 min-w-0 pr-2">
-                              <h4 className="font-semibold text-gray-900 text-base truncate" title={profile.name || profile.title}>
+                              <h4 className="font-semibold text-gray-900 dark:text-[#d5d8df] text-base truncate" title={profile.name || profile.title}>
                                 {profile.name || profile.linkedinId}
                               </h4>
                             </div>
@@ -2648,14 +2556,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
                           {/* Headline */}
                           {profile.headline && (
-                            <p className="text-sm text-gray-700 mb-2 line-clamp-2" title={profile.headline}>
+                            <p className="text-sm text-gray-700 dark:text-[#d5d8df] mb-2 line-clamp-2" title={profile.headline}>
                               {profile.headline}
                             </p>
                           )}
 
                           {/* Location */}
                           {profile.location && (
-                            <div className="flex items-center gap-1 mb-2 text-xs text-gray-500">
+                            <div className="flex items-center gap-1 mb-2 text-xs text-gray-500 dark:text-[#9699a6]">
                               <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -2666,23 +2574,23 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
                           {/* Snippet */}
                           {profile.snippet && (
-                            <p className="text-xs text-gray-500 line-clamp-3 flex-grow" title={profile.snippet}>
+                            <p className="text-xs text-gray-500 dark:text-[#9699a6] line-clamp-3 flex-grow" title={profile.snippet}>
                               {profile.snippet}
                             </p>
                           )}
 
                           {/* Footer */}
-                          <div className="border-t border-gray-100 pt-3 mt-auto">
+                          <div className="border-t border-gray-100 dark:border-[#4b4e69] pt-3 mt-auto">
                             <div className="flex items-center justify-between gap-2">
                               <span
                                 className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 ${
                                   profile.outreach_status === 'message_sent'
-                                    ? 'bg-green-100 text-green-800'
+                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
                                     : profile.outreach_status === 'connection_sent'
-                                      ? 'bg-blue-100 text-blue-800'
+                                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
                                       : profile.outreach_status === 'failed'
-                                        ? 'bg-red-100 text-red-800'
-                                        : 'bg-gray-100 text-gray-600'
+                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
+                                        : 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]'
                                 }`}
                               >
                                 {profile.outreach_status === 'message_sent'
@@ -2730,7 +2638,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         <NextModalBasicLayout>
           <NextModalHeader
             title={
-              <span id="reach-out-modal-title" className="text-base font-semibold text-gray-700">
+              <span id="reach-out-modal-title" className="text-base font-semibold text-gray-700 dark:text-[#d5d8df]">
                 Reach out on LinkedIn
               </span>
             }
@@ -2740,7 +2648,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               {isNotContacted && (
                 <>
                   {reachOutStatus === 'failed' && (
-                    <div className="text-xs text-red-600">
+                    <div className="text-xs text-red-600 dark:text-red-400">
                       Last attempt failed. You can try again.
                     </div>
                   )}
@@ -2770,7 +2678,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
               {reachOutStatus === 'connection_sent' && (
                 <>
-                  <div className="text-center py-2 text-sm text-gray-600">
+                  <div className="text-center py-2 text-sm text-gray-600 dark:text-[#9699a6]">
                     Connection request pending acceptance.
                   </div>
                   {renderLinkedInCredentialFields(false, false)}
@@ -2793,7 +2701,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
               {reachOutStatus === 'message_sent' && (
                 <div className="flex flex-col h-[560px]">
                   <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 dark:text-[#9699a6]">
                       Last synced: {formatLastSynced(conversation?.lastSyncedAt)}
                     </span>
                     <IconButton
@@ -2809,10 +2717,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   </div>
                   <div className="flex-1 overflow-y-auto py-4 space-y-3">
                     {loadingConversation && (
-                      <div className="text-sm text-gray-500">Loading conversation...</div>
+                      <div className="text-sm text-gray-500 dark:text-[#9699a6]">Loading conversation...</div>
                     )}
                     {!loadingConversation && (!conversation || conversation.messages.length === 0) && (
-                      <div className="text-sm text-gray-500">No conversation history yet.</div>
+                      <div className="text-sm text-gray-500 dark:text-[#9699a6]">No conversation history yet.</div>
                     )}
                     {!loadingConversation && conversation?.messages.map((msg, index) => (
                       <div
@@ -2820,8 +2728,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                         className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
-                          className={`max-w-[75%] px-3 py-2 text-sm rounded text-gray-900 ${
-                            msg.sender === 'user' ? 'bg-gray-300' : 'bg-gray-100'
+                          className={`max-w-[75%] px-3 py-2 text-sm rounded text-gray-900 dark:text-[#d5d8df] ${
+                            msg.sender === 'user' ? 'bg-gray-300' : 'bg-gray-100 dark:bg-[#30324e]'
                           }`}
                         >
                           <div className="whitespace-pre-wrap">{msg.content}</div>

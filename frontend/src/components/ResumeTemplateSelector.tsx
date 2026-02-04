@@ -151,7 +151,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
   );
 
   return (
-    <div className="bg-gray-50 p-5 mt-5">
+    <div className="bg-gray-50 dark:bg-[#181b34] p-5 mt-5">
       <Heading type="h3" className="mb-5 text-gray-800">Generate Improved Resume</Heading>
 
       {error && (
@@ -162,7 +162,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
 
       {/* Template Selection */}
       <div className="mb-5">
-        <Text type="text1" weight="bold" className="mb-3 text-gray-600 block">
+        <Text type="text1" weight="bold" className="mb-3 text-gray-600 dark:text-[#9699a6] block">
           Select Templates:
         </Text>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -171,7 +171,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
               key={template.id}
               className={`
                 p-4 border-2 bg-white transition-all
-                ${selectedTemplates.has(template.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}
+                ${selectedTemplates.has(template.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 dark:border-[#4b4e69]'}
                 ${template.available ? 'cursor-pointer hover:border-blue-300' : 'opacity-50 cursor-not-allowed'}
               `}
               onClick={() => handleTemplateToggle(template.id, template.available)}
@@ -189,7 +189,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
                       <img
                         src={template.preview_image}
                         alt={`${template.name} preview`}
-                        className="w-full h-auto border border-gray-200"
+                        className="w-full h-auto border border-gray-200 dark:border-[#4b4e69]"
                       />
                     </div>
                   )}
@@ -201,7 +201,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
                       {template.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600"
+                          className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 dark:text-[#9699a6]"
                         >
                           {tag}
                         </span>
@@ -219,7 +219,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
           ))}
         </div>
         {selectedTemplates.size > 0 && (
-          <Text type="text2" className="mt-2 text-gray-500">
+          <Text type="text2" className="mt-2 text-gray-500 dark:text-[#9699a6]">
             {selectedTemplates.size} template{selectedTemplates.size > 1 ? 's' : ''} selected
           </Text>
         )}
@@ -228,7 +228,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
       {/* Format Selection */}
       {hasAvailableTemplates && selectedTemplates.size > 0 && (
         <div className="mb-5">
-          <Text type="text1" weight="bold" className="mb-3 text-gray-600 block">
+          <Text type="text1" weight="bold" className="mb-3 text-gray-600 dark:text-[#9699a6] block">
             Output Format:
           </Text>
           <ButtonGroup
@@ -249,7 +249,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
             size="small"
             areLabelsHidden
           />
-          <Text type="text2" className="text-gray-600">
+          <Text type="text2" className="text-gray-600 dark:text-[#9699a6]">
             Save to SharePoint (job position folder)
           </Text>
         </Flex>
@@ -263,7 +263,7 @@ const ResumeTemplateSelector: React.FC<ResumeTemplateSelectorProps> = ({
             size="medium"
             barStyle="positive"
           />
-          <Text type="text2" className="mt-2 text-center text-gray-600">
+          <Text type="text2" className="mt-2 text-center text-gray-600 dark:text-[#9699a6]">
             {currentTemplate && `Generating ${currentTemplate}... `}
             {Math.round(progress)}%
           </Text>

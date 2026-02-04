@@ -179,11 +179,11 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
   }, [groupedCandidate.candidates]);
 
   const getScoreColor = (score: number): string => {
-    if (score >= 90) return 'text-green-600 bg-green-100';
-    if (score >= 80) return 'text-green-600 bg-green-50';
-    if (score >= 70) return 'text-yellow-600 bg-yellow-50';
-    if (score >= 60) return 'text-orange-600 bg-orange-50';
-    return 'text-red-600 bg-red-50';
+    if (score >= 90) return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30';
+    if (score >= 80) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
+    if (score >= 70) return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
+    if (score >= 60) return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
+    return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
   };
 
   const formatCreatedBy = (createdBy?: string) => {
@@ -198,21 +198,21 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
   const getVerificationBadge = (): { label: string; style: string } => {
     const status = verificationResult?.overall_verification_status;
     if (!verificationResult) {
-      return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+      return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
     }
     switch (status) {
       case 'verified':
-        return { label: 'Verified', style: 'bg-green-100 text-green-800' };
+        return { label: 'Verified', style: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' };
       case 'partially_verified':
-        return { label: 'Partially Verified', style: 'bg-yellow-100 text-yellow-800' };
+        return { label: 'Partially Verified', style: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' };
       case 'contradicted':
-        return { label: 'Verification Denied', style: 'bg-red-100 text-red-800' };
+        return { label: 'Verification Denied', style: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400' };
       case 'limited_information':
-        return { label: 'Limited Verification Info', style: 'bg-yellow-100 text-yellow-800' };
+        return { label: 'Limited Verification Info', style: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' };
       case 'no_information_found':
-        return { label: 'No Verification Info', style: 'bg-gray-100 text-gray-600' };
+        return { label: 'No Verification Info', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
       default:
-        return { label: 'Verification Pending', style: 'bg-gray-100 text-gray-600' };
+        return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
     }
   };
 
@@ -294,80 +294,40 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
     return map[key] || Label.colors.AMERICAN_GRAY;
   };
 
-  const getVerificationCardTint = (status: string): React.CSSProperties => {
+  const getVerificationCardTint = (status: string): string => {
     switch (normalizeVerificationStatus(status)) {
       case 'verified':
-        return { background: '#f0fff4', border: '1px solid #9ae6b4' };
+        return 'bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700';
       case 'partially_verified':
-        return { background: '#fffaf0', border: '1px solid #fbd38d' };
+        return 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700';
       case 'contradicted':
-        return { background: '#fff5f5', border: '1px solid #feb2b2' };
+        return 'bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700';
       default:
-        return { background: '#f8f9fa', border: '1px solid #e2e8f0' };
+        return 'bg-gray-50 dark:bg-[#181b34] border border-gray-200 dark:border-[#4b4e69]';
     }
   };
 
-  const cardStyle: React.CSSProperties = {
-    border: '1px solid #ddd',
-    borderRadius: '0px',
-    padding: '16px',
-    marginBottom: '12px',
-    background: 'white',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  };
-
-  const cardHeaderStyle: React.CSSProperties = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '12px',
-    marginBottom: '12px',
-  };
-
-  const cardTitleStyle: React.CSSProperties = {
-    margin: 0,
-    fontWeight: 600,
-    color: '#333',
-    fontSize: '14px',
-    lineHeight: '1.4',
-  };
-
-  const blockStyle: React.CSSProperties = {
-    border: '1px solid #e2e8f0',
-    borderRadius: '0px',
-    padding: '12px',
-    background: 'white',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-  };
-
-  const sectionLabelStyle: React.CSSProperties = {
-    margin: '0 0 6px 0',
-    fontSize: '12px',
-    fontWeight: 600,
-    color: '#4a5568',
-  };
-
-  const bodyTextStyle: React.CSSProperties = {
-    margin: 0,
-    fontSize: '14px',
-    lineHeight: '1.5',
-    color: '#555',
-    whiteSpace: 'pre-wrap',
-  };
+  // Converted inline styles to Tailwind classes for dark mode support
+  const cardStyle = "border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-white dark:bg-[#30324e] shadow-sm";
+  const cardHeaderStyle = "flex justify-between items-start gap-3 mb-3";
+  const cardTitleStyle = "m-0 font-semibold text-gray-900 dark:text-[#d5d8df] text-sm leading-snug";
+  const blockStyle = "border border-gray-200 dark:border-[#4b4e69] p-3 bg-white dark:bg-[#30324e] shadow-sm";
+  const sectionLabelStyle = "mb-1.5 text-xs font-semibold text-gray-600 dark:text-[#9699a6]";
+  const bodyTextStyle = "m-0 text-sm leading-normal text-gray-700 dark:text-[#d5d8df] whitespace-pre-wrap";
 
   const structuredClaims = verificationResult?.claim_verifications || [];
 
   return (
     <div className="bg-white shadow">
       {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-4">
+      <div className="border-b border-gray-200 dark:border-[#4b4e69] px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3 flex-1">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-[#d5d8df]">
                 {groupedCandidate.name}
               </h2>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-[#9699a6]">
                 {groupedCandidate.candidates.length} resume{groupedCandidate.candidates.length !== 1 ? 's' : ''} across {groupedCandidate.jobCount} job{groupedCandidate.jobCount !== 1 ? 's' : ''}
               </p>
               <div className="mt-2 flex items-center gap-2">
@@ -390,7 +350,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
           </div>
           <div className="text-center flex-1 flex flex-col items-center">
             <RadialProgress score={groupedCandidate.bestScore} size={96} strokeWidth={10} />
-            <div className="text-xs text-gray-500 mt-2">Best Score</div>
+            <div className="text-xs text-gray-500 dark:text-[#9699a6] mt-2">Best Score</div>
           </div>
           <div className="flex justify-end flex-1 items-center gap-2">
             <Button
@@ -422,13 +382,13 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
       )}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 dark:border-[#4b4e69]">
         <nav className="-mb-px flex items-center gap-2">
           <button
             onClick={() => setActiveTab('resumes')}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'resumes'
               ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#4b4e69]'
               }`}
           >
             {`Resumes (${groupedCandidate.candidates.length})`}
@@ -437,7 +397,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
             onClick={() => setActiveTab('jobs')}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'jobs'
               ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#4b4e69]'
               }`}
           >
             {`Jobs (${candidateJobs.length})`}
@@ -446,7 +406,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
             onClick={() => setActiveTab('verification')}
             className={`py-2 px-4 text-sm font-medium ${activeTab === 'verification'
               ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#4b4e69]'
               }`}
           >
             Verification
@@ -468,7 +428,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
           <div className="space-y-4">
             {candidateJobs.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-500">No jobs found for this candidate.</p>
+                <p className="text-gray-500 dark:text-[#9699a6]">No jobs found for this candidate.</p>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -483,11 +443,11 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                     <div
                       key={job.id}
                       onClick={() => onJobSelect(job)}
-                      className="bg-white border border-gray-200 p-4 hover:bg-gray-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md"
+                      className="bg-white dark:bg-[#30324e] border border-gray-200 dark:border-[#4b4e69] p-4 hover:bg-gray-50 dark:hover:bg-[#3a3d5c] hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md"
                     >
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1 min-w-0 pr-2">
-                          <h4 className="font-semibold text-gray-900 text-base truncate" title={job.title}>
+                          <h4 className="font-semibold text-gray-900 dark:text-[#d5d8df] text-base truncate" title={job.title}>
                             {job.title}
                           </h4>
                           <div className="mt-2 flex flex-wrap gap-1">
@@ -530,18 +490,18 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="space-y-2 text-xs text-gray-500">
+                      <div className="space-y-2 text-xs text-gray-500 dark:text-[#9699a6]">
                         <div className="flex justify-between">
                           <span>Resumes submitted:</span>
-                          <span className="font-medium text-gray-700">{scoreInfo.resumeCount}</span>
+                          <span className="font-medium text-gray-700 dark:text-[#d5d8df]">{scoreInfo.resumeCount}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Created:</span>
-                          <span className="font-medium text-gray-700">{new Date(job.created_at).toLocaleDateString()}</span>
+                          <span className="font-medium text-gray-700 dark:text-[#d5d8df]">{new Date(job.created_at).toLocaleDateString()}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Created by:</span>
-                          <span className="font-medium text-gray-700" title={createdByTitle}>
+                          <span className="font-medium text-gray-700 dark:text-[#d5d8df]" title={createdByTitle}>
                             {createdByLabel}
                           </span>
                         </div>
@@ -589,11 +549,11 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                 </div>
 
                 {/* Summary */}
-                <div className="requirement-card" style={{ ...cardStyle, ...getVerificationCardTint(verificationResult.overall_verification_status) }}>
-                  <div style={cardHeaderStyle}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <h5 style={cardTitleStyle}>Web Verification</h5>
+                <div className={`requirement-card ${cardStyle} ${getVerificationCardTint(verificationResult.overall_verification_status)}`}>
+                  <div className={cardHeaderStyle}>
+                    <div className="flex flex-col gap-1.5 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h5 className={cardTitleStyle}>Web Verification</h5>
                         <Label
                           id="verification-overall-status"
                           text={getVerificationStatusLabel(verificationResult.overall_verification_status)}
@@ -609,18 +569,18 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                           className="!rounded-none"
                         />
                       </div>
-                      <div className="text-sm text-gray-600">{verificationResult.candidate_name || groupedCandidate.name}</div>
+                      <div className="text-sm text-gray-600 dark:text-[#9699a6]">{verificationResult.candidate_name || groupedCandidate.name}</div>
                     </div>
                   </div>
 
                   {verificationResult.verification_summary && (
-                    <div style={{ ...blockStyle, background: '#f8f9fa' }}>
-                      <p style={bodyTextStyle}>{verificationResult.verification_summary}</p>
+                    <div className={`${blockStyle} bg-gray-50 dark:bg-[#181b34]`}>
+                      <p className={bodyTextStyle}>{verificationResult.verification_summary}</p>
                     </div>
                   )}
 
-                  <div className="mt-4" style={blockStyle}>
-                    <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-3 text-sm text-gray-600">
+                  <div className={`mt-4 ${blockStyle}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-3 text-sm text-gray-600 dark:text-[#9699a6]">
                       <div className="flex items-center gap-2">
                         <span>Claims</span>
                         <Label
@@ -670,8 +630,8 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
 
                 {/* Online Presence */}
                 <div className="requirement-card" style={cardStyle}>
-                  <div style={cardHeaderStyle}>
-                    <h5 style={cardTitleStyle}>Online Presence</h5>
+                  <div className={cardHeaderStyle}>
+                    <h5 className={cardTitleStyle}>Online Presence</h5>
                     <Label
                       id="presence-level"
                       text={verificationResult.online_presence?.presence_level || '-'}
@@ -682,16 +642,16 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                   </div>
 
                   {verificationResult.online_presence?.summary && (
-                    <div style={blockStyle}>
-                      <p style={bodyTextStyle}>{verificationResult.online_presence.summary}</p>
+                    <div className={blockStyle}>
+                      <p className={bodyTextStyle}>{verificationResult.online_presence.summary}</p>
                     </div>
                   )}
 
                   {verificationResult.online_presence?.profiles && verificationResult.online_presence.profiles.length > 0 && (
-                    <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div className="mt-3 flex flex-col gap-2.5">
                       {verificationResult.online_presence.profiles.map((profile, idx) => (
-                        <div key={idx} style={blockStyle}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <div key={idx} className={blockStyle}>
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Label
                               id={`profile-type-${idx}`}
                               text={profile.type}
@@ -707,17 +667,17 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                               className="!rounded-none"
                             />
                           </div>
-                          <div style={{ marginTop: '8px' }}>
+                          <div className="mt-2">
                             <a
                               href={profile.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 hover:text-blue-800 hover:underline break-all text-sm"
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline break-all text-sm"
                             >
                               {profile.title || profile.url}
                             </a>
                           </div>
-                          {profile.notes && <div className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">{profile.notes}</div>}
+                          {profile.notes && <div className="text-sm text-gray-700 dark:text-[#d5d8df] mt-2 whitespace-pre-wrap">{profile.notes}</div>}
                         </div>
                       ))}
                     </div>
@@ -726,9 +686,9 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
 
                 {/* Identity Resolution */}
                 <div className="requirement-card" style={cardStyle}>
-                  <div style={cardHeaderStyle}>
-                    <h5 style={cardTitleStyle}>Identity Resolution</h5>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <div className={cardHeaderStyle}>
+                    <h5 className={cardTitleStyle}>Identity Resolution</h5>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Label
                         id="identity-status"
                         text={verificationResult.identity_resolution?.status || '-'}
@@ -746,10 +706,10 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                     </div>
                   </div>
 
-                  <div style={blockStyle}>
-                    <p style={bodyTextStyle}>{verificationResult.identity_resolution?.reason || 'No details available'}</p>
+                  <div className={blockStyle}>
+                    <p className={bodyTextStyle}>{verificationResult.identity_resolution?.reason || 'No details available'}</p>
                     {verificationResult.identity_resolution?.signals && verificationResult.identity_resolution.signals.length > 0 && (
-                      <div className="text-xs text-gray-600 mt-2">
+                      <div className="text-xs text-gray-600 dark:text-[#9699a6] mt-2">
                         Signals: {verificationResult.identity_resolution.signals.join(', ')}
                       </div>
                     )}
@@ -759,8 +719,8 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                 {/* Claims */}
                 {structuredClaims.length > 0 && (
                   <div className="requirement-card" style={cardStyle}>
-                    <div style={cardHeaderStyle}>
-                      <h5 style={cardTitleStyle}>Claims</h5>
+                    <div className={cardHeaderStyle}>
+                      <h5 className={cardTitleStyle}>Claims</h5>
                       <Label
                         id="claims-count"
                         text={`${structuredClaims.length} items`}
@@ -770,14 +730,14 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                       />
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="flex flex-col gap-3">
                       {structuredClaims.slice(0, 5).map((claim) => (
-                        <div key={claim.id} style={blockStyle}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-                            <div style={{ flex: 1, minWidth: '220px' }}>
-                              <div style={{ fontSize: '14px', fontWeight: 600, color: '#2d3748' }}>{claim.claim}</div>
+                        <div key={claim.id} className={blockStyle}>
+                          <div className="flex justify-between items-start gap-3 flex-wrap">
+                            <div className="flex-1 min-w-[220px]">
+                              <div className="text-sm font-semibold text-gray-800 dark:text-[#d5d8df]">{claim.claim}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            <div className="flex gap-2 flex-wrap justify-end">
                               <Label
                                 id={`claim-status-${claim.id}`}
                                 text={getVerificationStatusLabel(claim.verification_status)}
@@ -794,11 +754,11 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                               />
                             </div>
                           </div>
-                          {claim.reason && <div className="text-sm text-gray-700 mt-3 whitespace-pre-wrap">{claim.reason}</div>}
+                          {claim.reason && <div className="text-sm text-gray-700 dark:text-[#d5d8df] mt-3 whitespace-pre-wrap">{claim.reason}</div>}
                         </div>
                       ))}
                       {structuredClaims.length > 5 && (
-                        <div className="text-sm text-gray-500 text-center">
+                        <div className="text-sm text-gray-500 dark:text-[#9699a6] text-center">
                           + {structuredClaims.length - 5} more claims. View full details in resume analysis.
                         </div>
                       )}
@@ -808,8 +768,8 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
 
                 {/* Sources */}
                 {verificationResult.sources && verificationResult.sources.length > 0 && (
-                  <div className="pt-2 border-t border-gray-200">
-                    <div className="text-sm font-semibold text-gray-600">Sources Consulted</div>
+                  <div className="pt-2 border-t border-gray-200 dark:border-[#4b4e69]">
+                    <div className="text-sm font-semibold text-gray-600 dark:text-[#9699a6]">Sources Consulted</div>
                     <div className="mt-1 space-y-1 text-sm">
                       {verificationResult.sources.slice(0, 5).map((source, idx) => (
                         <a
@@ -817,7 +777,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                           href={source.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block text-blue-600 hover:text-blue-800 hover:underline break-all"
+                          className="block text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline break-all"
                         >
                           {source.title || source.url}
                         </a>
@@ -828,11 +788,11 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
               </div>
             ) : (
               <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-[#9699a6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900">No Verification Data</h3>
-                <p className="mt-2 text-sm text-gray-500">Run web verification to validate key claims.</p>
+                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">No Verification Data</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">Run web verification to validate key claims.</p>
                 <div className="mt-4">
                   <SplitButton
                     id="verify-empty-split-button"

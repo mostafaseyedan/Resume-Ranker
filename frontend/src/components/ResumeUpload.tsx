@@ -121,8 +121,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
   return (
     <div>
       <div className="mb-6">
-        <h3 className="text-base font-medium text-gray-900 mb-2">Upload Files</h3>
-        <p className="text-sm text-gray-600">
+        <h3 className="text-base font-medium text-gray-900 dark:text-[#d5d8df] mb-2">Upload Files</h3>
+        <p className="text-sm text-gray-600 dark:text-[#9699a6]">
           Upload a PDF or DOCX file and our system will automatically analyze the candidate's qualifications
           against this job position: <strong>{job.title}</strong>
         </p>
@@ -151,8 +151,8 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
-                  <p className="text-xs text-gray-500">{formatFileSize(selectedFile.size)}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-[#d5d8df]">{selectedFile.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-[#9699a6]">{formatFileSize(selectedFile.size)}</p>
                 </div>
                 <Button
                   type="button"
@@ -174,7 +174,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
                     <span className="text-sm text-blue-600 hover:text-blue-500 font-medium">
                       Click to upload
                     </span>
-                    <span className="text-sm text-gray-500"> or drag and drop</span>
+                    <span className="text-sm text-gray-500 dark:text-[#9699a6]"> or drag and drop</span>
                   </label>
                   <input
                     id="resume-file"
@@ -184,7 +184,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
                     onChange={handleFileChange}
                   />
                 </div>
-                <p className="text-xs text-gray-500">PDF, DOCX files up to 10MB</p>
+                <p className="text-xs text-gray-500 dark:text-[#9699a6]">PDF, DOCX files up to 10MB</p>
               </div>
             )}
           </div>
