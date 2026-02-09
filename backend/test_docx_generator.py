@@ -1,10 +1,15 @@
 """
-Test DOCX Generator
-Creates a mock resume DOCX to test the current DOCX generation implementation
+Test DOCX Generator with Badge Generation
+Creates a mock resume DOCX with certification and achievement badges
 """
 import os
 import sys
+import asyncio
 from datetime import date
+
+# Load .env from project root
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env'))
 
 # Add the backend directory to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -20,6 +25,7 @@ from services.resume_models import (
     CertificationEntry
 )
 from services.resume_generator import ResumeGenerator
+from services.badge_service import BadgeService
 
 def create_mock_resume() -> ResumeModel:
     """Create a comprehensive mock resume for testing"""
@@ -235,8 +241,28 @@ def create_mock_resume() -> ResumeModel:
     return resume
 
 
+async def generate_badges(resume: ResumeModel) -> list:
+    """Generate badge images for the resume"""
+    try:
+        badge_service = BadgeService()
+        print("BadgeService initialized, generating badges...")
+        badges = await badge_service.generate_all_badges(resume)
+        print(f"\n{'='*60}")
+        print(f"Generated {len(badges)} badges:")
+        for i, badge in enumerate(badges, 1):
+            print(f"  {i}. [{badge.get('source', 'unknown')}] {badge.get('title', 'N/A')}")
+            print(f"     Image: {badge.get('image_path', 'N/A')}")
+        print(f"{'='*60}\n")
+        return badges
+    except Exception as e:
+        print(f"\nError generating badges: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+
 def main():
-    """Generate test DOCX file"""
+    """Generate test DOCX files with badges"""
     print("Creating mock resume data...")
     resume = create_mock_resume()
 
@@ -258,47 +284,68 @@ def main():
         resume.logo_path = None
         resume.logo_file_path = None
 
-    # Generate DOCX (professional template via direct python-docx)
-    print("Generating DOCX file (professional template - direct python-docx)...")
+    # Generate badges
+    print("\n" + "="*60)
+    print("STEP 1: Generating certification & achievement badges...")
+    print("="*60)
+    badge_images = asyncio.run(generate_badges(resume))
+
+    output_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Generate DOCX (professional template with badges)
+    print("\nSTEP 2: Generating DOCX files with badges...")
+    print("-"*60)
+    print("Generating Professional template...")
     try:
-        docx_bytes = generator.generate_docx_professional_direct(resume)
-
-        output_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            'test_resume_output_professional.docx'
-        )
-
+        docx_bytes = generator.generate_docx_professional_direct(resume, badge_images=badge_images)
+        output_path = os.path.join(output_dir, 'test_resume_output_professional.docx')
         with open(output_path, 'wb') as f:
             f.write(docx_bytes)
-
-        print(f"\nSuccess! Professional DOCX file generated at: {output_path}")
-        print(f"File size: {len(docx_bytes):,} bytes")
-
+        print(f"  ✓ Professional DOCX: {output_path} ({len(docx_bytes):,} bytes)")
     except Exception as e:
-        print(f"\nError generating professional direct DOCX: {e}")
+        print(f"  ✗ Error generating professional DOCX: {e}")
         import traceback
         traceback.print_exc()
 
-    # Generate DOCX (modern template via direct python-docx)
-    print("Generating DOCX file (modern template - direct python-docx)...")
-    try:
-        docx_bytes = generator.generate_docx_modern_direct(resume)
+    # # Generate DOCX (modern template with badges)
+    # print("Generating Modern template...")
+    # try:
+    #     docx_bytes = generator.generate_docx_modern_direct(resume, badge_images=badge_images)
+    #     output_path = os.path.join(output_dir, 'test_resume_output_modern.docx')
+    #     with open(output_path, 'wb') as f:
+    #         f.write(docx_bytes)
+    #     print(f"  ✓ Modern DOCX: {output_path} ({len(docx_bytes):,} bytes)")
+    # except Exception as e:
+    #     print(f"  ✗ Error generating modern DOCX: {e}")
+    #     import traceback
+    #     traceback.print_exc()
 
-        output_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            'test_resume_output_modern.docx'
-        )
+    # # Generate DOCX (minimal template with badges)
+    # print("Generating Minimal template...")
+    # try:
+    #     docx_bytes = generator.generate_docx_minimal_direct(resume, badge_images=badge_images)
+    #     output_path = os.path.join(output_dir, 'test_resume_output_minimal.docx')
+    #     with open(output_path, 'wb') as f:
+    #         f.write(docx_bytes)
+    #     print(f"  ✓ Minimal DOCX: {output_path} ({len(docx_bytes):,} bytes)")
+    # except Exception as e:
+    #     print(f"  ✗ Error generating minimal DOCX: {e}")
+    #     import traceback
+    #     traceback.print_exc()
 
-        with open(output_path, 'wb') as f:
-            f.write(docx_bytes)
+    # Cleanup badge temp files
+    if badge_images:
+        print("\nCleaning up badge temp files...")
+        try:
+            badge_service = BadgeService()
+            badge_service.cleanup_badge_files(badge_images)
+            print("  ✓ Badge files cleaned up")
+        except Exception as e:
+            print(f"  ✗ Cleanup error: {e}")
 
-        print(f"\nSuccess! Modern DOCX file generated at: {output_path}")
-        print(f"File size: {len(docx_bytes):,} bytes")
-
-    except Exception as e:
-        print(f"\nError generating modern direct DOCX: {e}")
-        import traceback
-        traceback.print_exc()
+    print("\n" + "="*60)
+    print("Done! Check the generated DOCX files.")
+    print("="*60)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 from html4docx import HtmlToDocx
@@ -121,7 +121,8 @@ class ResumeGenerator:
         template_name: str = "resume_template_professional.html",
         use_direct_modern: bool = True,
         use_direct_minimal: bool = True,
-        use_direct_professional: bool = True
+        use_direct_professional: bool = True,
+        badge_images: Optional[List[Dict[str, Any]]] = None
     ) -> bytes:
         """
         Generate DOCX from ResumeModel
@@ -138,11 +139,11 @@ class ResumeGenerator:
         """
         try:
             if use_direct_professional and template_name == "resume_template_professional.html":
-                return self.generate_docx_professional_direct(resume_model)
+                return self.generate_docx_professional_direct(resume_model, badge_images=badge_images)
             if use_direct_modern and template_name == "resume_template_modern.html":
-                return self.generate_docx_modern_direct(resume_model)
+                return self.generate_docx_modern_direct(resume_model, badge_images=badge_images)
             if use_direct_minimal and template_name == "resume_template_minimal.html":
-                return self.generate_docx_minimal_direct(resume_model)
+                return self.generate_docx_minimal_direct(resume_model, badge_images=badge_images)
 
             # Convert ResumeModel to dictionary for template rendering
             template_data = resume_model.model_dump()
@@ -235,7 +236,7 @@ class ResumeGenerator:
             logger.error(f"Error generating DOCX: {e}")
             raise Exception(f"Failed to generate resume DOCX: {str(e)}")
 
-    def generate_docx_professional_direct(self, resume_model: ResumeModel) -> bytes:
+    def generate_docx_professional_direct(self, resume_model: ResumeModel, badge_images: Optional[List[Dict[str, Any]]] = None) -> bytes:
         """
         Generate a Professional (Cendien) DOCX directly with python-docx.
 
@@ -693,6 +694,10 @@ class ResumeGenerator:
                     if cert_index < len(resume_model.certifications) - 1:
                         add_spacer(line_spacing=1.0, space_after=0)
 
+            # ==================== CERTIFICATION BADGES ====================
+            if badge_images:
+                self._add_badge_section(document, badge_images, usable_width, add_section_title, colors)
+
             # ==================== FOOTER ====================
             if resume_model.footer:
                 footer = section.footer
@@ -733,7 +738,7 @@ class ResumeGenerator:
             logger.error(f"Error generating professional DOCX: {e}")
             raise Exception(f"Failed to generate professional resume DOCX: {str(e)}")
 
-    def generate_docx_modern_direct(self, resume_model: ResumeModel) -> bytes:
+    def generate_docx_modern_direct(self, resume_model: ResumeModel, badge_images: Optional[List[Dict[str, Any]]] = None) -> bytes:
         """
         Generate a Modern DOCX directly with python-docx (experimental).
 
@@ -1099,6 +1104,10 @@ class ResumeGenerator:
                         format_paragraph(desc_paragraph, line_spacing=1.0, space_before=6, space_after=6)
                         add_text(desc_paragraph, safe_text(cert.description), size=11, color=colors['text'])
 
+            # ==================== CERTIFICATION BADGES ====================
+            if badge_images:
+                self._add_badge_section(document, badge_images, usable_width, add_section_title, colors)
+
             # Save to bytes
             docx_buffer = BytesIO()
             document.save(docx_buffer)
@@ -1115,7 +1124,7 @@ class ResumeGenerator:
             logger.error(f"Error generating modern DOCX: {e}")
             raise Exception(f"Failed to generate modern resume DOCX: {str(e)}")
 
-    def generate_docx_minimal_direct(self, resume_model: ResumeModel) -> bytes:
+    def generate_docx_minimal_direct(self, resume_model: ResumeModel, badge_images: Optional[List[Dict[str, Any]]] = None) -> bytes:
         """
         Generate a Minimal DOCX directly with python-docx (experimental).
 
@@ -1372,6 +1381,11 @@ class ResumeGenerator:
                         format_paragraph(desc_paragraph, line_spacing=1.6, space_after=8)
                         add_text(desc_paragraph, safe_text(cert.description), size=9, color=colors['desc'])
 
+            # ==================== CERTIFICATION BADGES ====================
+            if badge_images:
+                minimal_usable_width = section.page_width - section.left_margin - section.right_margin
+                self._add_badge_section(document, badge_images, minimal_usable_width, add_section_title, colors)
+
             docx_buffer = BytesIO()
             document.save(docx_buffer)
             docx_bytes = docx_buffer.getvalue()
@@ -1386,6 +1400,128 @@ class ResumeGenerator:
         except Exception as e:
             logger.error(f"Error generating minimal DOCX: {e}")
             raise Exception(f"Failed to generate minimal resume DOCX: {str(e)}")
+
+    def _add_badge_section(self, document: Document, badge_images: List[Dict[str, Any]],
+                            usable_width, add_section_title_fn=None, colors=None):
+        """
+        Add a badge section to the DOCX document after certifications.
+
+        Args:
+            document: The python-docx Document
+            badge_images: List of badge dicts with 'title' and 'image_path'
+            usable_width: Available page width
+            add_section_title_fn: Optional function to add section titles
+            colors: Color palette dict
+        """
+        try:
+            from docx.shared import Pt, Inches, RGBColor
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+            if not badge_images:
+                return
+
+            # Filter out badges with missing image files
+            valid_badges = [b for b in badge_images if b.get('image_path') and os.path.exists(b['image_path'])]
+            if not valid_badges:
+                logger.warning("No valid badge images to add to document")
+                return
+
+            # Add spacing before badge section to match other sections
+            pre_spacer = document.add_paragraph()
+            pre_spacer.paragraph_format.space_before = Pt(18)
+            pre_spacer.paragraph_format.space_after = Pt(0)
+
+            # Add section title
+            if add_section_title_fn:
+                add_section_title_fn("Professional Badges")
+            else:
+                # Fallback: add a simple title paragraph
+                title_para = document.add_paragraph()
+                title_para.paragraph_format.space_before = Pt(18)
+                title_para.paragraph_format.space_after = Pt(8)
+                run = title_para.add_run("Professional Badges")
+                run.bold = True
+                run.font.size = Pt(12)
+                if colors and 'text' in colors:
+                    run.font.color.rgb = colors['text']
+
+            # Add a small spacer
+            spacer = document.add_paragraph()
+            spacer.paragraph_format.space_before = Pt(6)
+            spacer.paragraph_format.space_after = Pt(6)
+
+            # Create badge grid: 3 badges per row
+            badges_per_row = 3
+            num_rows = (len(valid_badges) + badges_per_row - 1) // badges_per_row
+
+            badge_table = document.add_table(rows=num_rows, cols=badges_per_row)
+            badge_table.autofit = False
+            col_width = usable_width // badges_per_row
+            for col in badge_table.columns:
+                col.width = col_width
+
+            # Remove all borders from the badge table
+            self._remove_table_borders(badge_table)
+
+            for idx, badge in enumerate(valid_badges):
+                row_idx = idx // badges_per_row
+                col_idx = idx % badges_per_row
+
+                # Add badge image
+                image_cell = badge_table.cell(row_idx, col_idx)
+                self._remove_cell_borders(image_cell)
+                img_para = image_cell.paragraphs[0]
+                img_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                img_para.paragraph_format.space_before = Pt(4)
+                img_para.paragraph_format.space_after = Pt(4)
+
+                try:
+                    run = img_para.add_run()
+                    run.add_picture(badge['image_path'], width=Inches(0.9))
+                except Exception as img_err:
+                    logger.warning(f"Failed to add badge image {badge['image_path']}: {img_err}")
+                    continue
+
+            # Clear any empty cells' borders too
+            for row in badge_table.rows:
+                for cell in row.cells:
+                    self._remove_cell_borders(cell)
+
+            logger.info(f"Added {len(valid_badges)} badge(s) to document")
+
+        except Exception as e:
+            logger.error(f"Error adding badge section to DOCX: {e}")
+            # Don't fail the entire document generation for badge errors
+
+    def _remove_table_borders(self, table):
+        """Remove all borders from a table"""
+        try:
+            from docx.oxml.ns import qn
+            from docx.oxml import OxmlElement
+
+            tbl = table._element
+            tblPr = tbl.find(qn('w:tblPr'))
+            if tblPr is None:
+                tblPr = OxmlElement('w:tblPr')
+                tbl.insert(0, tblPr)
+
+            # Remove existing borders
+            old_borders = tblPr.find(qn('w:tblBorders'))
+            if old_borders is not None:
+                tblPr.remove(old_borders)
+
+            # Set all borders to none
+            tblBorders = OxmlElement('w:tblBorders')
+            for border_name in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
+                border = OxmlElement(f'w:{border_name}')
+                border.set(qn('w:val'), 'none')
+                border.set(qn('w:sz'), '0')
+                border.set(qn('w:color'), 'FFFFFF')
+                border.set(qn('w:space'), '0')
+                tblBorders.append(border)
+            tblPr.append(tblBorders)
+        except Exception as e:
+            logger.warning(f"Could not remove table borders: {e}")
 
     def _remove_leading_empty_paragraphs(self, document: Document):
         """Remove empty paragraphs at the beginning of the document and in table cells"""

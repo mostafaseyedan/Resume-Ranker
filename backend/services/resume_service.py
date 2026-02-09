@@ -1,10 +1,12 @@
 import json
 import logging
 import os
+import asyncio
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime, date
 from .resume_models import ResumeModel, ContactInfo, ExperienceEntry, EducationEntry, SkillEntry, CompetencyEntry, ProjectEntry
 from .resume_generator import ResumeGenerator
+from .badge_service import BadgeService
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
@@ -24,6 +26,11 @@ class ResumeService:
         self.gemini_api_key = gemini_api_key
         self.client = genai.Client(api_key=gemini_api_key)
         self.resume_generator = ResumeGenerator(template_path)
+        try:
+            self.badge_service = BadgeService(gemini_api_key=gemini_api_key)
+        except Exception as e:
+            logger.warning(f"Badge service initialization failed: {e}")
+            self.badge_service = None
 
     def improve_and_generate_pdf(self, candidate_data: Dict, job_data: Dict, company_info: Optional[Dict] = None, template_name: str = "resume_template_professional.html") -> bytes:
         """
@@ -40,8 +47,10 @@ class ResumeService:
         """
         try:
             improved_data, resume_model = self._generate_improved_resume_data(candidate_data, job_data, company_info)
+            badge_images = self._generate_badges(resume_model)
             pdf_bytes = self.resume_generator.generate_pdf(resume_model, template_name=template_name)
 
+            self._cleanup_badges(badge_images)
             logger.info(f"Successfully generated improved resume PDF for {candidate_data.get('name', 'unknown')}")
             return pdf_bytes
 
@@ -64,8 +73,10 @@ class ResumeService:
         """
         try:
             improved_data, resume_model = self._generate_improved_resume_data(candidate_data, job_data, company_info)
-            docx_bytes = self.resume_generator.generate_docx(resume_model, template_name=template_name)
+            badge_images = self._generate_badges(resume_model)
+            docx_bytes = self.resume_generator.generate_docx(resume_model, template_name=template_name, badge_images=badge_images)
 
+            self._cleanup_badges(badge_images)
             logger.info(f"Successfully generated improved resume DOCX for {candidate_data.get('name', 'unknown')}")
             return docx_bytes
 
@@ -79,8 +90,10 @@ class ResumeService:
         """
         try:
             improved_data, resume_model = self._generate_improved_resume_data(candidate_data, job_data, company_info)
+            badge_images = self._generate_badges(resume_model)
             pdf_bytes = self.resume_generator.generate_pdf(resume_model, template_name=template_name)
 
+            self._cleanup_badges(badge_images)
             logger.info(f"Successfully generated improved resume PDF for {candidate_data.get('name', 'unknown')}")
             return pdf_bytes, improved_data
         except Exception as e:
@@ -93,13 +106,43 @@ class ResumeService:
         """
         try:
             improved_data, resume_model = self._generate_improved_resume_data(candidate_data, job_data, company_info)
-            docx_bytes = self.resume_generator.generate_docx(resume_model, template_name=template_name)
+            badge_images = self._generate_badges(resume_model)
+            docx_bytes = self.resume_generator.generate_docx(resume_model, template_name=template_name, badge_images=badge_images)
 
+            self._cleanup_badges(badge_images)
             logger.info(f"Successfully generated improved resume DOCX for {candidate_data.get('name', 'unknown')}")
             return docx_bytes, improved_data
         except Exception as e:
             logger.error(f"Error in improve_and_generate_docx_with_data: {e}")
             raise Exception(f"Failed to generate improved resume: {str(e)}")
+
+    def _generate_badges(self, resume_model: ResumeModel) -> List[Dict]:
+        """Generate badge images for the resume using BadgeService"""
+        if not self.badge_service:
+            return []
+        try:
+            # Run async badge generation synchronously
+            loop = asyncio.new_event_loop()
+            try:
+                badges = loop.run_until_complete(
+                    self.badge_service.generate_all_badges(resume_model)
+                )
+            finally:
+                loop.close()
+            logger.info(f"Generated {len(badges)} badges for resume")
+            return badges
+        except Exception as e:
+            logger.warning(f"Badge generation failed (non-fatal): {e}")
+            return []
+
+    def _cleanup_badges(self, badge_images: List[Dict]):
+        """Clean up temporary badge image files"""
+        if not badge_images or not self.badge_service:
+            return
+        try:
+            self.badge_service.cleanup_badge_files(badge_images)
+        except Exception as e:
+            logger.warning(f"Badge cleanup failed: {e}")
 
     def _generate_improved_resume_data(self, candidate_data: Dict, job_data: Dict, company_info: Optional[Dict]) -> tuple[Dict, ResumeModel]:
         """
