@@ -112,7 +112,7 @@ class BadgeService:
         self.text_model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
         self.badge_width_inches = 1  # Target badge width in resume
         self.badge_px = 500  # Target badge size in pixels
-        self.max_custom_badges = 3
+        self.max_custom_badges = int(os.getenv("MAX_CUSTOM_BADGES", "3"))
 
         logger.info("BadgeService initialized")
 
