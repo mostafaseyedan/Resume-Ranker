@@ -70,25 +70,23 @@ KNOWN_CERTIFICATION_BADGES = {
 }
 
 
-# Chroma key color for background removal
-CHROMA_KEY_COLOR = (0, 255, 0)  # Bright green (#00FF00)
-CHROMA_KEY_HEX = "#00FF00"
-
 BADGE_GENERATION_SYSTEM_INSTRUCTION = """You are a professional certification badge designer.
-You create clean, professional certification and achievement badges similar to AWS and Microsoft Azure certification badges.
+You create clean, professional certification and achievement badges that look exactly like Microsoft Azure certification badges.
 
-STRICT DESIGN RULES:
-- Badge shape: Shield or hexagonal shape (inspired by AWS/Azure certification badges)
-- CANVAS/BACKGROUND: The entire background MUST be solid bright green (#00FF00). This is critical.
-- The badge itself should have a dark charcoal (#1A1A1A) fill inside the shield/hexagon shape
-- THE TITLE TEXT MUST BE CLEARLY READABLE - this is the most important requirement
-- Primary text color: Pure white (#FFFFFF) for maximum contrast
-- Accent color: Red (#E31837) used for decorative borders, thin accent lines, or small elements
-- Typography: Clean, BOLD sans-serif font, centered, LARGE SIZE
-- Split long titles across 2-3 lines so each word is BIG and readable
-- Include minimal decorative elements: thin red border line, small accent dots
-- Professional and corporate look, NO photographs, NO complex illustrations
-- DO NOT use any green (#00FF00) color inside the badge itself
+AZURE BADGE STRUCTURE (follow this layout precisely):
+1. CANVAS: Entire background is solid white (#FFFFFF)
+2. SHIELD SHAPE: Pointed-bottom shield (like Azure badges), filled with a gradient from navy blue (#1B2A4A) at the edges to blue (#2E6AB1) in the center
+3. THIN BORDER: Light silver/gray (#D0D0D0) thin outline around the entire shield
+4. UPPER SECTION (inside shield, top area): A small text reading "CERTIFIED" or similar label in small white text
+5. MIDDLE SECTION (inside shield, center): The MAIN TITLE TEXT in large, bold, white (#FFFFFF) sans-serif font, centered, split across 2-3 lines
+6. LOWER LABEL BANNER: A prominent horizontal silver/gray (#E8E8E8) banner/ribbon that spans across the lower portion of the shield. This banner contains a category or level label (like "ASSOCIATE", "EXPERT", "SPECIALIST") in dark navy text. This banner is the KEY distinguishing feature of Azure badges.
+7. OPTIONAL: Small decorative stars below the label banner
+
+STRICT RULES:
+- THE TITLE TEXT MUST BE CLEARLY READABLE - most important requirement
+- NO red color anywhere
+- NO photographs, NO complex illustrations, NO hexagons
+- Professional and corporate look
 - The badge MUST be readable even when displayed at 1 inch (2.5cm) width
 """
 
@@ -363,21 +361,21 @@ Return a JSON object with this exact structure:
                 title_layout = badge_title
 
             prompt = (
-                f"Create a professional certification-style badge with this title text:\n"
+                f"Create a professional Microsoft Azure-style certification badge with this title text:\n"
                 f"{title_layout}\n\n"
-                f"CRITICAL REQUIREMENTS:\n"
-                f"1. The ENTIRE canvas/background MUST be solid bright green (#00FF00).\n"
-                f"2. The title text MUST be LARGE, BOLD, and CLEARLY READABLE.\n\n"
-                f"Design specs:\n"
-                f"- Shield shape badge on a bright green (#00FF00) background\n"
-                f"- The badge shape itself should have dark charcoal (#1A1A1A) fill\n"
-                f"- Title text in BOLD white (#FFFFFF), large font\n"
-                f"- Red (#E31837) thin border line around the badge edge\n"
-                f"- Minimal decorative elements - keep focus on the text\n"
-                f"- Clean sans-serif typography\n"
-                f"- NO green (#00FF00) anywhere inside the badge itself\n"
-                f"- NO photographs, NO complex illustrations, NO small text\n"
-                f"- Single badge, professional corporate look"
+                f"CRITICAL: Follow this EXACT layout (like a real Microsoft Azure certification badge):\n"
+                f"1. White (#FFFFFF) canvas/background\n"
+                f"2. Pointed-bottom SHIELD shape filled with navy blue (#1B2A4A) to blue (#2E6AB1) gradient\n"
+                f"3. Thin silver/gray outline border around the shield\n"
+                f"4. Small 'CERTIFIED' text at the top inside the shield in white\n"
+                f"5. The MAIN TITLE TEXT in large, bold white font in the center of the shield\n"
+                f"6. A PROMINENT HORIZONTAL SILVER/GRAY LABEL BANNER across the lower portion of the shield - "
+                f"this is a wide rectangular ribbon/banner shape in light gray (#E8E8E8) that spans the width of the shield, "
+                f"containing a category word like 'SPECIALIST' or 'EXPERT' in dark navy text\n"
+                f"7. Small decorative stars below the banner text\n\n"
+                f"This silver/gray horizontal label banner is THE most important visual element that makes it look like an Azure badge.\n"
+                f"NO red, NO hexagons, NO photographs, NO complex illustrations.\n"
+                f"Single badge, clean professional corporate look."
             )
 
             config = types.GenerateContentConfig(
@@ -416,18 +414,14 @@ Return a JSON object with this exact structure:
             logger.error(f"Error generating badge image for '{badge_title}': {e}")
             return None
 
-    def _save_and_resize_badge(self, image_data: bytes, badge_title: str, remove_bg: bool = True) -> Optional[str]:
-        """Save badge image to temp file, optionally remove background, and resize"""
+    def _save_and_resize_badge(self, image_data: bytes, badge_title: str) -> Optional[str]:
+        """Save badge image to temp file and resize"""
         try:
             img = Image.open(BytesIO(image_data))
 
             # Convert to RGBA for transparency support
             if img.mode != 'RGBA':
                 img = img.convert('RGBA')
-
-            # Remove solid background if requested
-            if remove_bg:
-                img = self._remove_background(img)
 
             # Resize maintaining aspect ratio, target width = badge_px
             aspect = img.height / img.width
@@ -452,41 +446,6 @@ Return a JSON object with this exact structure:
         except Exception as e:
             logger.error(f"Error saving/resizing badge image: {e}")
             return None
-
-    def _remove_background(self, img: Image.Image, tolerance: int = 50) -> Image.Image:
-        """
-        Remove bright green (#00FF00) chroma key background from a badge image.
-        Targets the specific green color used in the generation prompt.
-        """
-        try:
-            data = img.getdata()
-            bg_r, bg_g, bg_b = CHROMA_KEY_COLOR  # (0, 255, 0)
-
-            logger.info(f"Removing chroma key green background (tolerance={tolerance})")
-
-            new_data = []
-            removed = 0
-            for pixel in data:
-                r, g, b = pixel[:3]
-                # Check if pixel is close to bright green
-                if (abs(r - bg_r) <= tolerance and
-                    abs(g - bg_g) <= tolerance and
-                    abs(b - bg_b) <= tolerance):
-                    new_data.append((r, g, b, 0))  # fully transparent
-                    removed += 1
-                else:
-                    new_data.append(pixel)
-
-            total = len(data)
-            pct = (removed / total * 100) if total > 0 else 0
-            logger.info(f"Removed {removed}/{total} pixels ({pct:.1f}%) as green background")
-
-            img.putdata(new_data)
-            return img
-
-        except Exception as e:
-            logger.warning(f"Background removal failed, keeping original: {e}")
-            return img
 
     def cleanup_badge_files(self, badges: List[Dict[str, Any]]):
         """Remove temporary badge image files after they've been embedded in the document"""

@@ -6,8 +6,7 @@ class ContactInfo(BaseModel):
     email: EmailStr
     phone: Optional[str] = Field(
         default=None,
-        description="Phone number formatted as (###)-###-####",
-        examples=["(754)-202-5153"]
+        description="Phone number formatted as (###)-###-####, e.g. (754)-202-5153"
     )
     linkedin: Optional[HttpUrl] = None
     github: Optional[HttpUrl] = None
