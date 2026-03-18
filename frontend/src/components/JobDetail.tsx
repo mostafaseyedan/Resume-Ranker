@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Job, Candidate, ChatMessage, apiService } from '../services/apiService';
+import { Job, Candidate, ChatMessage, apiService, ExternalCandidateProfile, EmailThreadMessage } from '../services/apiService';
 import { API_BASE_URL, API_ENDPOINTS } from '../config/apiConfig';
 import { useChat } from 'ai/react';
 import ResumeUpload from './ResumeUpload';
@@ -9,6 +9,8 @@ import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
+import { ReactMultiEmail } from 'react-multi-email';
+import 'react-multi-email/dist/style.css';
 import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label, NumberField, TextField, TextArea, IconButton, Icon } from '@vibe/core';
 import { Modal as NextModal, ModalHeader as NextModalHeader, ModalContent as NextModalContent, ModalBasicLayout as NextModalBasicLayout } from '@vibe/core/next';
 import '@vibe/core/tokens';
@@ -17,6 +19,7 @@ import { Retry, PDF, File as FileIcon, Check } from '@vibe/icons';
 interface JobDetailProps {
   job: Job;
   onJobUpdated?: (updatedJob: Job) => void;
+  initialTab?: 'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates' | 'external-candidates' | 'ai-chat';
 }
 
 // Map Monday.com var_name colors to Vibe Label colors (copied from JobList.tsx)
@@ -185,13 +188,13 @@ const CustomColorStyles = () => {
   );
 };
 
-const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
+const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [selectedGroupCandidates, setSelectedGroupCandidates] = useState<Candidate[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates' | 'external-candidates' | 'ai-chat'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates' | 'external-candidates' | 'ai-chat'>(initialTab || 'candidates');
   const [sharepointFiles, setSharepointFiles] = useState<{ job_files: any[]; resume_files: any[]; sharepoint_link: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loadingSharePoint, setLoadingSharePoint] = useState(false);
@@ -204,7 +207,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [geminiResponse, setGeminiResponse] = useState<string | null>(null);
   // External candidates state (LinkedIn search via Serper.dev)
-  const [externalCandidates, setExternalCandidates] = useState<Array<{ linkedinUrl: string; linkedinId: string; title: string; snippet: string; name?: string; headline?: string; location?: string; outreach_status?: 'message_sent' | 'connection_sent' | 'failed' }>>([]);
+  const [externalCandidates, setExternalCandidates] = useState<ExternalCandidateProfile[]>([]);
   const [searchingExternalCandidates, setSearchingExternalCandidates] = useState(false);
   const [externalSearchError, setExternalSearchError] = useState<string | null>(null);
   const [externalParsedQuery, setExternalParsedQuery] = useState<{ googleQuery?: string; role?: string | null; location?: string | null } | null>(null);
@@ -212,23 +215,23 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   const [externalSearchRole, setExternalSearchRole] = useState<string>('');
   const [externalSearchLocation, setExternalSearchLocation] = useState<string>('');
   const [extractingSearchQuery, setExtractingSearchQuery] = useState(false);
-  const [reachOutOpen, setReachOutOpen] = useState(false);
-  const [reachOutCandidate, setReachOutCandidate] = useState<{ linkedinUrl: string; linkedinId: string; title: string; snippet: string; name?: string; headline?: string; location?: string; outreach_status?: 'message_sent' | 'connection_sent' | 'failed' } | null>(null);
-  const [reachOutUsername, setReachOutUsername] = useState('');
-  const [reachOutPassword, setReachOutPassword] = useState('');
-  const [reachOutMessage, setReachOutMessage] = useState('');
-  const [reachOutSubmitting, setReachOutSubmitting] = useState(false);
-  const [savedLinkedInUsername, setSavedLinkedInUsername] = useState<string | null>(null);
-  const [useSavedLinkedInCredentials, setUseSavedLinkedInCredentials] = useState(false);
-  const [saveLinkedInCredentials, setSaveLinkedInCredentials] = useState(false);
-  const [loadingSavedCredentials, setLoadingSavedCredentials] = useState(false);
-  // Conversation state
-  const [conversation, setConversation] = useState<{ messages: Array<{ sender: 'user' | 'candidate'; content: string; timestamp: string }>; lastSyncedAt?: string } | null>(null);
-  const [loadingConversation, setLoadingConversation] = useState(false);
-  const [replyMessage, setReplyMessage] = useState('');
-  const [generatingFollowup, setGeneratingFollowup] = useState(false);
+  // Email outreach state
+  const [selectedExternalIds, setSelectedExternalIds] = useState<Set<string>>(new Set());
+  const [findingEmails, setFindingEmails] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeCandidate, setComposeCandidate] = useState<ExternalCandidateProfile | null>(null);
+  const [emailToAddresses, setEmailToAddresses] = useState<string[]>([]);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [generatingEmail, setGeneratingEmail] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [threadOpen, setThreadOpen] = useState(false);
+  const [threadCandidate, setThreadCandidate] = useState<ExternalCandidateProfile | null>(null);
+  const [threadMessages, setThreadMessages] = useState<EmailThreadMessage[]>([]);
+  const [fetchingThread, setFetchingThread] = useState(false);
+  const [replySubject, setReplySubject] = useState('');
+  const [replyBody, setReplyBody] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
-  const [checkingConnection, setCheckingConnection] = useState(false);
   const [chatInitialized, setChatInitialized] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -403,46 +406,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, chatStreaming]);
-
-  useEffect(() => {
-    if (!reachOutOpen || !reachOutCandidate) {
-      return;
-    }
-    if (reachOutCandidate.outreach_status !== 'message_sent') {
-      setConversation(null);
-      setReplyMessage('');
-      return;
-    }
-    let cancelled = false;
-    setLoadingConversation(true);
-    apiService.getConversation(job.id, reachOutCandidate.linkedinUrl, { skipConnectionCheck: true })
-      .then((response) => {
-        if (cancelled) {
-          return;
-        }
-        if (response.success && response.conversation) {
-          setConversation({
-            messages: response.conversation.messages || [],
-            lastSyncedAt: response.conversation.last_synced_at,
-          });
-        } else {
-          setConversation({ messages: [] });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setConversation({ messages: [] });
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingConversation(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reachOutOpen, reachOutCandidate, job.id]);
 
   const loadCandidates = async () => {
     try {
@@ -734,324 +697,151 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
     }
   };
 
-  const buildReachOutMessage = (profile: { name?: string; linkedinId: string }) => {
-    const rawName = profile.name || profile.linkedinId || 'there';
-    const candidateFirstName = rawName.split(' ')[0] || rawName;
-    const role = externalParsedQuery?.role || job.title || 'this role';
-    const location = externalParsedQuery?.location;
-    const locationPart = location ? ` in ${location}` : '';
-    return `Hello ${candidateFirstName}, I'm contacting you about the ${role} role${locationPart}. I came across your profile and thought you could be a great fit.`;
+  const handleExternalIdToggle = (linkedinId: string) => {
+    setSelectedExternalIds(prev => {
+      const next = new Set(prev);
+      if (next.has(linkedinId)) next.delete(linkedinId);
+      else next.add(linkedinId);
+      return next;
+    });
   };
 
-  const handleOpenReachOut = async (profile: { linkedinUrl: string; linkedinId: string; title: string; snippet: string; name?: string; headline?: string; location?: string; outreach_status?: 'message_sent' | 'connection_sent' | 'failed' }) => {
-    setReachOutCandidate(profile);
-    setReachOutMessage(buildReachOutMessage(profile));
-    setReachOutOpen(true);
-    setReachOutUsername('');
-    setReachOutPassword('');
-    setSaveLinkedInCredentials(false);
-    setUseSavedLinkedInCredentials(false);
-    setConversation(null);
-    setReplyMessage('');
-    setLoadingConversation(false);
-    setGeneratingFollowup(false);
-    setSendingReply(false);
-    setCheckingConnection(false);
-    setLoadingSavedCredentials(true);
-
+  const handleFindEmails = async () => {
+    if (selectedExternalIds.size === 0) return;
     try {
-      const response = await apiService.getLinkedInSavedCredentials();
-      if (response.success && response.hasSaved && response.username) {
-        setSavedLinkedInUsername(response.username);
-        setUseSavedLinkedInCredentials(true);
-        setReachOutUsername(response.username);
-      } else {
-        setSavedLinkedInUsername(null);
-      }
-    } catch (err: any) {
-      setSavedLinkedInUsername(null);
-      toast.error(err.response?.data?.error || err.message || 'Failed to load saved LinkedIn credentials');
-    } finally {
-      setLoadingSavedCredentials(false);
-    }
-  };
-
-  const handleCloseReachOut = () => {
-    setReachOutOpen(false);
-    setReachOutCandidate(null);
-    setReachOutPassword('');
-    setReachOutUsername('');
-    setReachOutMessage('');
-    setReachOutSubmitting(false);
-    setSavedLinkedInUsername(null);
-    setUseSavedLinkedInCredentials(false);
-    setSaveLinkedInCredentials(false);
-    setLoadingSavedCredentials(false);
-    setConversation(null);
-    setReplyMessage('');
-    setLoadingConversation(false);
-    setGeneratingFollowup(false);
-    setSendingReply(false);
-    setCheckingConnection(false);
-  };
-
-  const handleConfirmReachOut = async () => {
-    if (!reachOutCandidate) {
-      toast.error('No candidate selected');
-      return;
-    }
-    if (!useSavedLinkedInCredentials && (!reachOutUsername.trim() || !reachOutPassword.trim())) {
-      toast.error('Please enter your LinkedIn username and password.');
-      return;
-    }
-
-    try {
-      setReachOutSubmitting(true);
-      const response = await apiService.reachOutExternalCandidate(job.id, {
-        linkedinUrl: reachOutCandidate.linkedinUrl,
-        linkedinId: reachOutCandidate.linkedinId,
-        username: reachOutUsername.trim(),
-        password: reachOutPassword,
-        message: reachOutMessage.trim(),
-        useSavedCredentials: useSavedLinkedInCredentials,
-        saveCredentials: saveLinkedInCredentials,
-      });
-
-      const nextStatus = response.success
-        ? response.action === 'connect'
-          ? 'connection_sent'
-          : 'message_sent'
-        : 'failed';
-
-      setExternalCandidates((prev) =>
-        prev.map((candidate) => {
-          if (
-            candidate.linkedinUrl === reachOutCandidate.linkedinUrl ||
-            (reachOutCandidate.linkedinId && candidate.linkedinId === reachOutCandidate.linkedinId)
-          ) {
-            return { ...candidate, outreach_status: nextStatus };
-          }
-          return candidate;
-        })
-      );
-
+      setFindingEmails(true);
+      const response = await apiService.findCandidateEmails(job.id, Array.from(selectedExternalIds));
       if (response.success) {
-        if (response.action === 'connect') {
-          toast.success('Connection request sent. Follow up after they accept.');
-        } else {
-          toast.success('Reach out sent successfully!');
+        setExternalCandidates(prev =>
+          prev.map(c => {
+            const r = response.results[c.linkedinId];
+            return r ? { ...c, email: r.email ?? undefined, email_status: r.email_status } : c;
+          })
+        );
+        toast.success(`Emails found for ${Object.values(response.results).filter(r => r.email_status === 'found').length} of ${selectedExternalIds.size} candidates`);
+        setSelectedExternalIds(new Set());
+      } else {
+        toast.error(response.error || 'Failed to find emails');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to find emails');
+    } finally {
+      setFindingEmails(false);
+    }
+  };
+
+  const handleOpenCompose = async (profile: ExternalCandidateProfile) => {
+    setComposeCandidate(profile);
+    setEmailToAddresses(profile.email ? [profile.email] : []);
+    setEmailSubject('');
+    setEmailBody('');
+    setComposeOpen(true);
+    setGeneratingEmail(true);
+    try {
+      const result = await apiService.generateCandidateEmail(job.id, profile.linkedinId);
+      if (result.success) {
+        setEmailSubject(result.subject);
+        setEmailBody(result.body);
+      } else {
+        toast.error(result.error || 'Failed to generate email');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to generate email');
+    } finally {
+      setGeneratingEmail(false);
+    }
+  };
+
+  const handleRegenerateEmail = async () => {
+    if (!composeCandidate) return;
+    setGeneratingEmail(true);
+    try {
+      const result = await apiService.generateCandidateEmail(job.id, composeCandidate.linkedinId);
+      if (result.success) {
+        setEmailSubject(result.subject);
+        setEmailBody(result.body);
+      } else {
+        toast.error(result.error || 'Failed to regenerate email');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to regenerate email');
+    } finally {
+      setGeneratingEmail(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!composeCandidate || !emailSubject.trim() || !emailBody.trim() || emailToAddresses.length === 0) return;
+    try {
+      setSendingEmail(true);
+      const result = await apiService.sendCandidateEmail(job.id, composeCandidate.linkedinId, emailSubject.trim(), emailBody.trim(), emailToAddresses);
+      if (result.success) {
+        setExternalCandidates(prev =>
+          prev.map(c => c.linkedinId === composeCandidate.linkedinId ? { ...c, email_status: 'sent' } : c)
+        );
+        toast.success('Email sent successfully');
+        setComposeOpen(false);
+        setComposeCandidate(null);
+      } else {
+        toast.error(result.error || 'Failed to send email');
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to send email');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleOpenThread = async (profile: ExternalCandidateProfile) => {
+    setThreadCandidate(profile);
+    setThreadMessages([]);
+    setReplySubject('');
+    setReplyBody('');
+    setThreadOpen(true);
+    setFetchingThread(true);
+    try {
+      const result = await apiService.getCandidateEmailThread(job.id, profile.linkedinId);
+      if (result.success) {
+        setThreadMessages(result.messages);
+        // If a reply is detected, update status
+        const hasReply = result.messages.some(m => m.direction === 'received');
+        if (hasReply && profile.email_status !== 'replied') {
+          setExternalCandidates(prev =>
+            prev.map(c => c.linkedinId === profile.linkedinId ? { ...c, email_status: 'replied' } : c)
+          );
         }
-        handleCloseReachOut();
       } else {
-        toast.error('Reach out failed', {
-          description: (response.logs || []).join('\n') || response.error || 'Unknown error',
-        });
+        toast.error(result.error || 'Failed to load thread');
       }
     } catch (err: any) {
-      setExternalCandidates((prev) =>
-        prev.map((candidate) => {
-          if (
-            candidate.linkedinUrl === reachOutCandidate.linkedinUrl ||
-            (reachOutCandidate.linkedinId && candidate.linkedinId === reachOutCandidate.linkedinId)
-          ) {
-            return { ...candidate, outreach_status: 'failed' };
-          }
-          return candidate;
-        })
-      );
-      toast.error('Reach out failed', {
-        description: err.response?.data?.logs?.join('\n') || err.response?.data?.error || err.message,
-      });
+      toast.error(err.response?.data?.error || err.message || 'Failed to load thread');
     } finally {
-      setReachOutSubmitting(false);
+      setFetchingThread(false);
     }
   };
 
-  const handleRefreshConversation = async () => {
-    if (!reachOutCandidate) return;
-
-    try {
-      setLoadingConversation(true);
-      const response = await apiService.getConversation(job.id, reachOutCandidate.linkedinUrl, {
-        refresh: true,
-        useSavedCredentials: useSavedLinkedInCredentials,
-        username: reachOutUsername,
-        password: reachOutPassword,
-        skipConnectionCheck: true,
-      });
-
-      if (response.success && response.conversation) {
-        setConversation({
-          messages: response.conversation.messages || [],
-          lastSyncedAt: response.conversation.last_synced_at,
-        });
-      } else if (response.status === 'upsell_blocked') {
-        toast.error('LinkedIn Premium required to view this conversation');
-      } else if (response.status === 'no_history') {
-        setConversation({ messages: [] });
-        toast.info('No conversation history found');
-      } else {
-        toast.error(response.error || 'Failed to fetch conversation');
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to refresh conversation');
-    } finally {
-      setLoadingConversation(false);
-    }
-  };
-
-  const handleGenerateFollowup = async () => {
-    if (!reachOutCandidate) return;
-
-    try {
-      setGeneratingFollowup(true);
-      const response = await apiService.generateFollowup(job.id, reachOutCandidate.linkedinUrl);
-
-      if (response.success && response.message) {
-        setReplyMessage(response.message);
-        toast.success('Follow-up message generated');
-      } else {
-        toast.error(response.error || 'Failed to generate follow-up');
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to generate follow-up');
-    } finally {
-      setGeneratingFollowup(false);
-    }
+  const handleRefreshThread = async () => {
+    if (!threadCandidate) return;
+    await handleOpenThread(threadCandidate);
   };
 
   const handleSendReply = async () => {
-    if (!reachOutCandidate || !replyMessage.trim()) return;
-
+    if (!threadCandidate || !replySubject.trim() || !replyBody.trim()) return;
     try {
       setSendingReply(true);
-      const response = await apiService.sendReply(job.id, {
-        profileUrl: reachOutCandidate.linkedinUrl,
-        message: replyMessage.trim(),
-        useSavedCredentials: useSavedLinkedInCredentials,
-        username: reachOutUsername,
-        password: reachOutPassword,
-      });
-
-      if (response.success) {
-        // Add message to local conversation
-        setConversation((prev) => ({
-          messages: [...(prev?.messages || []), {
-            sender: 'user' as const,
-            content: replyMessage.trim(),
-            timestamp: new Date().toISOString(),
-          }],
-          lastSyncedAt: prev?.lastSyncedAt,
-        }));
-        setReplyMessage('');
-        toast.success('Reply sent successfully');
+      const result = await apiService.sendCandidateReply(job.id, threadCandidate.linkedinId, replySubject.trim(), replyBody.trim());
+      if (result.success) {
+        toast.success('Reply sent');
+        setReplyBody('');
+        await handleRefreshThread();
       } else {
-        toast.error(response.error || 'Failed to send reply');
+        toast.error(result.error || 'Failed to send reply');
       }
     } catch (err: any) {
       toast.error(err.response?.data?.error || err.message || 'Failed to send reply');
     } finally {
       setSendingReply(false);
     }
-  };
-
-  const handleCheckConnection = async () => {
-    if (!reachOutCandidate) return;
-
-    try {
-      setCheckingConnection(true);
-      const response = await apiService.checkConnectionAndMessage(
-        job.id,
-        reachOutCandidate.linkedinUrl,
-        reachOutCandidate.linkedinId,
-        {
-          useSavedCredentials: useSavedLinkedInCredentials,
-          username: reachOutUsername,
-          password: reachOutPassword,
-        }
-      );
-
-      if (response.connectionAccepted && response.messageSent) {
-        // Update candidate status in local state
-        setExternalCandidates((prev) =>
-          prev.map((c) =>
-            c.linkedinUrl === reachOutCandidate.linkedinUrl
-              ? { ...c, outreach_status: 'message_sent' as const }
-              : c
-          )
-        );
-        setReachOutCandidate((prev) => prev ? { ...prev, outreach_status: 'message_sent' } : null);
-        toast.success('Connection accepted! Initial message sent.');
-      } else if (response.connectionAccepted && !response.messageSent) {
-        toast.error('Connection accepted but failed to send message. Try again.');
-      } else {
-        toast.info('Connection request still pending');
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || err.message || 'Failed to check connection');
-    } finally {
-      setCheckingConnection(false);
-    }
-  };
-
-  const renderLinkedInCredentialFields = (showSaveOption: boolean, showSavedToggle: boolean) => (
-    <div className="space-y-3">
-      {!useSavedLinkedInCredentials && (
-        <>
-          <TextField
-            id="reach-out-username"
-            title="LinkedIn Email/Username"
-            placeholder="you@example.com"
-            value={reachOutUsername}
-            onChange={(value) => setReachOutUsername(value)}
-            size="small"
-            disabled={loadingSavedCredentials}
-          />
-          <TextField
-            id="reach-out-password"
-            title="LinkedIn Password"
-            placeholder="Your LinkedIn password"
-            type="password"
-            value={reachOutPassword}
-            onChange={(value) => setReachOutPassword(value)}
-            size="small"
-            disabled={loadingSavedCredentials}
-          />
-        </>
-      )}
-      {showSavedToggle && savedLinkedInUsername && (
-        <Checkbox
-          checked={useSavedLinkedInCredentials}
-          onChange={(event) => {
-            const checked = event.target.checked;
-            setUseSavedLinkedInCredentials(checked);
-            if (checked) {
-              setReachOutUsername(savedLinkedInUsername);
-              setReachOutPassword('');
-              setSaveLinkedInCredentials(false);
-            } else {
-              setReachOutUsername('');
-            }
-          }}
-          label={`Use ${savedLinkedInUsername} saved credential`}
-        />
-      )}
-      {!useSavedLinkedInCredentials && showSaveOption && (
-        <Checkbox
-          checked={saveLinkedInCredentials}
-          onChange={(event) => setSaveLinkedInCredentials(event.target.checked)}
-          label="Save credentials for next time"
-        />
-      )}
-    </div>
-  );
-
-  const reachOutStatus = reachOutCandidate?.outreach_status;
-  const isNotContacted = !reachOutStatus || reachOutStatus === 'failed';
-  const formatLastSynced = (value?: string) => {
-    if (!value) return 'Never';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
   };
 
   const handleSkillClick = async (skill: string) => {
@@ -1302,11 +1092,23 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
   };
 
   if (selectedCandidate) {
+    const selectedName = (selectedCandidate.name || '').toLowerCase().trim();
+    const nameParts = selectedName.split(/\s+/).filter(p => p.length > 2);
+    const hasImprovedVersion =
+      candidates.some(
+        c => (c.name || '').toLowerCase().trim() === selectedName &&
+          (c.resume_filename || '').toLowerCase().includes('improved')
+      ) ||
+      (sharepointFiles?.resume_files || []).some((f: any) => {
+        const fname = (f.name || '').toLowerCase();
+        return fname.includes('improved') && nameParts.some(part => fname.includes(part));
+      });
     return (
       <CandidateDetail
         candidate={selectedCandidate}
         onBack={handleBackToCandidates}
         job={job}
+        hasImprovedVersion={hasImprovedVersion}
       />
     );
   }
@@ -1775,7 +1577,61 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  title="Copy for LinkedIn"
+                  onClick={() => {
+                    const d = displayedJob?.extracted_data;
+                    if (!d) return;
+                    const lines: string[] = [];
+                    lines.push(job.title);
+                    lines.push('');
+                    if (job.description) {
+                      lines.push(job.description);
+                      lines.push('');
+                    }
+                    if (d.key_responsibilities?.length) {
+                      lines.push('Key Responsibilities:');
+                      d.key_responsibilities.forEach((r: string) => lines.push(`• ${r}`));
+                      lines.push('');
+                    }
+                    if (d.required_skills?.length) {
+                      lines.push('Required Skills:');
+                      d.required_skills.forEach((s: string) => lines.push(`• ${s}`));
+                      lines.push('');
+                    }
+                    if (d.preferred_skills?.length) {
+                      lines.push('Preferred Skills:');
+                      d.preferred_skills.forEach((s: string) => lines.push(`• ${s}`));
+                      lines.push('');
+                    }
+                    if (d.experience_requirements) {
+                      lines.push(`Experience: ${d.experience_requirements}`);
+                      lines.push('');
+                    }
+                    if (d.education_requirements?.length) {
+                      lines.push('Education:');
+                      d.education_requirements.forEach((e: string) => lines.push(`• ${e}`));
+                      lines.push('');
+                    }
+                    if (d.certifications?.length) {
+                      lines.push('Certifications:');
+                      d.certifications.forEach((c: string) => lines.push(`• ${c}`));
+                      lines.push('');
+                    }
+                    if (d.soft_skills?.length) {
+                      lines.push('Soft Skills:');
+                      d.soft_skills.forEach((s: string) => lines.push(`• ${s}`));
+                    }
+                    navigator.clipboard.writeText(lines.join('\n'));
+                    toast.success('Job details copied to clipboard');
+                  }}
+                  className="p-1.5 text-gray-500 hover:text-gray-800 dark:text-[#9699a6] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#3a3d5c] rounded transition-colors"
+                >
+                  <svg viewBox="0 0 105.02 122.88" className="w-4 h-4" fill="currentColor">
+                    <path d="M5.32,14.64h20.51V5.32v0h0.01c0-1.47,0.6-2.8,1.56-3.76c0.95-0.95,2.28-1.55,3.75-1.55V0h0h39.61h1.22l0.88,0.88 l31.29,31.41l0.87,2.09v69.2v0h-0.01c0,1.47-0.59,2.8-1.55,3.76h-0.01c-0.95,0.96-2.28,1.55-3.75,1.55v0.01h0H79.19v8.65v0h-0.01 c0,1.47-0.59,2.8-1.55,3.76h-0.01c-0.96,0.95-2.28,1.55-3.75,1.55v0.01h0H5.32h0v-0.01c-1.47,0-2.8-0.6-3.76-1.56 c-0.95-0.96-1.55-2.28-1.55-3.75H0v0V19.97v0h0.01c0-1.47,0.6-2.8,1.56-3.76c0.95-0.95,2.28-1.55,3.75-1.55L5.32,14.64L5.32,14.64 L5.32,14.64z M31.76,14.64h13.17h1.22l0.88,0.88l31.29,31.41l0.87,2.09v53.95h19.89V36.24H74.73h0v0c-1.78,0-3.39-0.74-4.56-1.94 c-1.17-1.19-1.9-2.84-1.9-4.65h0v0V5.94H31.76V14.64L31.76,14.64z M68.39,2.97h2.37l31.29,31.41v1.74H74.73 c-3.49,0-6.35-2.92-6.35-6.48V2.97L68.39,2.97z M73.26,50.88H48.91h0v0c-1.78,0-3.39-0.74-4.56-1.94c-1.17-1.19-1.9-2.84-1.9-4.65 h0v0V20.58H25.83H5.94v96.36h67.32v-8.04v-2.97V50.88L73.26,50.88z"/>
+                  </svg>
+                </button>
                 {/* Provider Toggles */}
                 <div className="flex items-center gap-2">
                   {/* Gemini Toggle */}
@@ -2434,7 +2290,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
 
         {activeTab === 'external-candidates' && (
           <div className="p-6">
-            {/* Search Form - Always visible */}
+            {/* Search Form */}
             <h4 className="text-base font-semibold text-gray-900 dark:text-[#d5d8df] mb-3">LinkedIn Search Query</h4>
             <div className="bg-gray-50 dark:bg-[#181b34] border border-gray-200 dark:border-[#4b4e69] p-4 mb-6">
               <div className="flex flex-wrap items-end gap-8">
@@ -2463,7 +2319,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                     id="external-candidates-count"
                     label="Count"
                     value={externalCandidatesCount}
-                    onChange={(value) => setExternalCandidatesCount(value)}
+                    onChange={(value) => setExternalCandidatesCount(value ?? 10)}
                     min={1}
                     max={50}
                     size="small"
@@ -2530,91 +2386,150 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
                   </div>
                 ) : (
                   <div>
-                    <div className="mb-4 text-sm text-gray-600 dark:text-[#9699a6]">
-                      Found {externalCandidates.length} LinkedIn profile{externalCandidates.length !== 1 ? 's' : ''}
+                    {/* Results header with bulk actions */}
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm text-gray-600 dark:text-[#9699a6]">
+                        {externalCandidates.length} profile{externalCandidates.length !== 1 ? 's' : ''}
+                        {selectedExternalIds.size > 0 && ` · ${selectedExternalIds.size} selected`}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {selectedExternalIds.size > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleFindEmails}
+                            disabled={findingEmails}
+                            className="text-xs font-semibold px-3 py-1.5 rounded border border-teal-500 text-teal-600 hover:bg-teal-50 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {findingEmails ? 'Finding...' : `Find Emails (${selectedExternalIds.size})`}
+                          </button>
+                        )}
+                        <IconButton
+                          kind="tertiary"
+                          size="small"
+                          icon={Retry}
+                          ariaLabel="Refresh email statuses"
+                          onClick={handleSearchExternalCandidates}
+                          disabled={searchingExternalCandidates}
+                        />
+                      </div>
                     </div>
 
-                    {/* Profile Cards - Grid Layout */}
+                    {/* Profile Cards */}
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {externalCandidates.map((profile, index) => (
-                        <div
-                          key={profile.linkedinId || index}
-                          onClick={() => handleOpenReachOut(profile)}
-                          className="bg-white dark:bg-[#30324e] border-l-4 border-l-blue-500 dark:border-l-blue-400 border border-gray-200 dark:border-[#4b4e69] p-4 hover:bg-blue-50 dark:hover:bg-[#323861] hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-all shadow-sm hover:shadow-md flex flex-col h-[207px] overflow-hidden"
-                        >
-                          {/* Header: Name and LinkedIn icon */}
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex-1 min-w-0 pr-2">
-                              <h4 className="font-semibold text-gray-900 dark:text-[#d5d8df] text-base truncate" title={profile.name || profile.title}>
-                                {profile.name || profile.linkedinId}
-                              </h4>
-                            </div>
-                            <svg className="w-5 h-5 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                            </svg>
-                          </div>
+                      {externalCandidates.map((profile, index) => {
+                        const emailStatus = profile.email_status || 'none';
+                        const isSelected = selectedExternalIds.has(profile.linkedinId);
+                        const canCompose = emailStatus === 'found';
+                        const canViewThread = emailStatus === 'sent' || emailStatus === 'replied';
 
-                          {/* Headline */}
-                          {profile.headline && (
-                            <p className="text-sm text-gray-700 dark:text-[#d5d8df] mb-2 line-clamp-2" title={profile.headline}>
-                              {profile.headline}
-                            </p>
-                          )}
+                        const emailBadgeClass =
+                          emailStatus === 'found' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' :
+                          emailStatus === 'not_found' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' :
+                          emailStatus === 'sent' ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-400' :
+                          emailStatus === 'replied' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400' :
+                          emailStatus === 'failed' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400' :
+                          'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]';
 
-                          {/* Location */}
-                          {profile.location && (
-                            <div className="flex items-center gap-1 mb-2 text-xs text-gray-500 dark:text-[#9699a6]">
-                              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        const emailBadgeText =
+                          emailStatus === 'found' ? profile.email || 'Email found' :
+                          emailStatus === 'not_found' ? 'Email not found' :
+                          emailStatus === 'sent' ? 'Email sent' :
+                          emailStatus === 'replied' ? 'Replied' :
+                          emailStatus === 'failed' ? 'Failed' :
+                          'No email';
+
+                        return (
+                          <div
+                            key={profile.linkedinId || index}
+                            className={`bg-white dark:bg-[#30324e] border-l-4 ${isSelected ? 'border-l-indigo-500' : 'border-l-blue-500 dark:border-l-blue-400'} border border-gray-200 dark:border-[#4b4e69] p-4 transition-all shadow-sm flex flex-col overflow-hidden cursor-pointer ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/10' : ''}`}
+                            onClick={() => handleExternalIdToggle(profile.linkedinId)}
+                          >
+                            {/* Header: checkbox + name + LinkedIn icon */}
+                            <div className="flex justify-between items-start mb-2 gap-2">
+                              <div className="flex items-start gap-2 flex-1 min-w-0">
+                                <div className="flex-shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onChange={() => handleExternalIdToggle(profile.linkedinId)}
+                                  />
+                                </div>
+                                <h4 className="font-semibold text-gray-900 dark:text-[#d5d8df] text-base truncate" title={profile.name || profile.title}>
+                                  {profile.name || profile.linkedinId}
+                                </h4>
+                              </div>
+                              <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                               </svg>
-                              <span className="truncate">{profile.location}</span>
                             </div>
-                          )}
 
-                          {/* Snippet */}
-                          {profile.snippet && (
-                            <p className="text-xs text-gray-500 dark:text-[#9699a6] line-clamp-3 flex-grow" title={profile.snippet}>
-                              {profile.snippet}
-                            </p>
-                          )}
+                            {profile.headline && (
+                              <p className="text-sm text-gray-700 dark:text-[#d5d8df] mb-2 line-clamp-2" title={profile.headline}>
+                                {profile.headline}
+                              </p>
+                            )}
 
-                          {/* Footer */}
-                          <div className="border-t border-gray-100 dark:border-[#4b4e69] pt-3 mt-auto">
-                            <div className="flex items-center justify-between gap-2">
-                              <span
-                                className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 ${
-                                  profile.outreach_status === 'message_sent'
-                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
-                                    : profile.outreach_status === 'connection_sent'
-                                      ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
-                                      : profile.outreach_status === 'failed'
-                                        ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
-                                        : 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]'
-                                }`}
-                              >
-                                {profile.outreach_status === 'message_sent'
-                                  ? 'Message sent'
-                                  : profile.outreach_status === 'connection_sent'
-                                    ? 'Connection sent'
-                                    : profile.outreach_status === 'failed'
-                                      ? 'Failed'
-                                      : 'Not contacted'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer');
-                                }}
-                                className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                              >
-                                View Profile
-                              </button>
+                            {profile.location && (
+                              <div className="flex items-center gap-1 mb-2 text-xs text-gray-500 dark:text-[#9699a6]">
+                                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span className="truncate">{profile.location}</span>
+                              </div>
+                            )}
+
+                            {profile.snippet && (
+                              <p className="text-xs text-gray-500 dark:text-[#9699a6] line-clamp-2 flex-grow" title={profile.snippet}>
+                                {profile.snippet}
+                              </p>
+                            )}
+
+                            {/* Footer */}
+                            <div className="border-t border-gray-100 dark:border-[#4b4e69] pt-2 mt-auto" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-2">
+                                {/* Badge */}
+                                <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 truncate max-w-[120px] flex-shrink-0 ${emailBadgeClass}`} title={emailBadgeText}>
+                                  {emailBadgeText}
+                                </span>
+                                {/* Compose — center */}
+                                <div className="flex-1 flex justify-center">
+                                  {canCompose && (
+                                    <Button
+                                      kind="tertiary"
+                                      size="xs"
+                                      color="positive"
+                                      onClick={() => handleOpenCompose(profile)}
+                                    >
+                                      Compose
+                                    </Button>
+                                  )}
+                                </div>
+                                {/* View Thread + Profile — right */}
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  {canViewThread && (
+                                    <Button
+                                      kind="tertiary"
+                                      size="xs"
+                                      onClick={() => handleOpenThread(profile)}
+                                    >
+                                      View Thread
+                                    </Button>
+                                  )}
+                                  <Button
+                                    kind="tertiary"
+                                    size="xs"
+                                    color="primary"
+                                    className="!text-blue-600 dark:!text-blue-400"
+                                    onClick={() => window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer')}
+                                  >
+                                    Profile
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2623,12 +2538,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
           </div>
         )}
       </div>
+
+      {/* Compose Email Modal */}
       <NextModal
-        id="reach-out-modal"
-        show={reachOutOpen}
-        onClose={handleCloseReachOut}
+        id="compose-email-modal"
+        show={composeOpen}
+        onClose={() => { setComposeOpen(false); setComposeCandidate(null); }}
         size="medium"
-        aria-labelledby="reach-out-modal-title"
         style={{
           ['--top-actions-margin-block' as string]: 'var(--spacing-medium)',
           ['--top-actions-margin-inline' as string]: 'var(--spacing-medium)',
@@ -2638,137 +2554,194 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated }) => {
         <NextModalBasicLayout>
           <NextModalHeader
             title={
-              <span id="reach-out-modal-title" className="text-base font-semibold text-gray-700 dark:text-[#d5d8df]">
-                Reach out on LinkedIn
+              <span className="text-base font-semibold text-gray-700 dark:text-[#d5d8df]">
+                Email {composeCandidate?.name || composeCandidate?.linkedinId}
               </span>
             }
           />
           <NextModalContent>
-            <div className="space-y-4">
-              {isNotContacted && (
-                <>
-                  {reachOutStatus === 'failed' && (
-                    <div className="text-xs text-red-600 dark:text-red-400">
-                      Last attempt failed. You can try again.
-                    </div>
-                  )}
-                  {renderLinkedInCredentialFields(true, true)}
-                  <TextArea
-                    label="Message"
-                    value={reachOutMessage}
-                    onChange={(event) => setReachOutMessage(event.target.value)}
-                    size="small"
-                    rows={5}
-                  />
-                  <div className="flex items-center justify-end gap-2">
-                    <Button kind="tertiary" size="small" onClick={handleCloseReachOut}>
-                      Cancel
-                    </Button>
-                    <Button
-                      kind="primary"
-                      size="small"
-                      onClick={handleConfirmReachOut}
-                      disabled={reachOutSubmitting || loadingSavedCredentials}
-                    >
-                      {reachOutSubmitting ? 'Sending...' : 'Send'}
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              {reachOutStatus === 'connection_sent' && (
-                <>
-                  <div className="text-center py-2 text-sm text-gray-600 dark:text-[#9699a6]">
-                    Connection request pending acceptance.
-                  </div>
-                  {renderLinkedInCredentialFields(false, false)}
-                  <div className="flex items-center justify-end gap-2">
-                    <Button kind="tertiary" size="small" onClick={handleCloseReachOut}>
-                      Cancel
-                    </Button>
-                    <Button
-                      kind="primary"
-                      size="small"
-                      onClick={handleCheckConnection}
-                      disabled={checkingConnection || loadingSavedCredentials}
-                    >
-                      {checkingConnection ? 'Checking...' : 'Check & Send Message'}
-                    </Button>
-                  </div>
-                </>
-              )}
-
-              {reachOutStatus === 'message_sent' && (
-                <div className="flex flex-col h-[560px]">
-                  <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                    <span className="text-xs text-gray-500 dark:text-[#9699a6]">
-                      Last synced: {formatLastSynced(conversation?.lastSyncedAt)}
-                    </span>
-                    <IconButton
-                      kind="tertiary"
-                      size="small"
-                      icon={Retry}
-                      ariaLabel="Refresh conversation"
-                      onClick={handleRefreshConversation}
-                      disabled={loadingConversation || loadingSavedCredentials}
-                      loading={loadingConversation}
-                      className="!text-blue-600 hover:!text-blue-700"
-                    />
-                  </div>
-                  <div className="flex-1 overflow-y-auto py-4 space-y-3">
-                    {loadingConversation && (
-                      <div className="text-sm text-gray-500 dark:text-[#9699a6]">Loading conversation...</div>
-                    )}
-                    {!loadingConversation && (!conversation || conversation.messages.length === 0) && (
-                      <div className="text-sm text-gray-500 dark:text-[#9699a6]">No conversation history yet.</div>
-                    )}
-                    {!loadingConversation && conversation?.messages.map((msg, index) => (
-                      <div
-                        key={`${msg.timestamp}-${index}`}
-                        className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[75%] px-3 py-2 text-sm rounded text-gray-900 dark:text-[#d5d8df] ${
-                            msg.sender === 'user' ? 'bg-gray-300' : 'bg-gray-100 dark:bg-[#30324e]'
-                          }`}
-                        >
-                          <div className="whitespace-pre-wrap">{msg.content}</div>
-                        </div>
+            {composeCandidate && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-[#9699a6] mb-1">To</label>
+                  <ReactMultiEmail
+                    emails={emailToAddresses}
+                    onChange={setEmailToAddresses}
+                    autoFocus={false}
+                    placeholder="Add email address..."
+                    getLabel={(email, index, removeEmail) => (
+                      <div data-tag key={index} className="flex items-center gap-1" style={{ background: '#dbeafe', color: '#1d4ed8', borderRadius: '4px', padding: '2px 6px', fontSize: '12px' }}>
+                        <span data-tag-item>{email}</span>
+                        <span data-tag-handle onClick={() => removeEmail(index)} style={{ cursor: 'pointer', marginLeft: '4px', opacity: 0.6 }}>×</span>
                       </div>
-                    ))}
+                    )}
+                    style={{
+                      border: '1px solid var(--color-ui-border-color, #d0d4e4)',
+                      borderRadius: '4px',
+                      padding: '4px 8px',
+                      minHeight: '36px',
+                      fontSize: '13px',
+                      background: 'var(--color-ui-background, #fff)',
+                    }}
+                  />
+                  {composeCandidate.headline && (
+                    <p className="text-xs text-gray-400 dark:text-[#9699a6] mt-1">{composeCandidate.headline}</p>
+                  )}
+                </div>
+                {generatingEmail ? (
+                  <div className="flex items-center gap-2 py-8 justify-center text-sm text-gray-500 dark:text-[#9699a6]">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                    Generating personalized email...
                   </div>
-                  <div className="pt-3 border-t space-y-3">
-                    {renderLinkedInCredentialFields(false, false)}
-                    <TextArea
-                      label="Reply"
-                      value={replyMessage}
-                      onChange={(event) => setReplyMessage(event.target.value)}
+                ) : (
+                  <>
+                    <TextField
+                      id="email-subject"
+                      title="Subject"
+                      value={emailSubject}
+                      onChange={(value) => setEmailSubject(value)}
                       size="small"
-                      rows={3}
-                      placeholder="Type your reply..."
+                    />
+                    <TextArea
+                      label="Body"
+                      value={emailBody}
+                      onChange={(event) => setEmailBody(event.target.value)}
+                      size="small"
+                      rows={8}
                     />
                     <div className="flex items-center justify-between">
-                      <Button
-                        kind="primary"
-                        size="small"
-                        color="positive"
-                        onClick={handleGenerateFollowup}
-                        disabled={generatingFollowup}
-                      >
-                        {generatingFollowup ? 'Generating...' : 'Generate follow-up'}
+                      <Button kind="tertiary" size="small" onClick={handleRegenerateEmail} disabled={generatingEmail}>
+                        Regenerate
                       </Button>
-                      <Button
-                        kind="primary"
-                        size="small"
-                        onClick={handleSendReply}
-                        disabled={!replyMessage.trim() || sendingReply || loadingSavedCredentials}
-                      >
-                        {sendingReply ? 'Sending...' : 'Send Reply'}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button kind="tertiary" size="small" onClick={() => { setComposeOpen(false); setComposeCandidate(null); }}>
+                          Cancel
+                        </Button>
+                        <Button
+                          kind="primary"
+                          size="small"
+                          onClick={handleSendEmail}
+                          disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim() || emailToAddresses.length === 0}
+                        >
+                          {sendingEmail ? 'Sending...' : 'Send'}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </NextModalContent>
+        </NextModalBasicLayout>
+      </NextModal>
+
+      {/* Email Thread Modal */}
+      <NextModal
+        id="email-thread-modal"
+        show={threadOpen}
+        onClose={() => { setThreadOpen(false); setThreadCandidate(null); setThreadMessages([]); }}
+        size="medium"
+        style={{
+          ['--top-actions-margin-block' as string]: 'var(--spacing-medium)',
+          ['--top-actions-margin-inline' as string]: 'var(--spacing-medium)',
+          ['--border-radius-big' as string]: '4px',
+        }}
+      >
+        <NextModalBasicLayout>
+          <NextModalHeader
+            title={
+              <div className="flex items-center justify-between w-full pr-8">
+                <span className="text-base font-semibold text-gray-700 dark:text-[#d5d8df]">
+                  Thread · {threadCandidate?.name || threadCandidate?.linkedinId}
+                </span>
+                <IconButton
+                  kind="tertiary"
+                  size="small"
+                  icon={Retry}
+                  ariaLabel="Refresh thread"
+                  onClick={handleRefreshThread}
+                  disabled={fetchingThread}
+                  loading={fetchingThread}
+                />
+              </div>
+            }
+          />
+          <NextModalContent>
+            <div className="flex flex-col" style={{ height: '500px' }}>
+              {/* Thread messages */}
+              <div className="flex-1 overflow-y-auto space-y-3 pb-4">
+                {fetchingThread && (
+                  <div className="flex items-center gap-2 py-8 justify-center text-sm text-gray-500 dark:text-[#9699a6]">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                    Loading thread...
+                  </div>
+                )}
+                {!fetchingThread && threadMessages.length === 0 && (
+                  <div className="text-sm text-gray-500 dark:text-[#9699a6] text-center py-8">No messages yet.</div>
+                )}
+                {!fetchingThread && threadMessages.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.direction === 'sent' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] px-3 py-2 text-sm rounded ${msg.direction === 'sent' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-[#30324e] text-gray-900 dark:text-[#d5d8df]'}`}>
+                      <div className="text-xs mb-1 opacity-70">{msg.direction === 'sent' ? 'You' : threadCandidate?.name || 'Candidate'} · {msg.received_at ? new Date(msg.received_at).toLocaleString() : ''}</div>
+                      <div className="font-medium text-xs mb-1">{msg.subject}</div>
+                      <div className="whitespace-pre-wrap text-xs">{msg.body.replace(/<[^>]+>/g, '').trim()}</div>
                     </div>
                   </div>
+                ))}
+              </div>
+
+              {/* Reply box */}
+              <div className="border-t border-gray-200 dark:border-[#4b4e69] pt-3 space-y-2">
+                <TextField
+                  id="reply-subject"
+                  title="Subject"
+                  value={replySubject}
+                  onChange={(value) => setReplySubject(value)}
+                  size="small"
+                  placeholder="Re: ..."
+                />
+                <TextArea
+                  label="Message"
+                  value={replyBody}
+                  onChange={(event) => setReplyBody(event.target.value)}
+                  size="small"
+                  rows={3}
+                  placeholder="Type your reply..."
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    kind="tertiary"
+                    size="small"
+                    onClick={async () => {
+                      if (!threadCandidate) return;
+                      setGeneratingEmail(true);
+                      try {
+                        const result = await apiService.generateCandidateEmail(job.id, threadCandidate.linkedinId, {
+                          isFollowup: true,
+                          previousBody: threadMessages.find(m => m.direction === 'sent')?.body || '',
+                        });
+                        if (result.success) {
+                          setReplySubject(result.subject);
+                          setReplyBody(result.body);
+                        }
+                      } catch { /* ignore */ } finally {
+                        setGeneratingEmail(false);
+                      }
+                    }}
+                    disabled={generatingEmail}
+                  >
+                    {generatingEmail ? 'Generating...' : 'Generate follow-up'}
+                  </Button>
+                  <Button
+                    kind="primary"
+                    size="small"
+                    onClick={handleSendReply}
+                    disabled={sendingReply || !replySubject.trim() || !replyBody.trim()}
+                  >
+                    {sendingReply ? 'Sending...' : 'Send Reply'}
+                  </Button>
                 </div>
-              )}
+              </div>
             </div>
           </NextModalContent>
         </NextModalBasicLayout>

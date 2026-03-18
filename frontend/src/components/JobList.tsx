@@ -10,6 +10,7 @@ interface JobListProps {
   selectedJob: Job | null;
   onJobSelect: (job: Job) => void;
   onJobCreated: (job: Job) => void;
+  onJobGenerated: (job: Job) => void;
   onJobDeleted: (jobId: string) => void;
 }
 
@@ -80,11 +81,12 @@ const getGroupColorFromVar = (colorName?: string | null): string => {
   );
 };
 
-const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJobCreated, onJobDeleted }) => {
+const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJobCreated, onJobGenerated, onJobDeleted }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showPDFForm, setShowPDFForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [creatingFromPDF, setCreatingFromPDF] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [formData, setFormData] = useState<CreateJobRequest>({
     title: '',
@@ -331,6 +333,25 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggleAllGroups]);
+
+  const handleGenerateJob = async () => {
+    if (!formData.title.trim()) return;
+    try {
+      setGenerating(true);
+      const response = await apiService.generateJobRequisition(formData.title.trim());
+      if (response.success) {
+        const jobResponse = await apiService.getJob(response.job_id);
+        onJobGenerated(jobResponse.job);
+        setFormData({ title: '', description: '', status: 'active' });
+        setShowCreateForm(false);
+        toast.success('Job requisition generated successfully');
+      }
+    } catch (err: any) {
+      toast.error('Failed to generate job: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -795,7 +816,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
             <div className="flex space-x-2">
               <Button
                 type="submit"
-                disabled={creating}
+                disabled={creating || generating}
                 loading={creating}
                 kind="primary"
                 color="positive"
@@ -810,11 +831,21 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                   setShowPDFForm(true);
                   setShowCreateForm(false);
                 }}
-                kind="primary"
+                kind="secondary"
                 size="small"
-                className="px-4 py-1"
+                className="px-4 py-1 border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
               >
                 From file
+              </Button>
+              <Button
+                type="button"
+                onClick={handleGenerateJob}
+                disabled={!formData.title.trim() || generating || creating}
+                loading={generating}
+                size="small"
+                className="px-4 py-1 bg-purple-600 hover:bg-purple-700 text-white border-0"
+              >
+                {generating ? 'Generating...' : 'Generate'}
               </Button>
               <Button
                 type="button"
@@ -960,7 +991,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                         const itemContent = (
                           <div
                             onClick={() => onJobSelect(job)}
-                            className={`relative p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#3a3d5c] transition-all duration-150 border-b border-gray-200 dark:border-[#4b4e69] last:border-b-0 ${selectedJob?.id === job.id
+                            className={`relative px-4 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#3a3d5c] transition-all duration-150 border-b border-gray-200 dark:border-[#4b4e69] last:border-b-0 ${selectedJob?.id === job.id
                               ? 'bg-blue-50 dark:bg-[#13377433] border-r-4 border-r-[#6161FF]'
                               : 'bg-white dark:bg-[#30324e]'
                               }`}
@@ -975,50 +1006,8 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                                 <h3 className="text-[15px] font-normal text-gray-900 dark:text-[#d5d8df] whitespace-normal break-words pb-2" title={job.title ?? ''}>
                                   {job.title}
                                 </h3>
-                                <div className="mt-1.5 flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                  {job.created_at && (
-                                    <span>
-                                      {new Date(job.created_at).toLocaleDateString()}
-                                    </span>
-                                  )}
-                                  {dueInfo.text && dueInfo.text !== 'N/A' && (
-                                    <span className={dueInfo.isSoon ? 'text-red-600 dark:text-red-400' : ''}>
-                                      {dueInfo.text}
-                                    </span>
-                                  )}
-                                </div>
                               </div>
-                            </div>
-
-                            <div className="mt-2 flex flex-wrap gap-1 items-center justify-between">
-                              <div className="flex flex-wrap gap-1">
-                                {job.monday_metadata?.employment_type && (
-                                  <Label
-                                    id={`employment-${job.id}`}
-                                    text={job.monday_metadata.employment_type}
-                                    size="small"
-                                    color={getVibeLabelColor(job.monday_metadata.employment_type, job.monday_metadata.employment_type_color) as any}
-                                  />
-                                )}
-                                {job.monday_metadata?.status && (
-                                  <Label
-                                    id={`status-${job.id}`}
-                                    text={job.monday_metadata.status}
-                                    size="small"
-                                    color={getVibeLabelColor(job.monday_metadata.status, job.monday_metadata.status_color) as any}
-                                  />
-                                )}
-                                {job.monday_metadata?.work_mode && (
-                                  <Label
-                                    id={`workmode-${job.id}`}
-                                    text={job.monday_metadata.work_mode}
-                                    size="small"
-                                    color={getVibeLabelColor(job.monday_metadata.work_mode, job.monday_metadata.work_mode_color) as any}
-                                  />
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                                 {hasJobDetails(job) && (
                                   <Label
                                     id={`jobdetails-${job.id}`}
@@ -1038,6 +1027,43 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                                   />
                                 )}
                               </div>
+                            </div>
+
+                            <div className="mt-1.5 flex items-center flex-wrap gap-1 text-xs text-gray-500 dark:text-gray-400">
+                              {job.created_at && (
+                                <span className="mr-1">
+                                  {new Date(job.created_at).toLocaleDateString()}
+                                </span>
+                              )}
+                              {dueInfo.text && dueInfo.text !== 'N/A' && (
+                                <span className={`mr-1 ${dueInfo.isSoon ? 'text-red-600 dark:text-red-400' : ''}`}>
+                                  {dueInfo.text}
+                                </span>
+                              )}
+                              {job.monday_metadata?.employment_type && (
+                                <Label
+                                  id={`employment-${job.id}`}
+                                  text={job.monday_metadata.employment_type}
+                                  size="small"
+                                  color={getVibeLabelColor(job.monday_metadata.employment_type, job.monday_metadata.employment_type_color) as any}
+                                />
+                              )}
+                              {job.monday_metadata?.status && (
+                                <Label
+                                  id={`status-${job.id}`}
+                                  text={job.monday_metadata.status}
+                                  size="small"
+                                  color={getVibeLabelColor(job.monday_metadata.status, job.monday_metadata.status_color) as any}
+                                />
+                              )}
+                              {job.monday_metadata?.work_mode && (
+                                <Label
+                                  id={`workmode-${job.id}`}
+                                  text={job.monday_metadata.work_mode}
+                                  size="small"
+                                  color={getVibeLabelColor(job.monday_metadata.work_mode, job.monday_metadata.work_mode_color) as any}
+                                />
+                              )}
                             </div>
 
                           </div>

@@ -254,6 +254,8 @@ export interface CreateJobRequest {
 }
 
 // External Candidates (LinkedIn profile search) types - matching Peoplehub format
+export type EmailStatus = 'none' | 'found' | 'not_found' | 'sent' | 'replied' | 'failed';
+
 export interface ExternalCandidateProfile {
   linkedinUrl: string;
   linkedinId: string;
@@ -262,7 +264,8 @@ export interface ExternalCandidateProfile {
   name?: string;
   headline?: string;
   location?: string;
-  outreach_status?: 'message_sent' | 'connection_sent' | 'failed';
+  email?: string;
+  email_status?: EmailStatus;
 }
 
 export interface ParsedSearchQuery {
@@ -284,83 +287,28 @@ export interface ExternalCandidatesSearchResult {
   error?: string;
 }
 
-export interface LinkedInReachOutRequest {
-  linkedinUrl: string;
-  linkedinId?: string;
-  username: string;
-  password: string;
-  message?: string;
-  useSavedCredentials?: boolean;
-  saveCredentials?: boolean;
+// Email outreach types
+export interface FindEmailsResult {
+  [linkedinId: string]: { email: string | null; email_status: EmailStatus };
 }
 
-export interface LinkedInReachOutResponse {
+export interface GeneratedEmail {
   success: boolean;
-  error?: string;
-  logs?: string[];
-  action?: 'message' | 'connect' | 'failed';
-}
-
-export interface LinkedInSavedCredentialsResponse {
-  success: boolean;
-  hasSaved: boolean;
-  username?: string | null;
+  subject: string;
+  body: string;
   error?: string;
 }
 
-// Conversation types
-export interface ConversationMessage {
-  sender: 'user' | 'candidate';
-  content: string;
-  timestamp: string;
+export interface EmailThreadMessage {
+  direction: 'sent' | 'received';
+  subject: string;
+  body: string;
+  received_at: string;
 }
 
-export interface CandidateConversation {
-  id?: string;
-  job_id: string;
-  linkedin_url: string;
-  url_hash: string;
-  candidate_name: string;
-  messages: ConversationMessage[];
-  connection_status: 'connected' | 'pending' | 'not_connected';
-  last_synced_at?: string;
-}
-
-export interface GetConversationResponse {
+export interface EmailThreadResponse {
   success: boolean;
-  conversation: CandidateConversation | null;
-  status?: 'success' | 'upsell_blocked' | 'no_history' | 'not_connected' | 'error';
-  logs?: string[];
-  error?: string;
-}
-
-export interface SendReplyRequest {
-  profileUrl: string;
-  message: string;
-  username?: string;
-  password?: string;
-  useSavedCredentials?: boolean;
-}
-
-export interface SendReplyResponse {
-  success: boolean;
-  logs?: string[];
-  error?: string;
-}
-
-export interface GenerateFollowupResponse {
-  success: boolean;
-  message?: string;
-  error?: string;
-}
-
-export interface CheckConnectionResponse {
-  success: boolean;
-  connectionAccepted?: boolean;
-  connectionStatus?: 'connected' | 'pending' | 'not_connected';
-  messageSent?: boolean;
-  newStatus?: string;
-  logs?: string[];
+  messages: EmailThreadMessage[];
   error?: string;
 }
 
@@ -387,6 +335,11 @@ export const apiService = {
     return response.data;
   },
 
+  async generateJobRequisition(title: string): Promise<{ success: boolean; job_id: string }> {
+    const response = await apiClient.post('/jobs/generate-requisition', { title });
+    return response.data;
+  },
+
   async createJobFromPDF(title: string, file: File): Promise<{ success: boolean; job_id: string }> {
     const formData = new FormData();
     formData.append('job_pdf', file);
@@ -400,58 +353,33 @@ export const apiService = {
     return response.data;
   },
 
-  async reachOutExternalCandidate(jobId: string, payload: LinkedInReachOutRequest): Promise<LinkedInReachOutResponse> {
-    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/reach-out`, payload);
+  // Email outreach methods
+  async findCandidateEmails(jobId: string, linkedinIds: string[]): Promise<{ success: boolean; results: FindEmailsResult; error?: string }> {
+    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/find-emails`, { linkedinIds });
     return response.data;
   },
 
-  async getLinkedInSavedCredentials(): Promise<LinkedInSavedCredentialsResponse> {
-    const response = await apiClient.get('/users/linkedin-credentials');
-    return response.data;
-  },
-
-  async saveLinkedInCredentials(username: string, password: string): Promise<{ success: boolean; username?: string; error?: string }> {
-    const response = await apiClient.post('/users/linkedin-credentials', { username, password });
-    return response.data;
-  },
-
-  // Candidate conversation methods
-  async getConversation(
+  async generateCandidateEmail(
     jobId: string,
-    profileUrl: string,
-    options: { refresh?: boolean; useSavedCredentials?: boolean; username?: string; password?: string; skipConnectionCheck?: boolean } = {}
-  ): Promise<GetConversationResponse> {
-    const params = new URLSearchParams({ profileUrl });
-    if (options.refresh) params.append('refresh', 'true');
-    if (options.useSavedCredentials !== undefined) params.append('useSavedCredentials', String(options.useSavedCredentials));
-    if (options.username) params.append('username', options.username);
-    if (options.password) params.append('password', options.password);
-    if (options.skipConnectionCheck) params.append('skipConnectionCheck', 'true');
-    const response = await apiClient.get(`/jobs/${jobId}/external-candidates/conversation?${params.toString()}`);
+    linkedinId: string,
+    options: { isFollowup?: boolean; previousBody?: string } = {}
+  ): Promise<GeneratedEmail> {
+    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/generate-email`, { linkedinId, ...options });
     return response.data;
   },
 
-  async sendReply(jobId: string, request: SendReplyRequest): Promise<SendReplyResponse> {
-    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/reply`, request);
+  async sendCandidateEmail(jobId: string, linkedinId: string, subject: string, body: string, toAddresses?: string[]): Promise<{ success: boolean; error?: string }> {
+    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/send-email`, { linkedinId, subject, body, toAddresses });
     return response.data;
   },
 
-  async generateFollowup(jobId: string, profileUrl: string): Promise<GenerateFollowupResponse> {
-    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/generate-followup`, { profileUrl });
+  async getCandidateEmailThread(jobId: string, linkedinId: string): Promise<EmailThreadResponse> {
+    const response = await apiClient.get(`/jobs/${jobId}/external-candidates/${linkedinId}/thread`);
     return response.data;
   },
 
-  async checkConnectionAndMessage(
-    jobId: string,
-    profileUrl: string,
-    linkedinId: string | undefined,
-    options: { useSavedCredentials?: boolean; username?: string; password?: string } = {}
-  ): Promise<CheckConnectionResponse> {
-    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/check-connection`, {
-      profileUrl,
-      linkedinId,
-      ...options,
-    });
+  async sendCandidateReply(jobId: string, linkedinId: string, subject: string, body: string): Promise<{ success: boolean; error?: string }> {
+    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/${linkedinId}/send-reply`, { subject, body });
     return response.data;
   },
 

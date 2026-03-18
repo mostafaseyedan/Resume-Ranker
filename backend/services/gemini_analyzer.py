@@ -214,6 +214,35 @@ class GeminiAnalyzer:
             logger.error(f"Error analyzing job description: {e}")
             raise Exception(f"Failed to analyze job description: {str(e)}")
 
+    def generate_job_requisition(self, job_title: str) -> dict:
+        """Generate a complete structured job requisition from a job title"""
+        try:
+            response = self.client.models.generate_content(
+                model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+                contents=f"Job Title: {job_title}",
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=JobExtraction,
+                    system_instruction="""
+                    You are an expert technical recruiter. Generate a comprehensive, professional job requisition for the given job title.
+                    Be specific and detailed — include concrete skills, technologies, tools, and responsibilities relevant to the role.
+                    For job_title: use the provided title exactly.
+                    For job_location: set to null (not specified).
+                    For job_description_text: write a full 2-3 paragraph professional job description summary.
+                    For questions_for_candidate: generate 3-5 relevant screening questions.
+                    """
+                )
+            )
+
+            if response.text is None:
+                raise ValueError("Gemini response text is None")
+
+            return json.loads(response.text)
+
+        except Exception as e:
+            logger.error(f"Error generating job requisition: {e}")
+            raise Exception(f"Failed to generate job requisition: {str(e)}")
+
     def analyze_job_description_from_file(self, file):
         """Extract structured job information from file using PDF processor + Gemini"""
         try:

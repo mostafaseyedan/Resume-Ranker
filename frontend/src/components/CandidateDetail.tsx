@@ -11,9 +11,10 @@ interface CandidateDetailProps {
   candidate: Candidate;
   job: Job;
   onBack: () => void;
+  hasImprovedVersion?: boolean;
 }
 
-const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBack }) => {
+const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBack, hasImprovedVersion }) => {
   const [activeTab, setActiveTab] = useState<'strengths' | 'weaknesses' | 'skills' | 'experience' | 'verification'>('strengths');
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -264,11 +265,20 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({ candidate, job, onBac
             <div className="text-xs text-gray-500 dark:text-[#9699a6] mt-2">Overall Score</div>
           </div>
           <div className="flex justify-end flex-1 items-center gap-2">
+            {hasImprovedVersion && (
+              <Label
+                id="improved-version-badge"
+                text="Resume Improved"
+                size="medium"
+                color={Label.colors.POSITIVE as any}
+                className="!rounded-none"
+              />
+            )}
             <Button
               onClick={() => setShowTemplateSelector(!showTemplateSelector)}
               size="small"
             >
-              {showTemplateSelector ? 'Hide Templates' : 'Improve'}
+              {showTemplateSelector ? 'Hide Templates' : hasImprovedVersion ? 'Regenerate' : 'Improve'}
             </Button>
           </div>
         </div>

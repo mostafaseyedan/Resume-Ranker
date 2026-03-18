@@ -26,6 +26,55 @@ class SerperAPIError(Exception):
     pass
 
 
+_US_STATE_ABBR = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+    "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho",
+    "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas",
+    "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
+    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma",
+    "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
+    "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
+}
+
+
+def _normalize_serpapi_location(location: str) -> str:
+    """
+    Expand US state abbreviations and ensure SerpAPI-compatible location format.
+
+    Examples:
+      "Stamford, CT"        -> "Stamford, Connecticut, United States"
+      "CT"                  -> "Connecticut, United States"
+      "New York, NY"        -> "New York, New York, United States"
+      "London"              -> "London"  (unchanged — no abbreviation detected)
+    """
+    if not location:
+        return location
+
+    parts = [p.strip() for p in location.split(",")]
+    expanded = []
+    has_us_state = False
+
+    for part in parts:
+        upper = part.upper()
+        if upper in _US_STATE_ABBR:
+            expanded.append(_US_STATE_ABBR[upper])
+            has_us_state = True
+        else:
+            expanded.append(part)
+
+    result = ", ".join(expanded)
+    if has_us_state and "United States" not in result:
+        result += ", United States"
+
+    return result
+
+
 class ExternalSearchService:
     """Service for searching external candidates on LinkedIn via Google Search."""
 
@@ -256,6 +305,13 @@ Keep it simple: just role + location. No skills."""
                     location = location.split(",")[-1].strip()
                 parsed["location"] = location or None
 
+            # Expand any US state abbreviations in the Gemini-generated location
+            if isinstance(parsed.get("location"), str):
+                normalized = _normalize_serpapi_location(parsed["location"])
+                if normalized != parsed["location"]:
+                    logger.info("Expanded abbreviated location: %s -> %s", parsed["location"], normalized)
+                    parsed["location"] = normalized
+
             return parsed
 
         except Exception as e:
@@ -388,7 +444,10 @@ Keep it simple: just role + location. No skills."""
             if re.search(r"\bcounty\b", location, re.IGNORECASE):
                 logger.info("[SERPAPI] Skipping county location: %s", location)
             else:
-                params["location"] = location
+                normalized = _normalize_serpapi_location(location)
+                if normalized != location:
+                    logger.info("[SERPAPI] Normalized location: %s -> %s", location, normalized)
+                params["location"] = normalized
         if country_code:
             params["gl"] = country_code.lower()
 

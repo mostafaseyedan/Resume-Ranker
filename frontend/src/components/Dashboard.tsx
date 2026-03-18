@@ -36,6 +36,7 @@ const Dashboard: React.FC = () => {
   // Jobs state
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [jobDetailInitialTab, setJobDetailInitialTab] = useState<'candidates' | 'job-details'>('candidates');
   const [showLogs, setShowLogs] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +102,13 @@ const Dashboard: React.FC = () => {
 
   const handleJobCreated = (newJob: Job) => {
     setJobs(prevJobs => [newJob, ...prevJobs]);
+  };
+
+  const handleJobGenerated = (newJob: Job) => {
+    setJobs(prevJobs => [newJob, ...prevJobs]);
+    setSelectedJob(newJob);
+    setJobDetailInitialTab('job-details');
+    setShowLogs(false);
   };
 
   const handleJobDeleted = (jobId: string) => {
@@ -293,9 +301,11 @@ const Dashboard: React.FC = () => {
                 selectedJob={selectedJob}
                 onJobSelect={(job) => {
                   setSelectedJob(job);
+                  setJobDetailInitialTab('candidates');
                   setShowLogs(false);
                 }}
                 onJobCreated={handleJobCreated}
+                onJobGenerated={handleJobGenerated}
                 onJobDeleted={handleJobDeleted}
               />
             </div>
@@ -304,7 +314,7 @@ const Dashboard: React.FC = () => {
             <div className="flex-1 bg-gray-50 dark:bg-[#181b34] overflow-y-auto">
               <div className="p-6">
                 {selectedJob ? (
-                  <JobDetail job={selectedJob} onJobUpdated={handleJobUpdated} />
+                  <JobDetail key={selectedJob.id + jobDetailInitialTab} job={selectedJob} onJobUpdated={handleJobUpdated} initialTab={jobDetailInitialTab} />
                 ) : (
                   <ActivityLogs />
                 )}

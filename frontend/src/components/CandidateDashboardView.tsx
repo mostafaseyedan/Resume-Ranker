@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Candidate, Job, apiService, WebVerificationResult } from '../services/apiService';
 import CandidateList from './CandidateList';
@@ -139,6 +139,16 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [verificationProvider, setVerificationProvider] = useState<'gemini' | 'openai'>('gemini');
+  const [jobResumeFiles, setJobResumeFiles] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!selectedResume) return;
+    const job = jobs.find(j => j.id === selectedResume.job_id);
+    if (!job || !(job as any).monday_metadata?.sharepoint_link) return;
+    apiService.getJobSharePointFiles(selectedResume.job_id).then(res => {
+      setJobResumeFiles(res.resume_files || []);
+    }).catch(() => {});
+  }, [selectedResume, jobs]);
 
   // Get the best candidate (highest score) for verification display
   const bestCandidate = useMemo(() => {
@@ -246,11 +256,22 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
     // Find the job for this resume
     const job = jobs.find(j => j.id === selectedResume.job_id);
     if (job) {
+      const selectedName = (selectedResume.name || '').toLowerCase().trim();
+      const nameParts = selectedName.split(/\s+/).filter(p => p.length > 2);
+      const hasImprovedVersion =
+        groupedCandidate.candidates.some(
+          c => (c.resume_filename || '').toLowerCase().includes('improved')
+        ) ||
+        jobResumeFiles.some((f: any) => {
+          const fname = (f.name || '').toLowerCase();
+          return fname.includes('improved') && nameParts.some(part => fname.includes(part));
+        });
       return (
         <CandidateDetail
           candidate={selectedResume}
           job={job}
           onBack={handleBackToResumes}
+          hasImprovedVersion={hasImprovedVersion}
         />
       );
     }
