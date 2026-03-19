@@ -15,8 +15,18 @@ logger = logging.getLogger(__name__)
 
 
 class OutreachEmail(BaseModel):
-    subject: str = Field(description="Email subject line, concise and relevant to the role")
-    body: str = Field(description="Full email body text, professional and personalized, plain text only")
+    subject: str = Field(description=(
+        "Email subject line. Must be short (under 8 words), personal, and curiosity-driven. "
+        "Good examples: 'Quick question, Justin', 'Security opportunity — worth a look?', "
+        "'Your background caught our eye', '{FirstName} x Cendien'. "
+        "Bad examples: 'Job Opportunity at Cendien', 'We are hiring', 'Application for Security Analyst'."
+    ))
+    body: str = Field(description=(
+        "Full email body, plain text only. "
+        "Structure: greeting paragraph, personalized hook paragraph, role/company paragraph, "
+        "soft CTA paragraph, sign-off. "
+        "Separate each paragraph with a blank line (\\n\\n). No markdown, no bullet points."
+    ))
 
 
 class EmailGeneratorService:
@@ -38,38 +48,50 @@ class EmailGeneratorService:
         job_title: str,
         job_description: str,
         sender_company: str = "Cendien",
+        profile_summary: str = "",
+        company_signals: str = "",
     ) -> OutreachEmail:
         """
         Generate a tailored outreach email for a candidate.
-
-        Returns an OutreachEmail with subject and body.
-        Raises on failure.
+        Returns an OutreachEmail with subject and body (plain text).
         """
         first_name = (candidate_name or "there").split()[0]
 
-        prompt = f"""You are a professional recruiter writing a cold outreach email to a potential candidate for an open role.
+        enrichment_section = ""
+        if profile_summary:
+            enrichment_section += f"\nDetailed profile (from LinkedIn):\n{profile_summary[:800]}\n"
+        if company_signals:
+            enrichment_section += f"\nCompany context:\n{company_signals[:400]}\n"
+
+        prompt = f"""You are a senior technical recruiter writing a cold outreach email to a passive candidate.
 
 Candidate information:
 - Name: {candidate_name or "Unknown"}
 - Headline: {candidate_headline or "N/A"}
 - Location: {candidate_location or "N/A"}
-- LinkedIn summary: {candidate_snippet or "N/A"}
-
+- LinkedIn summary: {candidate_snippet or "N/A"}{enrichment_section}
 Job information:
 - Title: {job_title}
 - Company: {sender_company}
 - Description (excerpt): {job_description[:800] if job_description else "N/A"}
 
-Write a short, personalized outreach email. Requirements:
-- Address the candidate by first name: {first_name}
-- Keep the body under 150 words
-- Reference 1-2 specific things from their headline/background that make them relevant
-- Mention the role and company
-- End with a soft call to action (asking if they'd be open to a quick chat)
+Write a short, high-quality cold outreach email. Rules:
+
+SUBJECT LINE:
+- Under 8 words, conversational, creates curiosity
+- Personalize using first name or their company
+- Examples: "Quick question, {first_name}" / "Your background caught our eye" / "{first_name} x {sender_company}"
+- Never: "Job Opportunity", "We are hiring", "Application for..."
+
+BODY:
+- Open with "{first_name}," on its own line
+- First paragraph: a specific personalized hook — reference something real from their background, current role, or company context (e.g. a recent company move, their specialization, years of experience)
+- Second paragraph: briefly introduce the {job_title} role at {sender_company} and why their background is a strong fit
+- Third paragraph: one soft CTA — "Would you be open to a quick 15-minute chat?" or "Worth a quick conversation?"
+- Sign off: "Best,\\n\\nRecruiting Team, {sender_company}"
+- Under 150 words total
 - Plain text only, no markdown, no bullet points
-- Use proper paragraph breaks: separate greeting, body, call to action, and sign-off with a blank line (\\n\\n) between each
-- Professional but warm tone
-- Sign off as "Recruiting Team, {sender_company}" """
+- Separate each paragraph with a blank line (\\n\\n)"""
 
         response = self.client.models.generate_content(
             model=self.model,
@@ -104,9 +126,15 @@ Original message sent:
 {previous_email_body[:500]}
 ---
 
-Write a short follow-up email (under 80 words). Be polite, not pushy. Acknowledge they may be busy.
-Plain text only, no markdown.
-Sign off as "Recruiting Team, {sender_company}" """
+Write a short follow-up (under 80 words). Rules:
+- Subject: short and direct, e.g. "Following up, {first_name}" or "Still worth a chat?"
+- Open with "{first_name},"
+- Acknowledge they may be busy — one sentence
+- Reiterate the opportunity briefly
+- Soft CTA: "Happy to keep it to 15 minutes" or similar
+- Sign off: "Best,\\n\\nRecruiting Team, {sender_company}"
+- Plain text only, no markdown
+- Separate paragraphs with blank lines (\\n\\n)"""
 
         response = self.client.models.generate_content(
             model=self.model,

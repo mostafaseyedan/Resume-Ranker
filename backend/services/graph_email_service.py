@@ -18,6 +18,58 @@ RECRUITING_MAILBOX = "recruiting@cendien.com"
 SCOPES = ["https://graph.microsoft.com/.default"]
 
 
+def _plain_to_html(plain_body: str) -> str:
+    """
+    Convert a plain-text email body to a clean, professional HTML email.
+    Paragraphs are separated by blank lines (\n\n).
+    """
+    import html as html_lib
+
+    paragraphs = [p.strip() for p in plain_body.strip().split("\n\n") if p.strip()]
+    html_paras = "".join(
+        f'<p style="margin:0 0 16px 0;line-height:1.6;">{html_lib.escape(p).replace(chr(10), "<br>")}</p>'
+        for p in paragraphs
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+        <!-- Header bar -->
+        <tr>
+          <td style="background:#0073ea;padding:16px 32px;">
+            <span style="color:#ffffff;font-size:18px;font-weight:600;letter-spacing:0.5px;">Cendien</span>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px 32px 24px 32px;color:#1f2937;font-size:15px;">
+            {html_paras}
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.5;">
+              You are receiving this email because your profile matched an open role at Cendien.<br>
+              Cendien &nbsp;|&nbsp; <a href="https://cendien.com" style="color:#0073ea;text-decoration:none;">cendien.com</a>
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
 class GraphEmailService:
     def __init__(self):
         self.client_id = os.getenv("AZURE_CLIENT_ID")
@@ -59,8 +111,8 @@ class GraphEmailService:
             "message": {
                 "subject": subject,
                 "body": {
-                    "contentType": "Text",
-                    "content": body,
+                    "contentType": "HTML",
+                    "content": _plain_to_html(body),
                 },
                 "toRecipients": [
                     {"emailAddress": {"address": to_email}}
@@ -113,10 +165,6 @@ class GraphEmailService:
             # fetch recent sent items unfiltered and match recipients in Python.
             all_sent = self._fetch_messages(folder="SentItems", filter_expr=None)
             to_email_lower = to_email.lower()
-            logger.info("Thread lookup for %s — found %d sent items total", to_email, len(all_sent))
-            for m in all_sent[:5]:
-                recipients = [r.get("emailAddress", {}).get("address", "") for r in m.get("toRecipients", [])]
-                logger.info("  sent item: subject=%r recipients=%s", m.get("subject", "")[:40], recipients)
             sent = [
                 m for m in all_sent
                 if any(
@@ -124,7 +172,7 @@ class GraphEmailService:
                     for r in m.get("toRecipients", [])
                 )
             ]
-            logger.info("Matched %d sent messages to %s", len(sent), to_email)
+            logger.info("Thread lookup for %s — %d sent, checking inbox", to_email, len(sent))
 
             received = self._fetch_messages(
                 folder="Inbox",
@@ -164,8 +212,8 @@ class GraphEmailService:
             "message": {
                 "subject": subject,
                 "body": {
-                    "contentType": "Text",
-                    "content": body,
+                    "contentType": "HTML",
+                    "content": _plain_to_html(body),
                 },
                 "toRecipients": [
                     {"emailAddress": {"address": to_email}}

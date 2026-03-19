@@ -20,10 +20,12 @@ from services.external_search_service import ExternalSearchService
 from services.prospeo_service import ProspeoService
 from services.graph_email_service import GraphEmailService
 from services.email_generator import EmailGeneratorService
+from services.tavily_enrichment_service import TavilyEnrichmentService
 import logging
 import base64
 import json
 import uuid
+import time
 from datetime import datetime
 
 # Load environment variables from shared .env
@@ -122,6 +124,13 @@ try:
 except Exception as e:
     email_generator_service = None
     logger.warning(f"Email generator service not initialized: {e}")
+
+try:
+    tavily_enrichment_service = TavilyEnrichmentService()
+    logger.info("Tavily enrichment service initialized")
+except Exception as e:
+    tavily_enrichment_service = None
+    logger.warning(f"Tavily enrichment service not initialized: {e}")
 
 
 @app.route('/api/agent-logs', methods=['POST'])
@@ -1261,6 +1270,28 @@ def generate_candidate_email(job_id):
                 previous_email_body=previous_body,
             )
         else:
+            # Enrich with Tavily signals if available
+            profile_summary = ""
+            company_signals = ""
+            if tavily_enrichment_service and candidate.get('linkedinUrl'):
+                # Extract company name from headline (e.g. "Sr. Engineer at Starbucks" -> "Starbucks")
+                headline = candidate.get('headline', '')
+                company_name = None
+                if ' at ' in headline:
+                    company_name = headline.split(' at ')[-1].strip()
+
+                try:
+                    enrichment = tavily_enrichment_service.enrich_candidate(
+                        linkedin_url=candidate['linkedinUrl'],
+                        candidate_name=candidate.get('name', ''),
+                        headline=headline,
+                        company_name=company_name,
+                    )
+                    profile_summary = enrichment.get('profile_summary') or ''
+                    company_signals = enrichment.get('company_signals') or ''
+                except Exception as enrich_err:
+                    logger.warning("Tavily enrichment failed for %s: %s", linkedin_id, enrich_err)
+
             result = email_generator_service.generate_outreach_email(
                 candidate_name=candidate.get('name', ''),
                 candidate_headline=candidate.get('headline', ''),
@@ -1268,6 +1299,8 @@ def generate_candidate_email(job_id):
                 candidate_snippet=candidate.get('snippet', ''),
                 job_title=job_title,
                 job_description=job_description,
+                profile_summary=profile_summary,
+                company_signals=company_signals,
             )
 
         return jsonify({'success': True, 'subject': result.subject, 'body': result.body})
