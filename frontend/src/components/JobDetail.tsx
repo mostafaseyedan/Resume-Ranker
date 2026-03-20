@@ -9,12 +9,16 @@ import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
-import { ReactMultiEmail } from 'react-multi-email';
-import 'react-multi-email/dist/style.css';
-import { Button, SplitButton, SplitButtonMenu, MenuItem, Checkbox, Label, NumberField, TextField, TextArea, IconButton, Icon } from '@vibe/core';
-import { Modal as NextModal, ModalHeader as NextModalHeader, ModalContent as NextModalContent, ModalBasicLayout as NextModalBasicLayout } from '@vibe/core/next';
+import { Button, SplitButton, SplitButtonMenu, MenuItem, Icon, Label } from '@vibe/core';
 import '@vibe/core/tokens';
-import { Retry, PDF, File as FileIcon, Check } from '@vibe/icons';
+import { PDF, File as FileIcon, Check } from '@vibe/icons';
+import { Button as UiButton } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { RotateCw, X } from 'lucide-react';
 
 interface JobDetailProps {
   job: Job;
@@ -187,6 +191,49 @@ const CustomColorStyles = () => {
       `}} />
   );
 };
+
+function EmailTagInput({ emails, onChange }: { emails: string[]; onChange: (emails: string[]) => void }) {
+  const [input, setInput] = useState('');
+
+  const addEmail = (email: string) => {
+    const trimmed = email.trim().replace(/,$/, '');
+    if (trimmed && !emails.includes(trimmed)) onChange([...emails, trimmed]);
+    setInput('');
+  };
+
+  const removeEmail = (index: number) => onChange(emails.filter((_, i) => i !== index));
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+      e.preventDefault();
+      addEmail(input);
+    } else if (e.key === 'Backspace' && !input && emails.length > 0) {
+      removeEmail(emails.length - 1);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap gap-1.5 p-2 border border-gray-300 dark:border-[#4b4e69] rounded-md bg-white dark:bg-[#1e2035] min-h-[38px] focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-colors">
+      {emails.map((email, i) => (
+        <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium">
+          {email}
+          <button type="button" onClick={() => removeEmail(i)} className="hover:text-blue-600 dark:hover:text-blue-200 ml-0.5">
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <input
+        type="email"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => input && addEmail(input)}
+        placeholder={emails.length === 0 ? 'Add email address...' : ''}
+        className="flex-1 min-w-[160px] bg-transparent outline-none text-sm text-gray-900 dark:text-[#d5d8df] placeholder:text-gray-400 dark:placeholder:text-[#9699a6]"
+      />
+    </div>
+  );
+}
 
 const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -2292,57 +2339,53 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
           <div className="p-6">
             {/* Search Form */}
             <h4 className="text-base font-semibold text-gray-900 dark:text-[#d5d8df] mb-3">LinkedIn Search Query</h4>
-            <div className="bg-gray-50 dark:bg-[#181b34] border border-gray-200 dark:border-[#4b4e69] p-4 mb-6">
-              <div className="flex flex-wrap items-end gap-8">
-                <div className="min-w-64 max-w-md" style={{ width: `${Math.max(256, externalSearchRole.length * 9 + 24)}px` }}>
-                  <TextField
+            <div className="bg-gray-50 dark:bg-[#181b34] border border-gray-200 dark:border-[#4b4e69] rounded-lg p-4 mb-6">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="min-w-48 flex-1">
+                  <Input
                     id="external-search-role"
-                    title="Role Title"
+                    label="Role Title"
                     placeholder="e.g., Software Engineer"
                     value={externalSearchRole}
-                    onChange={(value) => setExternalSearchRole(value)}
-                    size="small"
+                    onChange={(e) => setExternalSearchRole(e.target.value)}
                   />
                 </div>
                 <div className="w-48">
-                  <TextField
+                  <Input
                     id="external-search-location"
-                    title="Location (optional)"
+                    label="Location (optional)"
                     placeholder="e.g., San Francisco, CA"
                     value={externalSearchLocation}
-                    onChange={(value) => setExternalSearchLocation(value)}
-                    size="small"
+                    onChange={(e) => setExternalSearchLocation(e.target.value)}
                   />
                 </div>
-                <div className="w-24">
-                  <NumberField
+                <div className="w-20">
+                  <Input
                     id="external-candidates-count"
                     label="Count"
+                    type="number"
                     value={externalCandidatesCount}
-                    onChange={(value) => setExternalCandidatesCount(value ?? 10)}
+                    onChange={(e) => setExternalCandidatesCount(Number(e.target.value) || 10)}
                     min={1}
                     max={50}
-                    size="small"
                   />
                 </div>
-                <div className="flex-1"></div>
-                <div className="flex gap-2">
-                  <Button
+                <div className="flex gap-2 pb-0.5">
+                  <UiButton
+                    variant="outline"
+                    size="sm"
                     onClick={handleExtractSearchQuery}
                     disabled={!job.description || extractingSearchQuery}
-                    size="small"
-                    kind="tertiary"
                   >
                     {extractingSearchQuery ? 'Extracting...' : 'Extract'}
-                  </Button>
-                  <Button
+                  </UiButton>
+                  <UiButton
+                    size="sm"
                     onClick={handleSearchExternalCandidates}
                     disabled={!externalSearchRole.trim() || searchingExternalCandidates}
-                    size="small"
-                    kind="primary"
                   >
                     {searchingExternalCandidates ? 'Searching...' : 'Search'}
-                  </Button>
+                  </UiButton>
                 </div>
               </div>
               {externalSearchRole && (
@@ -2394,41 +2437,43 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                       </span>
                       <div className="flex items-center gap-2">
                         {selectedExternalIds.size > 0 && (
-                          <button
-                            type="button"
+                          <UiButton
+                            variant="outline"
+                            size="sm"
                             onClick={handleFindEmails}
                             disabled={findingEmails}
-                            className="text-xs font-semibold px-3 py-1.5 rounded border border-teal-500 text-teal-600 hover:bg-teal-50 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="border-teal-500 text-teal-600 hover:bg-teal-50 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-900/20"
                           >
                             {findingEmails ? 'Finding...' : `Find Emails (${selectedExternalIds.size})`}
-                          </button>
+                          </UiButton>
                         )}
-                        <IconButton
-                          kind="tertiary"
-                          size="small"
-                          icon={Retry}
-                          ariaLabel="Refresh email statuses"
+                        <UiButton
+                          variant="ghost"
+                          size="icon"
                           onClick={handleSearchExternalCandidates}
                           disabled={searchingExternalCandidates}
-                        />
+                          title="Refresh email statuses"
+                        >
+                          <RotateCw className={`h-4 w-4 ${searchingExternalCandidates ? 'animate-spin' : ''}`} />
+                        </UiButton>
                       </div>
                     </div>
 
                     {/* Profile Cards */}
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                       {externalCandidates.map((profile, index) => {
                         const emailStatus = profile.email_status || 'none';
                         const isSelected = selectedExternalIds.has(profile.linkedinId);
                         const canCompose = emailStatus === 'found';
                         const canViewThread = emailStatus === 'sent' || emailStatus === 'replied';
 
-                        const emailBadgeClass =
-                          emailStatus === 'found' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' :
-                          emailStatus === 'not_found' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' :
-                          emailStatus === 'sent' ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-400' :
-                          emailStatus === 'replied' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400' :
-                          emailStatus === 'failed' ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400' :
-                          'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]';
+                        const badgeVariant =
+                          emailStatus === 'found' ? 'success' :
+                          emailStatus === 'not_found' ? 'warning' :
+                          emailStatus === 'sent' ? 'teal' :
+                          emailStatus === 'replied' ? 'purple' :
+                          emailStatus === 'failed' ? 'error' :
+                          'default';
 
                         const emailBadgeText =
                           emailStatus === 'found' ? profile.email || 'Email found' :
@@ -2441,35 +2486,38 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         return (
                           <div
                             key={profile.linkedinId || index}
-                            className={`bg-white dark:bg-[#30324e] border-l-4 ${isSelected ? 'border-l-indigo-500' : 'border-l-blue-500 dark:border-l-blue-400'} border border-gray-200 dark:border-[#4b4e69] p-4 transition-all shadow-sm flex flex-col overflow-hidden cursor-pointer ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/10' : ''}`}
-                            onClick={() => handleExternalIdToggle(profile.linkedinId)}
+                            className={`bg-white dark:bg-[#252740] rounded-lg border-l-4 ${isSelected ? 'border-l-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900/50' : 'border-l-blue-500 dark:border-l-blue-400'} border border-gray-200 dark:border-[#4b4e69] p-4 transition-all shadow-sm flex flex-col gap-2 ${(canCompose || canViewThread) ? 'cursor-pointer hover:shadow-md' : 'cursor-default'} ${isSelected ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
+                            onClick={() => {
+                              if (canCompose) handleOpenCompose(profile);
+                              else if (canViewThread) handleOpenThread(profile);
+                            }}
                           >
                             {/* Header: checkbox + name + LinkedIn icon */}
-                            <div className="flex justify-between items-start mb-2 gap-2">
+                            <div className="flex justify-between items-start gap-2">
                               <div className="flex items-start gap-2 flex-1 min-w-0">
                                 <div className="flex-shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
                                   <Checkbox
                                     checked={isSelected}
-                                    onChange={() => handleExternalIdToggle(profile.linkedinId)}
+                                    onCheckedChange={() => handleExternalIdToggle(profile.linkedinId)}
                                   />
                                 </div>
-                                <h4 className="font-semibold text-gray-900 dark:text-[#d5d8df] text-base truncate" title={profile.name || profile.title}>
+                                <h4 className="font-semibold text-gray-900 dark:text-[#d5d8df] text-sm leading-snug truncate" title={profile.name || profile.title}>
                                   {profile.name || profile.linkedinId}
                                 </h4>
                               </div>
-                              <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                               </svg>
                             </div>
 
                             {profile.headline && (
-                              <p className="text-sm text-gray-700 dark:text-[#d5d8df] mb-2 line-clamp-2" title={profile.headline}>
+                              <p className="text-xs text-gray-600 dark:text-[#9699a6] line-clamp-2 leading-relaxed" title={profile.headline}>
                                 {profile.headline}
                               </p>
                             )}
 
                             {profile.location && (
-                              <div className="flex items-center gap-1 mb-2 text-xs text-gray-500 dark:text-[#9699a6]">
+                              <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-[#9699a6]">
                                 <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -2479,51 +2527,31 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             )}
 
                             {profile.snippet && (
-                              <p className="text-xs text-gray-500 dark:text-[#9699a6] line-clamp-2 flex-grow" title={profile.snippet}>
+                              <p className="text-xs text-gray-400 dark:text-[#9699a6] line-clamp-2 flex-grow italic" title={profile.snippet}>
                                 {profile.snippet}
                               </p>
                             )}
 
                             {/* Footer */}
                             <div className="border-t border-gray-100 dark:border-[#4b4e69] pt-2 mt-auto" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center gap-2">
-                                {/* Badge */}
-                                <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 truncate max-w-[120px] flex-shrink-0 ${emailBadgeClass}`} title={emailBadgeText}>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant={badgeVariant as any} className="truncate max-w-[130px] shrink-0" title={emailBadgeText}>
                                   {emailBadgeText}
-                                </span>
-                                {/* Compose — center */}
-                                <div className="flex-1 flex justify-center">
+                                </Badge>
+                                <div className="flex items-center gap-1 ml-auto flex-shrink-0">
                                   {canCompose && (
-                                    <Button
-                                      kind="tertiary"
-                                      size="xs"
-                                      color="positive"
-                                      onClick={() => handleOpenCompose(profile)}
-                                    >
+                                    <UiButton variant="ghost" size="xs" className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => handleOpenCompose(profile)}>
                                       Compose
-                                    </Button>
+                                    </UiButton>
                                   )}
-                                </div>
-                                {/* View Thread + Profile — right */}
-                                <div className="flex items-center gap-1 flex-shrink-0">
                                   {canViewThread && (
-                                    <Button
-                                      kind="tertiary"
-                                      size="xs"
-                                      onClick={() => handleOpenThread(profile)}
-                                    >
-                                      View Thread
-                                    </Button>
+                                    <UiButton variant="ghost" size="xs" onClick={() => handleOpenThread(profile)}>
+                                      Thread
+                                    </UiButton>
                                   )}
-                                  <Button
-                                    kind="tertiary"
-                                    size="xs"
-                                    color="primary"
-                                    className="!text-blue-600 dark:!text-blue-400"
-                                    onClick={() => window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer')}
-                                  >
+                                  <UiButton variant="ghost" size="xs" className="text-blue-600 dark:text-blue-400" onClick={() => window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer')}>
                                     Profile
-                                  </Button>
+                                  </UiButton>
                                 </div>
                               </div>
                             </div>
@@ -2540,237 +2568,200 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
       </div>
 
       {/* Compose Email Modal */}
-      <NextModal
-        id="compose-email-modal"
-        show={composeOpen}
-        onClose={() => { setComposeOpen(false); setComposeCandidate(null); }}
-        size="medium"
-        style={{
-          ['--top-actions-margin-block' as string]: 'var(--spacing-medium)',
-          ['--top-actions-margin-inline' as string]: 'var(--spacing-medium)',
-          ['--border-radius-big' as string]: '4px',
-        }}
-      >
-        <NextModalBasicLayout>
-          <NextModalHeader
-            title={
-              <span className="text-base font-semibold text-gray-700 dark:text-[#d5d8df]">
-                Email {composeCandidate?.name || composeCandidate?.linkedinId}
-              </span>
-            }
-          />
-          <NextModalContent>
-            {composeCandidate && (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-[#9699a6] mb-1">To</label>
-                  <ReactMultiEmail
-                    emails={emailToAddresses}
-                    onChange={setEmailToAddresses}
-                    autoFocus={false}
-                    placeholder="Add email address..."
-                    getLabel={(email, index, removeEmail) => (
-                      <div data-tag key={index} className="flex items-center gap-1" style={{ background: '#dbeafe', color: '#1d4ed8', borderRadius: '4px', padding: '2px 6px', fontSize: '12px' }}>
-                        <span data-tag-item>{email}</span>
-                        <span data-tag-handle onClick={() => removeEmail(index)} style={{ cursor: 'pointer', marginLeft: '4px', opacity: 0.6 }}>×</span>
-                      </div>
-                    )}
-                    style={{
-                      border: '1px solid var(--color-ui-border-color, #d0d4e4)',
-                      borderRadius: '4px',
-                      padding: '4px 8px',
-                      minHeight: '36px',
-                      fontSize: '13px',
-                      background: 'var(--color-ui-background, #fff)',
-                    }}
-                  />
-                  {composeCandidate.headline && (
-                    <p className="text-xs text-gray-400 dark:text-[#9699a6] mt-1">{composeCandidate.headline}</p>
-                  )}
-                </div>
-                {generatingEmail ? (
-                  <div className="flex items-center gap-2 py-8 justify-center text-sm text-gray-500 dark:text-[#9699a6]">
-                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                    Generating personalized email...
-                  </div>
-                ) : (
-                  <>
-                    <TextField
-                      id="email-subject"
-                      title="Subject"
-                      value={emailSubject}
-                      onChange={(value) => setEmailSubject(value)}
-                      size="small"
-                    />
-                    <TextArea
-                      label="Body"
-                      value={emailBody}
-                      onChange={(event) => setEmailBody(event.target.value)}
-                      size="small"
-                      rows={8}
-                    />
-                    <div className="flex items-center justify-between">
-                      <Button kind="tertiary" size="small" onClick={handleRegenerateEmail} disabled={generatingEmail}>
-                        Regenerate
-                      </Button>
-                      <div className="flex gap-2">
-                        <Button kind="tertiary" size="small" onClick={() => { setComposeOpen(false); setComposeCandidate(null); }}>
-                          Cancel
-                        </Button>
-                        <Button
-                          kind="primary"
-                          size="small"
-                          onClick={handleSendEmail}
-                          disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim() || emailToAddresses.length === 0}
-                        >
-                          {sendingEmail ? 'Sending...' : 'Send'}
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+      <Dialog open={composeOpen} onOpenChange={(open) => { if (!open) { setComposeOpen(false); setComposeCandidate(null); } }}>
+        <DialogContent className="max-w-2xl w-full">
+          <DialogHeader>
+            <DialogTitle>
+              Email {composeCandidate?.name || composeCandidate?.linkedinId}
+            </DialogTitle>
+            {composeCandidate?.headline && (
+              <p className="text-xs text-gray-400 dark:text-[#9699a6] mt-0.5">{composeCandidate.headline}</p>
             )}
-          </NextModalContent>
-        </NextModalBasicLayout>
-      </NextModal>
+          </DialogHeader>
+
+          {composeCandidate && (
+            <div className="px-5 py-4 space-y-3">
+              {/* To field */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500 dark:text-[#9699a6]">To</label>
+                <EmailTagInput emails={emailToAddresses} onChange={setEmailToAddresses} />
+              </div>
+
+              {generatingEmail ? (
+                <div className="flex items-center gap-2 py-10 justify-center text-sm text-gray-500 dark:text-[#9699a6]">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                  Generating personalized email...
+                </div>
+              ) : (
+                <>
+                  <Input
+                    id="email-subject"
+                    label="Subject"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    placeholder="Subject line..."
+                  />
+                  <Textarea
+                    id="email-body"
+                    label="Body"
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    rows={14}
+                    placeholder="Your message..."
+                  />
+                </>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="justify-between">
+            <UiButton variant="ghost" size="sm" onClick={handleRegenerateEmail} disabled={generatingEmail || !composeCandidate}>
+              Regenerate
+            </UiButton>
+            <div className="flex gap-2">
+              <UiButton variant="outline" size="sm" onClick={() => { setComposeOpen(false); setComposeCandidate(null); }}>
+                Cancel
+              </UiButton>
+              <UiButton
+                size="sm"
+                onClick={handleSendEmail}
+                disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim() || emailToAddresses.length === 0}
+              >
+                {sendingEmail ? 'Sending...' : 'Send'}
+              </UiButton>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Email Thread Modal */}
-      <NextModal
-        id="email-thread-modal"
-        show={threadOpen}
-        onClose={() => { setThreadOpen(false); setThreadCandidate(null); setThreadMessages([]); }}
-        size="medium"
-        style={{
-          ['--top-actions-margin-block' as string]: 'var(--spacing-medium)',
-          ['--top-actions-margin-inline' as string]: 'var(--spacing-medium)',
-          ['--border-radius-big' as string]: '4px',
-        }}
-      >
-        <NextModalBasicLayout>
-          <NextModalHeader
-            title={
-              <div className="flex items-center justify-between w-full pr-8">
-                <span className="text-base font-semibold text-gray-700 dark:text-[#d5d8df]">
-                  Thread · {threadCandidate?.name || threadCandidate?.linkedinId}
-                </span>
-                <IconButton
-                  kind="tertiary"
-                  size="small"
-                  icon={Retry}
-                  ariaLabel="Refresh thread"
-                  onClick={handleRefreshThread}
-                  disabled={fetchingThread}
-                  loading={fetchingThread}
-                />
-              </div>
-            }
-          />
-          <NextModalContent>
-            <div className="flex flex-col" style={{ height: '500px' }}>
-              {/* Thread messages */}
-              <div className="flex-1 overflow-y-auto space-y-3 pb-4">
-                {fetchingThread && (
-                  <div className="flex items-center gap-2 py-8 justify-center text-sm text-gray-500 dark:text-[#9699a6]">
-                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                    Loading thread...
-                  </div>
-                )}
-                {!fetchingThread && threadMessages.length === 0 && (
-                  <div className="text-sm text-gray-500 dark:text-[#9699a6] text-center py-8">No messages yet.</div>
-                )}
-                {!fetchingThread && threadMessages.map((msg, i) => {
-                  const isSent = msg.direction === 'sent';
-                  const isHtml = msg.body.trimStart().startsWith('<');
-                  return (
-                    <div key={i} className="flex flex-col gap-1">
-                      <div className={`text-xs text-gray-400 dark:text-[#9699a6] ${isSent ? 'text-right' : 'text-left'}`}>
-                        {isSent ? 'You' : threadCandidate?.name || 'Candidate'}
-                        {' · '}
-                        {msg.received_at ? new Date(msg.received_at).toLocaleString() : ''}
-                        {' · '}
-                        <span className="font-medium">{msg.subject}</span>
-                      </div>
-                      <div className={`rounded border ${isSent ? 'border-blue-200 dark:border-blue-900' : 'border-gray-200 dark:border-[#4b4e69]'} overflow-hidden`}>
-                        {isSent && isHtml ? (
-                          <iframe
-                            srcDoc={msg.body}
-                            sandbox="allow-same-origin"
-                            className="w-full border-0"
-                            style={{ minHeight: '320px' }}
-                            onLoad={(e) => {
-                              const iframe = e.currentTarget;
-                              const height = iframe.contentDocument?.documentElement?.scrollHeight;
-                              if (height) iframe.style.height = `${height}px`;
-                            }}
-                          />
-                        ) : (
-                          <div className="px-3 py-2 text-xs text-gray-800 dark:text-[#d5d8df] whitespace-pre-wrap bg-gray-50 dark:bg-[#30324e]">
-                            {msg.body.replace(/<[^>]+>/g, '').trim()}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Reply box */}
-              <div className="border-t border-gray-200 dark:border-[#4b4e69] pt-3 space-y-2">
-                <TextField
-                  id="reply-subject"
-                  title="Subject"
-                  value={replySubject}
-                  onChange={(value) => setReplySubject(value)}
-                  size="small"
-                  placeholder="Re: ..."
-                />
-                <TextArea
-                  label="Message"
-                  value={replyBody}
-                  onChange={(event) => setReplyBody(event.target.value)}
-                  size="small"
-                  rows={3}
-                  placeholder="Type your reply..."
-                />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    kind="tertiary"
-                    size="small"
-                    onClick={async () => {
-                      if (!threadCandidate) return;
-                      setGeneratingEmail(true);
-                      try {
-                        const result = await apiService.generateCandidateEmail(job.id, threadCandidate.linkedinId, {
-                          isFollowup: true,
-                          previousBody: threadMessages.find(m => m.direction === 'sent')?.body || '',
-                        });
-                        if (result.success) {
-                          setReplySubject(result.subject);
-                          setReplyBody(result.body);
-                        }
-                      } catch { /* ignore */ } finally {
-                        setGeneratingEmail(false);
-                      }
-                    }}
-                    disabled={generatingEmail}
-                  >
-                    {generatingEmail ? 'Generating...' : 'Generate follow-up'}
-                  </Button>
-                  <Button
-                    kind="primary"
-                    size="small"
-                    onClick={handleSendReply}
-                    disabled={sendingReply || !replySubject.trim() || !replyBody.trim()}
-                  >
-                    {sendingReply ? 'Sending...' : 'Send Reply'}
-                  </Button>
-                </div>
-              </div>
+      <Dialog open={threadOpen} onOpenChange={(open) => { if (!open) { setThreadOpen(false); setThreadCandidate(null); setThreadMessages([]); } }}>
+        <DialogContent className="max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <div className="flex items-center justify-between pr-6">
+              <DialogTitle>
+                Thread · {threadCandidate?.name || threadCandidate?.linkedinId}
+              </DialogTitle>
+              <UiButton
+                variant="ghost"
+                size="icon"
+                onClick={handleRefreshThread}
+                disabled={fetchingThread}
+                title="Refresh thread"
+              >
+                <RotateCw className={`h-4 w-4 ${fetchingThread ? 'animate-spin' : ''}`} />
+              </UiButton>
             </div>
-          </NextModalContent>
-        </NextModalBasicLayout>
-      </NextModal>
+          </DialogHeader>
+
+          {/* Thread messages — single scroll area */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-4">
+            {fetchingThread && (
+              <div className="flex items-center gap-2 py-10 justify-center text-sm text-gray-500 dark:text-[#9699a6]">
+                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                Loading thread...
+              </div>
+            )}
+            {!fetchingThread && threadMessages.length === 0 && (
+              <div className="text-sm text-gray-500 dark:text-[#9699a6] text-center py-10">No messages yet.</div>
+            )}
+            {!fetchingThread && threadMessages.map((msg, i) => {
+              const isSent = msg.direction === 'sent';
+              const isHtml = msg.body.trimStart().startsWith('<');
+              // Wrap HTML in a minimal document that disables the iframe's own scrollbar.
+              // CSP meta blocks script execution; no sandbox so images/fonts/styles load freely (same as email clients).
+              const iframeSrcDoc = isHtml
+                ? `<!DOCTYPE html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src * data: blob:; style-src 'unsafe-inline' *; font-src *; media-src *;"><style>html,body{margin:0;padding:12px 16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;line-height:1.6;}a{color:#2563eb;}</style></head><body>${msg.body}</body></html>`
+                : null;
+              return (
+                <div key={i} className={`flex flex-col gap-1 ${isSent ? 'items-end' : 'items-start'}`}>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-[#9699a6]">
+                    <span className={`font-medium ${isSent ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-[#d5d8df]'}`}>
+                      {isSent ? 'You' : threadCandidate?.name || 'Candidate'}
+                    </span>
+                    {msg.received_at && <span>{new Date(msg.received_at).toLocaleString()}</span>}
+                    {msg.subject && <span className="font-medium text-gray-500 dark:text-[#9699a6]">· {msg.subject}</span>}
+                  </div>
+                  <div className={`rounded-lg border w-full overflow-hidden ${isSent ? 'border-blue-200 dark:border-blue-900/60' : 'border-gray-200 dark:border-[#4b4e69]'}`}>
+                    {iframeSrcDoc ? (
+                      <iframe
+                        key={i}
+                        srcDoc={iframeSrcDoc}
+                        referrerPolicy="no-referrer"
+                        className="w-full border-0 block"
+                        style={{ height: '0' }}
+                        onLoad={(e) => {
+                          const doc = e.currentTarget.contentDocument;
+                          if (doc) {
+                            const h = doc.documentElement.scrollHeight || doc.body?.scrollHeight || 0;
+                            e.currentTarget.style.height = `${h}px`;
+                          }
+                        }}
+                        title={`Email from ${isSent ? 'you' : threadCandidate?.name || 'candidate'}`}
+                      />
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-gray-900 dark:text-[#d5d8df] whitespace-pre-wrap leading-relaxed">
+                        {msg.body.replace(/<[^>]+>/g, '').trim()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Reply box */}
+          <div className="border-t border-gray-200 dark:border-[#4b4e69] px-5 py-3 space-y-2.5">
+            <Input
+              id="reply-subject"
+              label="Subject"
+              value={replySubject}
+              onChange={(e) => setReplySubject(e.target.value)}
+              placeholder="Re: ..."
+            />
+            <Textarea
+              id="reply-body"
+              label="Message"
+              value={replyBody}
+              onChange={(e) => setReplyBody(e.target.value)}
+              rows={3}
+              placeholder="Type your reply..."
+            />
+            <div className="flex justify-end gap-2">
+              <UiButton
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if (!threadCandidate) return;
+                  setGeneratingEmail(true);
+                  try {
+                    const result = await apiService.generateCandidateEmail(job.id, threadCandidate.linkedinId, {
+                      isFollowup: true,
+                      previousBody: threadMessages.find(m => m.direction === 'sent')?.body || '',
+                    });
+                    if (result.success) {
+                      setReplySubject(result.subject);
+                      setReplyBody(result.body);
+                    }
+                  } catch { /* ignore */ } finally {
+                    setGeneratingEmail(false);
+                  }
+                }}
+                disabled={generatingEmail}
+              >
+                {generatingEmail ? 'Generating...' : 'Generate follow-up'}
+              </UiButton>
+              <UiButton
+                size="sm"
+                onClick={handleSendReply}
+                disabled={sendingReply || !replySubject.trim() || !replyBody.trim()}
+              >
+                {sendingReply ? 'Sending...' : 'Send Reply'}
+              </UiButton>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

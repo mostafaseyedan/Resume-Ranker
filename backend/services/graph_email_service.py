@@ -41,7 +41,7 @@ def _plain_to_html(plain_body: str) -> str:
 
         <!-- Header bar -->
         <tr>
-          <td style="background:#0073ea;padding:16px 32px;">
+          <td style="background:#111827;padding:16px 32px;">
             <span style="color:#ffffff;font-size:18px;font-weight:600;letter-spacing:0.5px;">Cendien</span>
           </td>
         </tr>

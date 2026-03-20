@@ -11,9 +11,14 @@ const localEnvDir = fs.existsSync(path.resolve(__dirname, '.env'))
 export default defineConfig({
   plugins: [react()],
   envDir: localEnvDir,
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   server: {
     port: 3000,
-    host: true, // Expose to all IPs
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

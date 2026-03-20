@@ -18,6 +18,7 @@ from services.openai_analyzer import OpenAIAnalyzer
 from services.web_verification_service import WebVerificationService
 from services.external_search_service import ExternalSearchService
 from services.prospeo_service import ProspeoService
+from services.hunter_service import HunterService, extract_company_from_profile
 from services.graph_email_service import GraphEmailService
 from services.email_generator import EmailGeneratorService
 from services.tavily_enrichment_service import TavilyEnrichmentService
@@ -110,6 +111,13 @@ try:
 except Exception as e:
     prospeo_service = None
     logger.warning(f"Prospeo service not initialized: {e}")
+
+try:
+    hunter_service = HunterService()
+    logger.info("Hunter service initialized")
+except Exception as e:
+    hunter_service = None
+    logger.warning(f"Hunter service not initialized: {e}")
 
 try:
     graph_email_service = GraphEmailService()
@@ -1215,6 +1223,20 @@ def find_candidate_emails(job_id):
             cid = candidate.get('linkedinId')
             linkedin_url = candidate.get('linkedinUrl', '')
             lookup = prospeo_service.find_email(linkedin_url)
+
+            if not lookup.get('success') and hunter_service and tavily_enrichment_service:
+                logger.info("Prospeo no match for %s — enriching via Tavily", cid)
+                enrichment = tavily_enrichment_service.enrich_candidate(
+                    linkedin_url=linkedin_url,
+                    candidate_name=candidate.get('name', ''),
+                )
+                company = extract_company_from_profile(enrichment.get('profile_summary') or '')
+                if company:
+                    logger.info("Tavily resolved company '%s' for %s — trying Hunter", company, cid)
+                    lookup = hunter_service.find_email(candidate.get('name', ''), company)
+                else:
+                    logger.info("Tavily could not resolve company for %s — skipping Hunter", cid)
+
             results[cid] = {
                 'email': lookup.get('email'),
                 'email_status': 'found' if lookup.get('success') else 'not_found',
