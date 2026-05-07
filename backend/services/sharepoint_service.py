@@ -141,7 +141,7 @@ class SharePointService:
             # Handle old format (:f:/r/)
             elif '/:f:/r/' in sharepoint_url:
                 clean_url = sharepoint_url.split('?')[0]  # Remove query parameters
-                clean_url = clean_url.replace('%20', ' ').replace('%2520', ' ')
+                clean_url = unquote(clean_url)
 
                 parsed = urlparse(clean_url)
                 path = parsed.path
