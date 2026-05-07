@@ -1,0 +1,38 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '--build-arg'
+      - 'VITE_AZURE_CLIENT_ID=7fec6994-054a-4b3a-9b99-e9106dbf3810'
+      - '--build-arg'
+      - 'VITE_AZURE_TENANT_ID=731cf8da-9ed1-43e4-901a-a8fda2084922'
+      - '--build-arg'
+      - 'VITE_AZURE_AUTHORITY=https://login.microsoftonline.com/731cf8da-9ed1-43e4-901a-a8fda2084922'
+      - '--build-arg'
+      - 'VITE_REDIRECT_URI=https://resume.cendien.com/auth/callback'
+      - '--build-arg'
+      - 'VITE_API_BASE_URL=https://resume.cendien.com/api'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/cendien-sales-support-ai/cloud-run-source-deploy/resume-ranker/resume-ranker:$COMMIT_SHA'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - 'us-central1-docker.pkg.dev/cendien-sales-support-ai/cloud-run-source-deploy/resume-ranker/resume-ranker:$COMMIT_SHA'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - resume-ranker
+      - '--image=us-central1-docker.pkg.dev/cendien-sales-support-ai/cloud-run-source-deploy/resume-ranker/resume-ranker:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--project=cendien-sales-support-ai'
+
+images:
+  - 'us-central1-docker.pkg.dev/cendien-sales-support-ai/cloud-run-source-deploy/resume-ranker/resume-ranker:$COMMIT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
