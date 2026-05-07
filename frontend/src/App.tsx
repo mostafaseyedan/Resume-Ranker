@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate } from '@azure/msal-react';
 import { PublicClientApplication } from '@azure/msal-browser';
@@ -9,27 +9,22 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import './index.css';
 
-// Create MSAL instance
 const msalInstance = new PublicClientApplication(msalConfig);
 
-// Initialize MSAL instance and handle redirects
-const initializeMsal = async () => {
-  await msalInstance.initialize();
-
-  // Handle redirect promise after initialization
-  msalInstance.handleRedirectPromise().then((response) => {
-    if (response) {
-      console.log('Login successful:', response);
-    }
-  }).catch((error) => {
-    console.error('MSAL redirect error:', error);
-  });
-};
-
-// Initialize MSAL
-initializeMsal();
-
 const App: React.FC = () => {
+  const [msalReady, setMsalReady] = useState(false);
+
+  useEffect(() => {
+    msalInstance.initialize().then(() => {
+      msalInstance.handleRedirectPromise().catch((error) => {
+        console.error('MSAL redirect error:', error);
+      });
+      setMsalReady(true);
+    });
+  }, []);
+
+  if (!msalReady) return null;
+
   return (
     <MsalProvider instance={msalInstance}>
       <ThemeProvider>

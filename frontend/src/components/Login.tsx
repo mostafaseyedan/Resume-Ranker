@@ -9,7 +9,15 @@ const Login: React.FC = () => {
 
   const handleLogin = () => {
     instance.loginRedirect(loginRequest).catch((error) => {
-      console.error('Login error:', error);
+      if (error.errorCode === 'interaction_in_progress') {
+        // Clear stale MSAL interaction state and retry
+        Object.keys(sessionStorage)
+          .filter(k => k.startsWith('msal.'))
+          .forEach(k => sessionStorage.removeItem(k));
+        instance.loginRedirect(loginRequest).catch(console.error);
+      } else {
+        console.error('Login error:', error);
+      }
     });
   };
 
