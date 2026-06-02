@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Job, Candidate, apiService } from '../services/apiService';
 import { Button } from '@vibe/core';
+import { cn } from '@/lib/utils';
+import { radiusSurface } from '@/lib/radius';
 import '@vibe/core/tokens';
 
 interface ResumeUploadProps {
@@ -49,12 +51,14 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
     const validTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword'
+      'application/msword',
     ];
-    return validTypes.includes(file.type) ||
-           file.name.toLowerCase().endsWith('.pdf') ||
-           file.name.toLowerCase().endsWith('.docx') ||
-           file.name.toLowerCase().endsWith('.doc');
+    return (
+      validTypes.includes(file.type) ||
+      file.name.toLowerCase().endsWith('.pdf') ||
+      file.name.toLowerCase().endsWith('.docx') ||
+      file.name.toLowerCase().endsWith('.doc')
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,7 +80,6 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
       const response = await apiService.uploadResume(job.id, selectedFile);
 
       if (response.success) {
-        // Create candidate object to match expected format
         const candidateData: Candidate = {
           id: response.candidate_id,
           name: response.analysis.candidate_name || selectedFile.name.split('.')[0],
@@ -98,7 +101,6 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
         onResumeUploaded(candidateData);
         setSelectedFile(null);
 
-        // Reset file input
         const fileInput = document.getElementById('resume-file') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
 
@@ -119,95 +121,56 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
   };
 
   return (
-    <div>
-      <div className="mb-6">
-        <h3 className="text-base font-medium text-gray-900 dark:text-[#d5d8df] mb-2">Upload Files</h3>
-        <p className="text-sm text-gray-600 dark:text-[#9699a6]">
-          Upload a PDF or DOCX file and our system will automatically analyze the candidate's qualifications
-          against this job position: <strong>{job.title}</strong>
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div
-          className={`relative border-2 border-dashed p-6 transition-colors ${
-            dragActive
-              ? 'border-blue-400 bg-blue-50'
-              : selectedFile
-              ? 'border-green-400 bg-green-50'
-              : 'border-gray-300 hover:border-gray-400'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <div className="text-center">
-            {selectedFile ? (
-              <div className="space-y-2">
-                <div className="text-green-600">
-                  <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-[#d5d8df]">{selectedFile.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-[#9699a6]">{formatFileSize(selectedFile.size)}</p>
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => setSelectedFile(null)}
-                  kind="tertiary"
-                  color="negative"
-                  size="xs"
-                >
-                  Remove file
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <div>
-                  <label htmlFor="resume-file" className="cursor-pointer">
-                    <span className="text-sm text-blue-600 hover:text-blue-500 font-medium">
-                      Click to upload
-                    </span>
-                    <span className="text-sm text-gray-500 dark:text-[#9699a6]"> or drag and drop</span>
-                  </label>
-                  <input
-                    id="resume-file"
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,.docx,.doc"
-                    onChange={handleFileChange}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 dark:text-[#9699a6]">PDF, DOCX files up to 10MB</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Only show button when file is selected */}
-        {selectedFile && (
-          <div className="flex space-x-3">
-            <Button
-              type="submit"
-              disabled={uploading}
-              loading={uploading}
-              kind="primary"
-              size="small"
-              className="flex-1"
-            >
-              {uploading ? 'Analyzing Resume...' : 'Upload & Analyze Resume'}
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div
+        className={cn(
+          radiusSurface,
+          'border border-dashed px-4 py-3 transition-colors',
+          dragActive
+            ? 'border-brand bg-brand-soft/40 dark:border-brand-on-dark dark:bg-brand/10'
+            : selectedFile
+              ? 'border-gray-300 dark:border-line bg-gray-50 dark:bg-canvas-deep'
+              : 'border-gray-300 dark:border-line bg-white dark:bg-surface hover:bg-gray-50 dark:hover:bg-surface-hover'
+        )}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+      >
+        {selectedFile ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-gray-900 dark:text-ink">{selectedFile.name}</p>
+              <p className="text-xs text-gray-500 dark:text-ink-muted">{formatFileSize(selectedFile.size)}</p>
+            </div>
+            <Button type="button" onClick={() => setSelectedFile(null)} kind="tertiary" size="xs">
+              Change
             </Button>
           </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <label htmlFor="resume-file" className="cursor-pointer font-medium text-brand dark:text-brand-on-dark hover:underline">
+              Choose file
+            </label>
+            <span className="text-gray-400 dark:text-ink-faint">·</span>
+            <span className="text-gray-500 dark:text-ink-muted">or drop PDF/DOCX here</span>
+            <input
+              id="resume-file"
+              type="file"
+              className="hidden"
+              accept=".pdf,.docx,.doc"
+              onChange={handleFileChange}
+            />
+          </div>
         )}
-      </form>
+      </div>
 
-    </div>
+      {selectedFile && (
+        <Button type="submit" disabled={uploading} loading={uploading} kind="primary" size="small">
+          {uploading ? 'Analyzing…' : 'Upload & analyze'}
+        </Button>
+      )}
+    </form>
   );
 };
 

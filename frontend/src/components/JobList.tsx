@@ -4,6 +4,11 @@ import { Button, Label, TextField, TextArea, Search as SearchField } from '@vibe
 import { Dropdown } from '@vibe/core/next';
 import '@vibe/core/tokens';
 import { Job, apiService, CreateJobRequest } from '../services/apiService';
+import {
+  MONDAY_COLORS,
+  getGroupColorFromVar,
+  getVibeLabelColor,
+} from '../lib/mondayColors';
 
 interface JobListProps {
   jobs: Job[];
@@ -13,73 +18,6 @@ interface JobListProps {
   onJobGenerated: (job: Job) => void;
   onJobDeleted: (jobId: string) => void;
 }
-
-// Monday.com color name mappings (hex)
-const MONDAY_COLOR_MAP: Record<string, string> = {
-  'black': '#000000',
-  'white': '#FFFFFF',
-  'red': '#e2445c',
-  'orange': '#fdab3d',
-  'yellow': '#ffcb00',
-  'green': '#00c875',
-  'bright-green': '#9cd326',
-  'aquamarine': '#00d647',
-  'blue': '#579BFC',
-  'dark-blue': '#0073ea',
-  'purple': '#a25ddc',
-  'pink': '#ff158a',
-  'lipstick': '#ff5ac4',
-  'dark-purple': '#784bd1',
-  'indigo': '#6161FF',
-  'cyan': '#66ccff',
-  'done-green': '#00c875',
-  'bright_green': '#9cd326',
-  'dark-indigo': '#401694',
-  'navy': '#1f76c2',
-  'lavender': '#9aadff',
-  'lilac': '#a1a1ff',
-  'peach': '#ffadad',
-  'done_green': '#00c875',
-  'working_orange': '#fdab3d',
-  'stuck_red': '#e2445c',
-  'chili-blue': '#66ccff'
-};
-
-const MONDAY_COLORS = {
-  BLUE: '#579BFC'
-} as const;
-
-// Additional Monday var_name -> hex mappings
-const MONDAY_HEXES: Record<string, string> = {
-  'grey': '#c4c4c4',
-  'trolley-grey': '#757575',
-  'winter': '#9aadbd',
-  'purple-gray': '#9d99b9',
-  'old-rose': '#cd9282',
-  'royal': '#784bd1',
-  'stuck-red': '#df2f4a',
-  'done-green': '#00c875',
-  'river': '#007eb5',
-  'sky': '#216edf',
-  'working-orange': '#fdab3d',
-  'berry': '#cd9282',
-  'green-shadow': '#00c875',
-  'red-shadow': '#df2f4a',
-  'lime-green': '#9cd326',
-  'light-pink': '#ff5ac4',
-  'grass-green': '#9cd326',
-  'purple': '#a25ddc'
-};
-
-const getGroupColorFromVar = (colorName?: string | null): string => {
-  if (!colorName) return MONDAY_COLORS.BLUE;
-  const normalized = colorName.toLowerCase().replace(/_/g, '-');
-  return (
-    MONDAY_COLOR_MAP[normalized] ||
-    MONDAY_HEXES[normalized] ||
-    (colorName.startsWith('#') ? colorName : MONDAY_COLORS.BLUE)
-  );
-};
 
 const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJobCreated, onJobGenerated, onJobDeleted }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -432,193 +370,6 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     return 'text-red-600';
   };
 
-  // Map Monday.com var_name colors to Vibe Label colors (copied from RFPList.tsx)
-  const MONDAY_TO_VIBE_COLOR_MAP: Record<string, string> = {
-    // Green variants (done/success)
-    'green-shadow': 'done-green',
-    'grass-green': 'grass_green',
-    'lime-green': 'saladish',
-
-    // Orange/Yellow variants (working/in-progress)
-    'orange': 'working_orange',
-    'dark-orange': 'dark-orange',
-    'yellow': 'egg_yolk',
-    'mustered': 'tan',
-
-    // Red variants (stuck/error)
-    'red-shadow': 'stuck-red',
-    'dark-red': 'dark-red',
-
-    // Pink variants
-    'dark-pink': 'sofia_pink',
-    'light-pink': 'pink',
-
-    // Purple/Indigo variants
-    'dark-purple': 'dark_purple',
-    'dark_indigo': 'dark_indigo',
-    'purple': 'purple',
-
-    // Blue variants
-    'bright-blue': 'bright-blue',
-    'blue-links': 'river',
-    'sky': 'sky',
-    'navy': 'navy',
-    'australia': 'aquamarine',
-
-    // Gray/Neutral variants
-    'grey': 'american_gray',
-    'trolley-grey': 'american_gray',
-    'soft-black': 'blackish',
-    'dark-grey': 'american_gray',
-    'gray': 'american_gray',
-    'wolf-gray': 'american_gray',
-    'stone': 'american_gray',
-
-    // Special colors
-    'sunset': 'sunset',
-    'winter': 'winter',     // Will override hex
-    'sail': 'winter',       // Map sail to winter as well? Or pick another.
-    'eden': 'teal',
-    'old_rose': 'berry'     // Map old_rose to berry
-  };
-
-  // Define which Monday vars map to which Vibe tokens that we want to OVERRIDE with exact hexes
-  // This keeps standard colors standard, but overrides specific ones for exact matching
-  const COLOR_OVERRIDES: Record<string, string> = {
-    'grey': 'american_gray',       // #c4c4c4
-    'trolley-grey': 'steel',       // #757575 (Distinct from grey!)
-    'winter': 'winter',            // #9aadbd
-    'purple_gray': 'lavender',     // #9d99b9
-    'old_rose': 'berry',           // #cd9282
-    'dark-purple': 'royal',        // #784bd1
-    'red-shadow': 'stuck-red',     // #df2f4a
-    'green-shadow': 'done-green',  // #00c875
-    'blue-links': 'river',         // #007eb5
-    'sky': 'sky',                  // #216edf
-    'orange': 'working_orange'     // #fdab3d
-  };
-
-  const getVibeLabelColor = (text: string, dynamicVarName?: string): string => {
-    // 1. Try dynamic var_name from backend
-    if (dynamicVarName) {
-      const normalizedVar = dynamicVarName.toLowerCase().replace(/_/g, '-');
-      // Check overrides first for exact replacements
-      if (COLOR_OVERRIDES[normalizedVar]) return COLOR_OVERRIDES[normalizedVar];
-      if (MONDAY_TO_VIBE_COLOR_MAP[normalizedVar]) return MONDAY_TO_VIBE_COLOR_MAP[normalizedVar];
-    }
-
-    // 2. Try static fallback based on text content (using STATIC_VAR_NAME_MAP)
-    if (!text) return 'american_gray';
-    const normalizedText = text.toLowerCase().trim();
-
-    // Direct match in static map?
-    let varName = STATIC_VAR_NAME_MAP[normalizedText];
-
-    // Partial matches
-    if (!varName) {
-      if (normalizedText.includes('open')) varName = 'sky';
-      else if (normalizedText.includes('submit')) varName = 'green-shadow';
-      else if (normalizedText.includes('won') && !normalizedText.includes('not')) varName = 'lime-green';
-      else if (normalizedText.includes('interview')) varName = 'light-pink';
-      else if (normalizedText.includes('hold')) varName = 'grey';
-      else if (normalizedText.includes('not pursuing')) varName = 'trolley-grey';
-      else if (normalizedText.includes('closed')) varName = 'old_rose';
-    }
-
-    if (varName) {
-      if (COLOR_OVERRIDES[varName]) return COLOR_OVERRIDES[varName];
-      if (MONDAY_TO_VIBE_COLOR_MAP[varName]) return MONDAY_TO_VIBE_COLOR_MAP[varName];
-    }
-
-    return 'american_gray';
-  };
-
-  // Component to inject CSS variables for custom colors based on job metadata
-  const CustomColorStyles = ({ jobs }: { jobs: Job[] }) => {
-    // Collect all unique colors from jobs to override
-    const overrides = jobs.reduce((acc, job) => {
-      const process = (varName?: string, hex?: string) => {
-        if (varName && hex) {
-          const normalized = varName.toLowerCase().replace(/_/g, '-');
-          const token = COLOR_OVERRIDES[normalized];
-          if (token) {
-            acc[token] = hex;
-          }
-        }
-      };
-
-      if (job.monday_metadata) {
-        process(job.monday_metadata.status, undefined); // This won't work without var_name prop in metadata? Use fallback hex map?
-        // Wait, metadata has _color which is now var_name. We need the HEX to set the variable.
-        // Actually, we configured the backend to store var_name in _color field. 
-        // We DON'T have the hex in the frontend metadata anymore!
-        // We need to use our STATIC HEX MAP for the variable values?
-        // Or just hardcode the known Monday Hexes here since they don't change often.
-      }
-      return acc;
-    }, {} as Record<string, string>);
-
-    // Generate CSS
-    const css = Object.entries(COLOR_OVERRIDES).map(([varName, token]) => {
-      const normalizedVar = varName.toLowerCase().replace(/_/g, '-');
-      const normalizedToken = token.toLowerCase().replace(/_/g, '-');
-      // Find hex for this var_name
-      let hex = MONDAY_HEXES[normalizedVar] || MONDAY_HEXES[varName];
-      // Or mapping
-      if (!hex && (MONDAY_HEXES[normalizedToken] || MONDAY_HEXES[token])) {
-        hex = MONDAY_HEXES[normalizedToken] || MONDAY_HEXES[token];
-      }
-
-      if (hex) {
-        return `--color-${token}: ${hex}; --color-${token}-hover: ${hex}; --color-${token}-selected: ${hex};`;
-      }
-      return '';
-    }).join('\n');
-
-    return (
-      <style dangerouslySetInnerHTML={{
-        __html: `
-            :root {
-                ${css}
-            }
-        `}} />
-    );
-  };
-
-  // Static fallback MAPPING from text to Monday var_name (not hex)
-  // This ensures we simulate what the backend WOULD return via var_name
-  const STATIC_VAR_NAME_MAP: Record<string, string> = {
-    // Statuses
-    'open': 'sky',
-    'submitted': 'green-shadow',
-    'won': 'lime-green',
-    'in progress': 'orange',
-    'interviewing': 'light-pink',
-    'analysis': 'dark-purple',
-    'closed - filled': 'red-shadow',
-    'closed': 'old_rose',
-    'hold': 'grey',
-    'not pursuing': 'trolley-grey',
-    'not won': 'dark-orange',
-    'monitor': 'sunset',
-
-    // Work Mode
-    'onsite': 'orange',
-    'remote': 'green-shadow',
-    'hybrid': 'purple',
-    'uk': 'blue-links',
-    'europe': 'australia',
-    'latin america': 'grass-green',
-
-    // Employment Type
-    'part-time': 'blue-links',
-    'consultant': 'grey',
-    'full-time': 'winter',
-    'contract-to-hire': 'purple'
-  };
-
-
-
   const hasJobDetails = (job: Job) => Boolean((job as any).extracted_data || job.description);
   const hasResumeAnalysis = (job: Job) => {
     if (resumeCounts[job.id] > 0) {
@@ -709,36 +460,22 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     };
   };
 
-  // Fetch candidate counts for visible jobs to drive the R badge
+  // Fetch candidate counts in a single batched request to drive the R badge.
+  // One GET /candidates, grouped by job_id, instead of one request per visible job.
   useEffect(() => {
-    const missingJobIds = filteredJobs
-      .map((job) => job.id)
-      .filter((id) => resumeCounts[id] === undefined);
-
-    if (missingJobIds.length === 0) return;
-
     let cancelled = false;
 
     const fetchCounts = async () => {
       try {
-        const results = await Promise.all(
-          missingJobIds.map(async (jobId) => {
-            try {
-              const res = await apiService.getJobCandidates(jobId);
-              return { jobId, count: res.candidates ? res.candidates.length : 0 };
-            } catch (_err) {
-              return { jobId, count: 0 };
-            }
-          })
-        );
-
-        if (!cancelled) {
-          const updates: Record<string, number> = {};
-          results.forEach(({ jobId, count }) => {
-            updates[jobId] = count;
-          });
-          setResumeCounts((prev) => ({ ...prev, ...updates }));
-        }
+        const { candidates } = await apiService.getAllCandidates();
+        if (cancelled) return;
+        const counts: Record<string, number> = {};
+        candidates.forEach((candidate) => {
+          if (candidate.job_id) {
+            counts[candidate.job_id] = (counts[candidate.job_id] || 0) + 1;
+          }
+        });
+        setResumeCounts(counts);
       } catch (_e) {
         // Swallow errors; counts will remain unset.
       }
@@ -749,12 +486,11 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     return () => {
       cancelled = true;
     };
-  }, [filteredJobs, resumeCounts]);
+  }, []);
 
   return (
     <div className="h-full flex flex-col">
-      <CustomColorStyles jobs={jobs} />
-      <div className="board-toolbar p-4 bg-white dark:bg-[#30324e] border-b border-gray-200 dark:border-[#4b4e69] shadow-sm">
+      <div className="board-toolbar p-4 bg-white dark:bg-surface border-b border-gray-200 dark:border-line shadow-sm">
         <div className="flex items-center gap-2">
           <div className="w-44">
             <Dropdown
@@ -794,7 +530,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
       </div>
 
       {showCreateForm && (
-        <div className="p-4 border-b dark:border-[#4b4e69] bg-gray-50 dark:bg-[#30324e]">
+        <div className="p-4 border-b dark:border-line bg-gray-50 dark:bg-surface">
           <form onSubmit={handleSubmit} className="space-y-3">
             <TextField
               id="job-title-field"
@@ -833,7 +569,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 }}
                 kind="secondary"
                 size="small"
-                className="px-4 py-1 border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                className="px-4 py-1 border-brand text-brand hover:bg-brand-soft dark:hover:bg-brand/15"
               >
                 From file
               </Button>
@@ -862,7 +598,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
       )}
 
       {showPDFForm && (
-        <div className="p-4 border-b dark:border-[#4b4e69] bg-green-50 dark:bg-green-900/30">
+        <div className="p-4 border-b dark:border-line bg-green-50 dark:bg-green-900/30">
           <form onSubmit={handlePDFSubmit} className="space-y-3">
             <div>
               <TextField
@@ -874,18 +610,18 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                 size="small"
                 wrapperClassName="w-full"
               />
-              <p className="text-xs text-gray-500 dark:text-[#9699a6] mt-1">Optional - The system will extract job title from the file if not provided</p>
+              <p className="text-xs text-gray-500 dark:text-ink-muted mt-1">Optional - The system will extract job title from the file if not provided</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-[#d5d8df]">Job Description File *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-ink">Job Description File *</label>
               <input
                 type="file"
                 accept=".pdf,.doc,.docx"
                 onChange={(e) => setPdfFormData({ ...pdfFormData, file: e.target.files?.[0] || null })}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-[#4b4e69] dark:bg-[#30324e] dark:text-[#d5d8df] shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-line dark:bg-surface dark:text-ink shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
                 required
               />
-              <p className="text-xs text-gray-500 dark:text-[#9699a6] mt-1">Upload a PDF or DOCX file containing the job description</p>
+              <p className="text-xs text-gray-500 dark:text-ink-muted mt-1">Upload a PDF or DOCX file containing the job description</p>
             </div>
             <div className="flex space-x-2">
               <Button
@@ -913,15 +649,23 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
         </div>
       )}
 
-      <div className="flex-1 overflow-y-scroll bg-gray-100 dark:bg-[#181b34] py-4">
+      <div className="flex-1 overflow-y-scroll bg-gray-100 dark:bg-canvas py-4">
         {filteredJobs.length === 0 ? (
-          <div className="p-4 text-center text-gray-500 dark:text-[#9699a6]">
+          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-soft/60 dark:bg-brand/10 mb-4">
+              <svg className="h-7 w-7 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+            </div>
             {hasActiveFilters ? (
-              <p className="text-sm">No jobs match the selected filters.</p>
+              <>
+                <p className="text-sm font-semibold text-gray-900 dark:text-ink">No matching jobs</p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-ink-muted">Try adjusting your search or status filter.</p>
+              </>
             ) : (
               <>
-                <div className="text-2xl mb-2"></div>
-                <p>No jobs yet</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-ink">No jobs yet</p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-ink-muted">Create a job or sync from Monday.com to get started.</p>
               </>
             )}
           </div>
@@ -934,13 +678,13 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
               return (
                 <div
                   key={groupId}
-                  className={`shadow-sm overflow-hidden rounded-l-[4px] ${isCollapsed ? 'bg-white dark:bg-[#30324e]' : 'bg-transparent'}`}
+                  className={`shadow-sm overflow-hidden rounded-l-[4px] ${isCollapsed ? 'bg-white dark:bg-surface' : 'bg-transparent'}`}
                 >
                   <div
                     onClick={() => toggleGroup(groupId)}
                     className={`flex items-center gap-2 py-3 cursor-pointer transition-colors relative ${isCollapsed
-                      ? 'bg-white dark:bg-[#30324e] hover:bg-gray-50 dark:hover:bg-[#3a3d5c]'
-                      : 'bg-gray-50/70 dark:bg-[#252844] hover:bg-gray-100 dark:hover:bg-[#30324e]'
+                      ? 'bg-white dark:bg-surface hover:bg-gray-50 dark:hover:bg-surface-hover'
+                      : 'bg-gray-50/70 dark:bg-canvas-deep hover:bg-gray-100 dark:hover:bg-surface'
                       }`}
                   >
                     {isCollapsed && (
@@ -972,28 +716,28 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                         >
                           {groupTitle}
                         </h3>
-                        <div className="text-sm text-gray-500 dark:text-[#9699a6] mt-0.5">
+                        <div className="text-sm text-gray-500 dark:text-ink-muted mt-0.5">
                           {getJobTypeBreakdown(items)}
                         </div>
                       </div>
 
-                      <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 dark:bg-[#3e4259] text-gray-700 dark:text-[#d5d8df]">
+                      <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 dark:bg-surface-raised text-gray-700 dark:text-ink">
                         {items.length}
                       </span>
                     </div>
                   </div>
 
                   {!isCollapsed && (
-                    <div className="border-t border-gray-200 dark:border-[#4b4e69]">
+                    <div className="border-t border-gray-200 dark:border-line">
                       {items.map((job, idx) => {
                         const dueInfo = getDueInfo(job.monday_metadata?.due_date);
 
                         const itemContent = (
                           <div
                             onClick={() => onJobSelect(job)}
-                            className={`relative px-4 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#3a3d5c] transition-all duration-150 border-b border-gray-200 dark:border-[#4b4e69] last:border-b-0 ${selectedJob?.id === job.id
-                              ? 'bg-blue-50 dark:bg-[#13377433] border-r-4 border-r-[#6161FF]'
-                              : 'bg-white dark:bg-[#30324e]'
+                            className={`group relative px-4 py-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-surface-hover hover:z-[1] hover:shadow-elev-1 transition-all duration-150 border-b border-gray-200 dark:border-line last:border-b-0 ${selectedJob?.id === job.id
+                              ? 'bg-brand-soft/60 dark:bg-brand/15 border-r-4 border-r-brand'
+                              : 'bg-white dark:bg-surface'
                               }`}
                             style={{
                               borderLeft: `6px solid ${groupColor}`,
@@ -1003,7 +747,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                           >
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
-                                <h3 className="text-[15px] font-normal text-gray-900 dark:text-[#d5d8df] whitespace-normal break-words pb-2" title={job.title ?? ''}>
+                                <h3 className="text-[15px] font-normal text-gray-900 dark:text-ink whitespace-normal break-words pb-2" title={job.title ?? ''}>
                                   {job.title}
                                 </h3>
                               </div>

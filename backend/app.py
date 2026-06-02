@@ -335,6 +335,13 @@ def login():
             family_name = token_payload.get('family_name', '')
             user_name = f"{given_name} {family_name}".strip() or user_email.split('@')[0]
 
+        # Log login only when starting a new session (not on every frontend re-auth)
+        existing = session.get('user') or {}
+        is_session_refresh = (
+            existing.get('authenticated')
+            and existing.get('email') == user_email
+        )
+
         # Store session data with extracted user info
         session['user'] = {
             'authenticated': True,
@@ -343,12 +350,12 @@ def login():
             'name': user_name
         }
 
-        # Log the login activity
-        activity_logger.log_activity(
-            user_email=user_email,
-            user_name=user_name,
-            action='login'
-        )
+        if not is_session_refresh:
+            activity_logger.log_activity(
+                user_email=user_email,
+                user_name=user_name,
+                action='login'
+            )
 
         return jsonify({'success': True, 'user': session['user']})
 
@@ -599,6 +606,24 @@ def delete_job(job_id):
     except Exception as e:
         logger.error(f"Delete job error: {e}")
         return jsonify({'error': 'Failed to delete job'}), 500
+
+@app.route('/api/monday/board-members', methods=['GET'])
+@require_auth
+def get_monday_board_members():
+    try:
+        if not monday_service:
+            return jsonify({'error': 'Monday.com integration not configured'}), 500
+
+        board_id = request.args.get('board_id')
+        members = monday_service.get_board_members(board_id=board_id)
+        return jsonify({
+            'success': True,
+            'members': members,
+            'count': len(members),
+        })
+    except Exception as e:
+        logger.error(f"Get Monday board members error: {e}")
+        return jsonify({'error': 'Failed to fetch board members'}), 500
 
 @app.route('/api/jobs/sync-monday', methods=['POST'])
 @require_auth

@@ -19,6 +19,38 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { RotateCw, X } from 'lucide-react';
+import { getVibeLabelColor } from '../lib/mondayColors';
+import SharePointFilesExplorer from './SharePointFilesExplorer';
+import { getSharePointFileKey } from '../utils/sharepointFolderNav';
+import { panelShellClass } from '@/lib/radius';
+import { DetailPanelBack } from './common/DetailPanelBack';
+import UserAvatar from './common/UserAvatar';
+import {
+  bgSelection,
+  btnPrimary,
+  chatBubbleUser,
+  chipPrimary,
+  emailSentBorder,
+  emailSentText,
+  externalCardDefault,
+  externalCardSelected,
+  focusWithinRing,
+  jobSectionBrand,
+  jobSectionBrandChip,
+  jobSectionBrandTitle,
+  jobSectionNeutral,
+  jobSectionNeutralTitle,
+  loadingText,
+  loadingWell,
+  progressFill,
+  spinner,
+  tabActive,
+  tabInactive,
+  textLink,
+  textMetric,
+  textPrimary,
+} from '@/lib/semanticColors';
+import { cn } from '@/lib/utils';
 
 interface JobDetailProps {
   job: Job;
@@ -26,171 +58,8 @@ interface JobDetailProps {
   initialTab?: 'candidates' | 'resumes' | 'files' | 'job-details' | 'potential-candidates' | 'external-candidates' | 'ai-chat';
 }
 
-// Map Monday.com var_name colors to Vibe Label colors (copied from JobList.tsx)
-const MONDAY_TO_VIBE_COLOR_MAP: Record<string, string> = {
-  // Green variants (done/success)
-  'green-shadow': 'done-green',
-  'grass-green': 'grass_green',
-  'lime-green': 'saladish',
-
-  // Orange/Yellow variants (working/in-progress)
-  'orange': 'working_orange',
-  'dark-orange': 'dark-orange',
-  'yellow': 'egg_yolk',
-  'mustered': 'tan',
-
-  // Red variants (stuck/error)
-  'red-shadow': 'stuck-red',
-  'dark-red': 'dark-red',
-
-  // Pink variants
-  'dark-pink': 'sofia_pink',
-  'light-pink': 'pink',
-
-  // Purple/Indigo variants
-  'dark-purple': 'dark_purple',
-  'dark_indigo': 'dark_indigo',
-  'purple': 'purple',
-
-  // Blue variants
-  'bright-blue': 'bright-blue',
-  'blue-links': 'river',
-  'sky': 'sky',
-  'navy': 'navy',
-  'australia': 'aquamarine',
-
-  // Gray/Neutral variants
-  'grey': 'american_gray',
-  'trolley-grey': 'american_gray',
-  'soft-black': 'blackish',
-  'dark-grey': 'american_gray',
-  'gray': 'american_gray',
-  'wolf-gray': 'american_gray',
-  'stone': 'american_gray',
-
-  // Special colors
-  'sunset': 'sunset',
-  'winter': 'winter',
-  'sail': 'winter',
-  'eden': 'teal',
-  'old_rose': 'berry'
-};
-
-const COLOR_OVERRIDES: Record<string, string> = {
-  'grey': 'american_gray',
-  'trolley-grey': 'steel',
-  'winter': 'winter',
-  'purple_gray': 'lavender',
-  'old_rose': 'berry',
-  'dark-purple': 'royal',
-  'red-shadow': 'stuck-red',
-  'green-shadow': 'done-green',
-  'blue-links': 'river',
-  'sky': 'sky',
-  'orange': 'working_orange'
-};
-
-const STATIC_VAR_NAME_MAP: Record<string, string> = {
-  // Statuses
-  'open': 'sky',
-  'submitted': 'green-shadow',
-  'won': 'lime-green',
-  'in progress': 'orange',
-  'interviewing': 'light-pink',
-  'analysis': 'dark-purple',
-  'closed - filled': 'red-shadow',
-  'closed': 'old_rose',
-  'hold': 'grey',
-  'not pursuing': 'trolley-grey',
-  'not won': 'dark-orange',
-  'monitor': 'sunset',
-
-  // Work Mode
-  'onsite': 'orange',
-  'remote': 'green-shadow',
-  'hybrid': 'purple',
-  'uk': 'blue-links',
-  'europe': 'australia',
-  'latin america': 'grass-green',
-
-  // Employment Type
-  'part-time': 'blue-links',
-  'consultant': 'grey',
-  'full-time': 'winter',
-  'contract-to-hire': 'purple'
-};
-
-const getVibeLabelColor = (text: string, dynamicVarName?: string): string => {
-  // 1. Try dynamic var_name from backend
-  if (dynamicVarName) {
-    const normalizedVar = dynamicVarName.toLowerCase().replace(/_/g, '-');
-    if (COLOR_OVERRIDES[normalizedVar]) return COLOR_OVERRIDES[normalizedVar];
-    if (MONDAY_TO_VIBE_COLOR_MAP[normalizedVar]) return MONDAY_TO_VIBE_COLOR_MAP[normalizedVar];
-  }
-
-  // 2. Try static fallback based on text content
-  if (!text) return 'american_gray';
-  const normalizedText = text.toLowerCase().trim();
-
-  let varName = STATIC_VAR_NAME_MAP[normalizedText];
-
-  // Partial matches
-  if (!varName) {
-    if (normalizedText.includes('open')) varName = 'sky';
-    else if (normalizedText.includes('submit')) varName = 'green-shadow';
-    else if (normalizedText.includes('won') && !normalizedText.includes('not')) varName = 'lime-green';
-    else if (normalizedText.includes('interview')) varName = 'light-pink';
-    else if (normalizedText.includes('hold')) varName = 'grey';
-    else if (normalizedText.includes('not pursuing')) varName = 'trolley-grey';
-    else if (normalizedText.includes('closed')) varName = 'old_rose';
-  }
-
-  if (varName) {
-    if (COLOR_OVERRIDES[varName]) return COLOR_OVERRIDES[varName];
-    if (MONDAY_TO_VIBE_COLOR_MAP[varName]) return MONDAY_TO_VIBE_COLOR_MAP[varName];
-  }
-
-  return 'american_gray';
-};
-
-// Component to inject CSS variables for custom colors
-const CustomColorStyles = () => {
-  // Hardcoded Monday Hexes for the overrides we care about
-  const MONDAY_HEXES: Record<string, string> = {
-    'grey': '#c4c4c4',
-    'trolley-grey': '#757575',
-    'winter': '#9aadbd',
-    'purple_gray': '#9d99b9',
-    'old_rose': '#cd9282',
-    'royal': '#784bd1',
-    'stuck-red': '#df2f4a',
-    'done-green': '#00c875',
-    'river': '#007eb5',
-    'sky': '#216edf',
-    'working_orange': '#fdab3d',
-    'berry': '#cd9282'
-  };
-
-  // Generate CSS
-  const css = Object.entries(COLOR_OVERRIDES).map(([varName, token]) => {
-    let hex = MONDAY_HEXES[varName];
-    if (!hex && MONDAY_HEXES[token]) hex = MONDAY_HEXES[token];
-
-    if (hex) {
-      return `--color-${token}: ${hex}; --color-${token}-hover: ${hex}; --color-${token}-selected: ${hex};`;
-    }
-    return '';
-  }).join('\n');
-
-  return (
-    <style dangerouslySetInnerHTML={{
-      __html: `
-        :root {
-          ${css}
-        }
-      `}} />
-  );
-};
+const JOB_TAB_ACTIVE = tabActive;
+const JOB_TAB_INACTIVE = tabInactive;
 
 function EmailTagInput({ emails, onChange }: { emails: string[]; onChange: (emails: string[]) => void }) {
   const [input, setInput] = useState('');
@@ -213,11 +82,11 @@ function EmailTagInput({ emails, onChange }: { emails: string[]; onChange: (emai
   };
 
   return (
-    <div className="flex flex-wrap gap-1.5 p-2 border border-gray-300 dark:border-[#4b4e69] rounded-md bg-white dark:bg-[#1e2035] min-h-[38px] focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-colors">
+    <div className={cn('flex flex-wrap gap-1.5 p-2 border border-gray-300 dark:border-line rounded-md bg-white dark:bg-canvas-deep min-h-[38px] transition-colors', focusWithinRing)}>
       {emails.map((email, i) => (
-        <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium">
+        <span key={i} className={cn('flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium', chipPrimary)}>
           {email}
-          <button type="button" onClick={() => removeEmail(i)} className="hover:text-blue-600 dark:hover:text-blue-200 ml-0.5">
+          <button type="button" onClick={() => removeEmail(i)} className="hover:text-brand-hover dark:hover:text-brand-on-dark ml-0.5">
             <X className="h-3 w-3" />
           </button>
         </span>
@@ -229,7 +98,7 @@ function EmailTagInput({ emails, onChange }: { emails: string[]; onChange: (emai
         onKeyDown={handleKeyDown}
         onBlur={() => input && addEmail(input)}
         placeholder={emails.length === 0 ? 'Add email address...' : ''}
-        className="flex-1 min-w-[160px] bg-transparent outline-none text-sm text-gray-900 dark:text-[#d5d8df] placeholder:text-gray-400 dark:placeholder:text-[#9699a6]"
+        className="flex-1 min-w-[160px] bg-transparent outline-none text-sm text-gray-900 dark:text-ink placeholder:text-gray-400 dark:placeholder:text-ink-muted"
       />
     </div>
   );
@@ -900,7 +769,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
       if (response.success && response.response_text) {
         toast.success(
           <div className="max-w-md">
-            <div className="prose prose-sm max-w-none text-gray-700 dark:text-[#d5d8df] whitespace-pre-wrap">
+            <div className="prose prose-sm max-w-none text-gray-700 dark:text-ink whitespace-pre-wrap">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -970,25 +839,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     });
   };
 
-  const handleFileToggle = (fileName: string) => {
-    setSelectedFiles(prev => {
+  const handleFileToggle = (fileKey: string) => {
+    setSelectedFiles((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(fileName)) {
-        newSet.delete(fileName);
+      if (newSet.has(fileKey)) {
+        newSet.delete(fileKey);
       } else {
-        newSet.add(fileName);
+        newSet.add(fileKey);
       }
       return newSet;
     });
-  };
-
-  const handleSelectAll = () => {
-    const uniqueFiles = getUniqueFiles();
-    if (selectedFiles.size === uniqueFiles.length) {
-      setSelectedFiles(new Set());
-    } else {
-      setSelectedFiles(new Set(uniqueFiles.map(f => f.name)));
-    }
   };
 
   const handleBatchResume = async () => {
@@ -997,7 +857,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     toast.info(`Starting batch resume analysis for ${selectedFiles.size} files...`);
 
     const uniqueFiles = getUniqueFiles();
-    const filesToProcess = uniqueFiles.filter(f => selectedFiles.has(f.name));
+    const filesToProcess = uniqueFiles.filter((f) => selectedFiles.has(getSharePointFileKey(f)));
 
     try {
       for (const file of filesToProcess) {
@@ -1021,7 +881,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     toast.info(`Updating job description from ${selectedFiles.size} files...`);
 
     const uniqueFiles = getUniqueFiles();
-    const filesToProcess = uniqueFiles.filter(f => selectedFiles.has(f.name));
+    const filesToProcess = uniqueFiles.filter((f) => selectedFiles.has(getSharePointFileKey(f)));
 
     try {
       for (const file of filesToProcess) {
@@ -1046,7 +906,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
         return <Icon icon={PDF} iconSize={20} className="text-red-600 dark:text-red-400" />;
       case 'doc':
       case 'docx':
-        return <Icon icon={FileIcon} iconSize={20} className="text-blue-600" />;
+        return <Icon icon={FileIcon} iconSize={20} className={textPrimary} />;
       case 'xls':
       case 'xlsx':
         return <Icon icon={FileIcon} iconSize={20} className="text-green-600" />;
@@ -1153,6 +1013,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     return (
       <CandidateDetail
         candidate={selectedCandidate}
+        backLabel="Resumes"
         onBack={handleBackToCandidates}
         job={job}
         hasImprovedVersion={hasImprovedVersion}
@@ -1161,13 +1022,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
   }
 
   return (
-    <div className="bg-white dark:bg-[#30324e] shadow">
-      <CustomColorStyles />
+    <div className={panelShellClass}>
       {/* Header */}
-      <div className="border-b border-gray-200 dark:border-[#4b4e69] dark:border-[#4b4e69] px-6 py-4">
+      <div className="border-b border-gray-200 dark:border-line dark:border-line px-6 py-4">
         <div className="flex justify-between items-start">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-[#d5d8df] dark:text-[#d5d8df]">{job.title}</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-ink dark:text-ink">{job.title}</h2>
             <div className="flex flex-wrap gap-1 items-center mt-2">
               {/* Employment Type Tag */}
               {job.monday_metadata?.employment_type && (
@@ -1201,15 +1061,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
             </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{getUniqueCandidateCount()}</div>
-            <div className="text-sm text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6]">Candidate{getUniqueCandidateCount() !== 1 ? 's' : ''}</div>
+            <div className={cn('text-2xl font-bold', textMetric)}>{getUniqueCandidateCount()}</div>
+            <div className="text-sm text-gray-500 dark:text-ink-muted">Candidate{getUniqueCandidateCount() !== 1 ? 's' : ''}</div>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-[#4b4e69] dark:border-[#4b4e69]">
-        <nav className="-mb-px flex items-center justify-between">
+      <div className="border-b border-gray-200 dark:border-line">
+        <nav className="-mb-px flex items-center justify-between overflow-x-auto">
           <button
             onClick={() => {
               setActiveTab('files');
@@ -1217,49 +1077,34 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 loadSharePointFiles();
               }
             }}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'files'
-              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
-              }`}
+            className={`shrink-0 py-2 px-4 text-sm font-medium border-b-2 ${activeTab === 'files' ? JOB_TAB_ACTIVE : JOB_TAB_INACTIVE}`}
           >
             Files
           </button>
-	          <button
-	            onClick={() => {
-	              setActiveTab('candidates');
-	              setSelectedGroupCandidates(null);
-	            }}
-	            className={`py-2 px-4 text-sm font-medium ${activeTab === 'candidates'
-	              ? 'border-b-2 border-blue-500 text-blue-600'
-	              : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] hover:border-gray-300'
-	              }`}
-	          >
-	            Candidates ({getUniqueCandidateCount()})
-	          </button>
+          <button
+            onClick={() => {
+              setActiveTab('candidates');
+              setSelectedGroupCandidates(null);
+            }}
+            className={`shrink-0 py-2 px-4 text-sm font-medium border-b-2 ${activeTab === 'candidates' ? JOB_TAB_ACTIVE : JOB_TAB_INACTIVE}`}
+          >
+            Candidates
+          </button>
           <button
             onClick={() => setActiveTab('resumes')}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'resumes'
-              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
-              }`}
+            className={`shrink-0 py-2 px-4 text-sm font-medium border-b-2 ${activeTab === 'resumes' ? JOB_TAB_ACTIVE : JOB_TAB_INACTIVE}`}
           >
-            Resumes ({candidates.length})
+            Resumes
           </button>
           <button
             onClick={() => setActiveTab('potential-candidates')}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'potential-candidates'
-              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
-              }`}
+            className={`shrink-0 py-2 px-4 text-sm font-medium border-b-2 ${activeTab === 'potential-candidates' ? JOB_TAB_ACTIVE : JOB_TAB_INACTIVE}`}
           >
             Internal Candidates
           </button>
           <button
             onClick={() => setActiveTab('external-candidates')}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'external-candidates'
-              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
-              }`}
+            className={`shrink-0 py-2 px-4 text-sm font-medium border-b-2 ${activeTab === 'external-candidates' ? JOB_TAB_ACTIVE : JOB_TAB_INACTIVE}`}
           >
             External Candidates
           </button>
@@ -1270,25 +1115,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 loadSharePointFiles();
               }
             }}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'job-details'
-              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
-              }`}
+            className={`shrink-0 py-2 px-4 text-sm font-medium border-b-2 ${activeTab === 'job-details' ? JOB_TAB_ACTIVE : JOB_TAB_INACTIVE}`}
           >
             Job Details
           </button>
           <button
             onClick={() => setActiveTab('ai-chat')}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'ai-chat'
-              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'text-gray-500 dark:text-[#9699a6] dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#797e93]'
-              }`}
+            className={`shrink-0 py-2 px-4 text-sm font-medium border-b-2 ${activeTab === 'ai-chat' ? JOB_TAB_ACTIVE : JOB_TAB_INACTIVE}`}
           >
             Chat
           </button>
           <button
             onClick={(e) => handleDeleteJob(job.id, e as any)}
-            className="ml-auto mr-4 text-gray-400 dark:text-[#9699a6] hover:text-red-600 dark:text-red-400 dark:hover:text-red-400 p-2"
+            className="ml-auto mr-4 text-gray-400 dark:text-ink-muted hover:text-red-600 dark:text-red-400 dark:hover:text-red-400 p-2"
             title="Delete job"
             aria-label="Delete job"
           >
@@ -1306,48 +1145,44 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
       {/* Tab Content */}
       <div className="">
         {activeTab === 'candidates' && (
-          <div className="p-6">
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="text-lg">Loading candidates...</div>
+          <>
+            {selectedGroupCandidates && (
+              <div className="border-b border-gray-200 dark:border-line px-6 py-2.5">
+                <DetailPanelBack label="Candidates" onClick={handleBackToCandidatesList} />
               </div>
-            ) : error ? (
-              <div className="text-center py-8 text-red-600 dark:text-red-400">
-                <div className="text-lg mb-2">Error</div>
-                <div>{error}</div>
-                <button
-                  onClick={loadCandidates}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  Retry
-                </button>
-              </div>
-            ) : selectedGroupCandidates ? (
-              <div>
-                <button
-                  onClick={handleBackToCandidatesList}
-                  className="mb-4 flex items-center text-sm text-blue-600 hover:text-blue-800"
-                >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Back to Candidates
-                </button>
+            )}
+            <div className="p-6">
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="text-lg">Loading candidates...</div>
+                </div>
+              ) : error ? (
+                <div className="text-center py-8 text-red-600 dark:text-red-400">
+                  <div className="text-lg mb-2">Error</div>
+                  <div>{error}</div>
+                  <button
+                    onClick={loadCandidates}
+                    className={cn('mt-4 px-4 py-2', btnPrimary)}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : selectedGroupCandidates ? (
                 <CandidateList
                   candidates={selectedGroupCandidates}
                   onCandidateSelect={handleCandidateSelect}
                   onCandidateDeleted={handleCandidateDeleted}
                   sharepointFiles={sharepointFiles}
                 />
-              </div>
-            ) : (
-              <CandidatesGroupedList
-                candidates={candidates}
-                onCandidateSelect={handleCandidateGroupSelect}
-                onCandidateDeleted={handleCandidateDeleted}
-              />
-            )}
-          </div>
+              ) : (
+                <CandidatesGroupedList
+                  candidates={candidates}
+                  onCandidateSelect={handleCandidateGroupSelect}
+                  onCandidateDeleted={handleCandidateDeleted}
+                />
+              )}
+            </div>
+          </>
         )}
 
         {activeTab === 'resumes' && (
@@ -1362,7 +1197,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 <div>{error}</div>
                 <button
                   onClick={loadCandidates}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700"
+                  className={cn('mt-4 px-4 py-2', btnPrimary)}
                 >
                   Retry
                 </button>
@@ -1380,34 +1215,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
         {activeTab === 'files' && (
           <div className="space-y-6 p-6">
-            {/* SharePoint Files Section */}
             {(job as any).monday_metadata?.sharepoint_link && (
               <div>
                 {loadingSharePoint ? (
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                      <span className="text-blue-700">Loading SharePoint files...</span>
+                  <div className={cn('rounded-lg', loadingWell)}>
+                    <div className="flex items-center gap-2">
+                      <div className={cn('h-4 w-4 animate-spin rounded-full border-2', spinner)} />
+                      <span className={loadingText}>Loading SharePoint files...</span>
                     </div>
                   </div>
                 ) : sharepointFiles ? (
                   <div className="space-y-4">
-                    {/* Action Bar */}
-                    <div className="flex flex-wrap items-start justify-between gap-3 bg-gray-50 dark:bg-[#181b34] p-3 border border-gray-200 dark:border-[#4b4e69]">
-                      <div className="flex items-center space-x-4 text-sm mt-1">
-                        <button
-                          onClick={handleSelectAll}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          {selectedFiles.size === getUniqueFiles().length ? 'Deselect All' : 'Select All'}
-                        </button>
-                        <span className="text-gray-600 dark:text-[#9699a6]">
-                          {selectedFiles.size} selected
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Resume Split Button */}
+                    <div className="flex flex-wrap items-center justify-end gap-2">
                         <SplitButton
                           id="resume-split-button"
                           ariaLabel="Analyze Resume split button"
@@ -1435,8 +1254,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         >
                           {batchProcessing ? 'Processing...' : 'Analyze Resume'}
                         </SplitButton>
-
-                        {/* Job Description Split Button */}
                         <SplitButton
                           id="job-split-button"
                           ariaLabel="Review Job split button"
@@ -1465,145 +1282,60 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         >
                           {batchProcessing ? 'Processing...' : 'Review Job'}
                         </SplitButton>
-                      </div>
                     </div>
 
-                    {/* File List */}
-                    {(() => {
-                      const uniqueFiles = getUniqueFiles();
-                      const getKind = (file: any): 'job' | 'resume' | 'unknown' => {
+                    <SharePointFilesExplorer
+                      key={job.id}
+                      files={getUniqueFiles()}
+                      selectedKeys={selectedFiles}
+                      onToggleFile={handleFileToggle}
+                      getFileKind={(file) => {
                         const normalizedName = String(file?.name || '').toLowerCase().trim();
                         const pathLower = String(file?.path || '').toLowerCase();
                         if (pathLower.includes('resume')) return 'resume';
-                        if (pathLower.includes('job') || pathLower.includes('jd') || pathLower.includes('description')) return 'job';
+                        if (
+                          pathLower.includes('job') ||
+                          pathLower.includes('jd') ||
+                          pathLower.includes('description')
+                        ) {
+                          return 'job';
+                        }
                         if (fileNameSets.jobNames.has(normalizedName)) return 'job';
                         if (fileNameSets.resumeNames.has(normalizedName)) return 'resume';
-                        return 'unknown';
-                      };
-                      const kindRank = (kind: 'job' | 'resume' | 'unknown') => (kind === 'job' ? 0 : kind === 'resume' ? 1 : 2);
-                      const sortedFiles = [...uniqueFiles].sort((a: any, b: any) => {
-                        const rank = kindRank(getKind(a)) - kindRank(getKind(b));
-                        if (rank !== 0) return rank;
-                        return String(a?.name || '').localeCompare(String(b?.name || ''));
-                      });
+                        return null;
+                      }}
+                      processingFileName={processingFile}
+                      processingFileType={processingFileType}
+                      fileProgress={fileProgress}
+                      navigationDisabled={batchProcessing || processingFile !== null}
+                    />
 
-                      return sortedFiles.length > 0 ? (
-
-                        <div className="bg-white dark:bg-[#30324e] border border-gray-200 dark:border-[#4b4e69] overflow-hidden">
-                          {sortedFiles.map((file, index) => {
-                            const isSelected = selectedFiles.has(file.name);
-                            const normalizedName = String(file?.name || '').toLowerCase().trim();
-                            const pathLower = String(file?.path || '').toLowerCase();
-                            const fileKind: 'job' | 'resume' | null =
-                              pathLower.includes('resume')
-                                ? 'resume'
-                                : pathLower.includes('job') || pathLower.includes('jd') || pathLower.includes('description')
-                                  ? 'job'
-                                  : fileNameSets.jobNames.has(normalizedName)
-                                    ? 'job'
-                                    : fileNameSets.resumeNames.has(normalizedName)
-                                      ? 'resume'
-                                      : null;
-                            return (
-                              <div
-                                key={index}
-                                onClick={() => handleFileToggle(file.name)}
-                                className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]'
-                                  }`}
-                              >
-                                <div className="flex items-center space-x-3 flex-1 overflow-hidden">
-                                  <div className="flex-shrink-0 pointer-events-none">
-                                    <Checkbox
-                                      checked={isSelected}
-                                    // onChange is handled by row click
-                                    />
-                                  </div>
-
-                                  <div className="flex-1 min-w-0 flex items-start gap-2">
-                                    {(fileKind === 'job' || fileKind === 'resume') && (
-                                      <Label
-                                        id={`file-kind-${fileKind}-${index}`}
-                                        text={fileKind === 'job' ? 'Job' : 'Resume'}
-                                        size="medium"
-                                        color={fileKind === 'job' ? 'positive' : 'bright-blue'}
-                                        className="flex-shrink-0 mt-0.5"
-                                      />
-                                    )}
-
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <a
-                                          href={file.web_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="text-sm font-medium text-gray-900 dark:text-[#d5d8df] hover:text-blue-600 hover:underline truncate"
-                                          title={file.name}
-                                        >
-                                          {file.name}
-                                        </a>
-                                        {getFileIcon(file.name)}
-                                      </div>
-                                      <div className="text-xs text-gray-500 dark:text-[#9699a6] flex items-center gap-2">
-                                        <span className="truncate">{file.path}</span>
-                                        <span>•</span>
-                                        <span>{Math.round(file.size / 1024)} KB</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center space-x-2 ml-4">
-                                  {processingFile === file.name && (
-                                    <div className={`flex items-center rounded px-3 py-1 space-x-2 ${processingFileType === 'job' ? 'bg-green-600' : 'bg-blue-600'}`} style={{ minWidth: '140px' }}>
-                                      <div className="flex-1 rounded overflow-hidden bg-black/20" style={{ height: '6px' }}>
-                                        <div
-                                          className="h-full bg-white transition-all duration-500"
-                                          style={{ width: `${fileProgress}%` }}
-                                        />
-                                      </div>
-                                      <div className="text-xs text-white whitespace-nowrap font-medium">{fileProgress}%</div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="bg-gray-50 dark:bg-[#181b34] p-8 text-center text-gray-500 dark:text-[#9699a6] border border-dashed border-gray-300">
-                          No files found in SharePoint folder
-                        </div>
-                      );
-                    })()}
-
-                    <div className="text-xs text-gray-500 dark:text-[#9699a6] mt-2 text-right">
-                      <a href={sharepointFiles.sharepoint_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">
+                    <div className="text-right text-sm">
+                      <a
+                        href={sharepointFiles.sharepoint_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={textLink}
+                      >
                         Open SharePoint folder
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                       </a>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 dark:bg-[#181b34] p-4">
+                  <div className="rounded-lg bg-gray-50 p-4 dark:bg-canvas">
                     <button
+                      type="button"
                       onClick={loadSharePointFiles}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
+                      className={cn('text-sm font-medium', textLink)}
                     >
-                      Load SharePoint files →
+                      Load SharePoint files
                     </button>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Resume Upload Section */}
-            <div>
-              <ResumeUpload
-                job={job}
-                onResumeUploaded={handleResumeUploaded}
-              />
-            </div>
+            <ResumeUpload job={job} onResumeUploaded={handleResumeUploaded} />
           </div>
         )}
 
@@ -1611,14 +1343,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
           <div className="flex flex-col">
 
             {/* Context Header (between tabs) */}
-            <div className="border-b border-gray-200 dark:border-[#4b4e69] py-3 px-6 flex items-center justify-between">
+            <div className="border-b border-gray-200 dark:border-line py-3 px-6 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-gray-900 dark:text-[#d5d8df]">
+                <h2 className="text-base font-semibold text-gray-900 dark:text-ink">
                   {job.source_filename || sharepointFiles?.job_files?.[0]?.name}
                 </h2>
                 {job.reviewed_by && (
-                  <div className="flex items-center gap-2 mt-1 text-gray-500 dark:text-[#9699a6] text-xs">
-                    <span>{job.reviewed_by}</span>
+                  <div className="flex items-center gap-2 mt-1 text-gray-500 dark:text-ink-muted text-xs">
+                    <UserAvatar userId={job.reviewed_by} name={job.reviewed_by} size="xs" />
                     <span>•</span>
                     <span>Updated {(job as any).updated_at ? new Date((job as any).updated_at).toLocaleDateString() : 'N/A'}</span>
                   </div>
@@ -1673,7 +1405,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                     navigator.clipboard.writeText(lines.join('\n'));
                     toast.success('Job details copied to clipboard');
                   }}
-                  className="p-1.5 text-gray-500 hover:text-gray-800 dark:text-[#9699a6] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#3a3d5c] rounded transition-colors"
+                  className="p-1.5 text-gray-500 hover:text-gray-800 dark:text-ink-muted dark:hover:text-white hover:bg-gray-100 dark:hover:bg-surface-hover rounded transition-colors"
                 >
                   <svg viewBox="0 0 105.02 122.88" className="w-4 h-4" fill="currentColor">
                     <path d="M5.32,14.64h20.51V5.32v0h0.01c0-1.47,0.6-2.8,1.56-3.76c0.95-0.95,2.28-1.55,3.75-1.55V0h0h39.61h1.22l0.88,0.88 l31.29,31.41l0.87,2.09v69.2v0h-0.01c0,1.47-0.59,2.8-1.55,3.76h-0.01c-0.95,0.96-2.28,1.55-3.75,1.55v0.01h0H79.19v8.65v0h-0.01 c0,1.47-0.59,2.8-1.55,3.76h-0.01c-0.96,0.95-2.28,1.55-3.75,1.55v0.01h0H5.32h0v-0.01c-1.47,0-2.8-0.6-3.76-1.56 c-0.95-0.96-1.55-2.28-1.55-3.75H0v0V19.97v0h0.01c0-1.47,0.6-2.8,1.56-3.76c0.95-0.95,2.28-1.55,3.75-1.55L5.32,14.64L5.32,14.64 L5.32,14.64z M31.76,14.64h13.17h1.22l0.88,0.88l31.29,31.41l0.87,2.09v53.95h19.89V36.24H74.73h0v0c-1.78,0-3.39-0.74-4.56-1.94 c-1.17-1.19-1.9-2.84-1.9-4.65h0v0V5.94H31.76V14.64L31.76,14.64z M68.39,2.97h2.37l31.29,31.41v1.74H74.73 c-3.49,0-6.35-2.92-6.35-6.48V2.97L68.39,2.97z M73.26,50.88H48.91h0v0c-1.78,0-3.39-0.74-4.56-1.94c-1.17-1.19-1.9-2.84-1.9-4.65 h0v0V20.58H25.83H5.94v96.36h67.32v-8.04v-2.97V50.88L73.26,50.88z"/>
@@ -1715,16 +1447,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
             </div>
 
             {/* Secondary Tabs Navigation */}
-            <div className="border-b border-gray-200 dark:border-[#4b4e69] px-6">
+            <div className="border-b border-gray-200 dark:border-line px-6">
               <nav className="flex w-full items-center gap-6" aria-label="Job Detail Sections">
                 {JOB_DETAIL_SECTIONS.map((section) => (
                   <button
                     key={section.key}
                     onClick={() => setActiveJobDetailSection(section.key)}
-                    className={`whitespace-nowrap py-3 text-sm font-medium border-b-2 transition-colors ${activeJobDetailSection === section.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:text-[#d5d8df] hover:border-gray-300'
-                      }`}
+                    className={`whitespace-nowrap py-3 text-sm font-medium border-b-2 transition-colors ${activeJobDetailSection === section.key ? tabActive : tabInactive}`}
                   >
                     {section.label}
                   </button>
@@ -1746,9 +1475,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
               {/* Content Sections */}
               {activeJobDetailSection === 'description' && (
                 <div>
-                  <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
+                  <div className="border border-gray-300 dark:border-line p-4 mb-3 bg-gray-50 dark:bg-canvas shadow-sm">
 
-                    <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-[#d5d8df]">
+                    <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-ink">
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -1765,7 +1494,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             <p className="my-2 whitespace-pre-wrap" {...props} />
                           ),
                           strong: ({ ...props }) => (
-                            <strong className="font-bold text-gray-900 dark:text-[#d5d8df]" {...props} />
+                            <strong className="font-bold text-gray-900 dark:text-ink" {...props} />
                           ),
                           table: ({ ...props }) => (
                             <div className="overflow-x-auto my-4">
@@ -1773,19 +1502,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             </div>
                           ),
                           thead: ({ ...props }) => (
-                            <thead className="bg-gray-100 dark:bg-[#30324e]" {...props} />
+                            <thead className="bg-gray-100 dark:bg-surface" {...props} />
                           ),
                           tbody: ({ ...props }) => (
                             <tbody className="divide-y divide-gray-200 bg-white" {...props} />
                           ),
                           tr: ({ ...props }) => (
-                            <tr className="hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]" {...props} />
+                            <tr className="hover:bg-gray-50 dark:hover:bg-surface-hover dark:bg-canvas" {...props} />
                           ),
                           th: ({ ...props }) => (
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 dark:text-[#d5d8df] border-r border-gray-300 last:border-r-0" {...props} />
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 dark:text-ink border-r border-gray-300 last:border-r-0" {...props} />
                           ),
                           td: ({ ...props }) => (
-                            <td className="px-4 py-2 text-sm text-gray-700 dark:text-[#d5d8df] border-r border-gray-300 last:border-r-0" {...props} />
+                            <td className="px-4 py-2 text-sm text-gray-700 dark:text-ink border-r border-gray-300 last:border-r-0" {...props} />
                           ),
                         }}
                       >
@@ -1800,17 +1529,17 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 <div className="space-y-6">
                   {/* Requirements Analysis from job.requirements */}
                   {displayedJob.requirements && Object.keys(displayedJob.requirements).length > 0 && (
-                    <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
+                    <div className="border border-gray-300 dark:border-line p-4 mb-3 bg-gray-50 dark:bg-canvas shadow-sm">
                       <div className="mb-3">
-                        <h3 className="m-0 font-semibold text-gray-900 dark:text-[#d5d8df]">Analysis Summary</h3>
+                        <h3 className="m-0 font-semibold text-gray-900 dark:text-ink">Analysis Summary</h3>
                       </div>
-                      <div className="space-y-2 text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
+                      <div className="space-y-2 text-sm leading-normal text-gray-700 dark:text-ink">
                         {Object.entries(displayedJob.requirements).map(([key, value]) => (
                           <div key={key} className="flex flex-col sm:flex-row">
-                            <span className="font-medium text-gray-600 dark:text-[#9699a6] capitalize sm:w-32 mb-1 sm:mb-0">
+                            <span className="font-medium text-gray-600 dark:text-ink-muted capitalize sm:w-32 mb-1 sm:mb-0">
                               {key.replace('_', ' ')}:
                             </span>
-                            <span className="text-gray-700 dark:text-[#d5d8df]">
+                            <span className="text-gray-700 dark:text-ink">
                               {Array.isArray(value) ? value.join(', ') : String(value)}
                             </span>
                           </div>
@@ -1832,7 +1561,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                               <button
                                 key={index}
                                 onClick={() => handleSkillClick(skill)}
-                                className="px-3 py-1 bg-white dark:bg-[#30324e] border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/30 hover:shadow-sm transition-all cursor-pointer"
+                                className="px-3 py-1 bg-white dark:bg-surface border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/30 hover:shadow-sm transition-all cursor-pointer"
                               >
                                 {skill}
                               </button>
@@ -1843,16 +1572,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
                       {/* Preferred Skills */}
                       {displayedJob.extracted_data.preferred_skills && displayedJob.extracted_data.preferred_skills.length > 0 && (
-                        <div className="border border-blue-200 dark:border-blue-700 p-4 mb-3 bg-blue-50 dark:bg-blue-900/20 shadow-sm">
+                        <div className={jobSectionBrand}>
                           <div className="mb-3">
-                            <h3 className="m-0 font-semibold text-blue-800 dark:text-blue-300">Preferred Skills</h3>
+                            <h3 className={jobSectionBrandTitle}>Preferred Skills</h3>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {displayedJob.extracted_data.preferred_skills.map((skill: string, index: number) => (
                               <button
                                 key={index}
                                 onClick={() => handleSkillClick(skill)}
-                                className="px-3 py-1 bg-white dark:bg-[#30324e] border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:shadow-sm transition-all cursor-pointer"
+                                className={jobSectionBrandChip}
                               >
                                 {skill}
                               </button>
@@ -1870,7 +1599,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                           <div className="mb-3">
                             <h3 className="m-0 font-semibold text-green-800 dark:text-green-300">Experience Requirements</h3>
                           </div>
-                          <p className="text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
+                          <p className="text-sm leading-normal text-gray-700 dark:text-ink">
                             {displayedJob.extracted_data.experience_requirements}
                           </p>
                         </div>
@@ -1882,7 +1611,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                           <div className="mb-3">
                             <h3 className="m-0 font-semibold text-purple-800 dark:text-purple-300">Education Requirements</h3>
                           </div>
-                          <ul className="list-disc list-inside space-y-1 text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
+                          <ul className="list-disc list-inside space-y-1 text-sm leading-normal text-gray-700 dark:text-ink">
                             {displayedJob.extracted_data.education_requirements.map((edu: string, index: number) => (
                               <li
                                 key={index}
@@ -1907,7 +1636,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                               <button
                                 key={index}
                                 onClick={() => handleSkillClick(cert)}
-                                className="px-3 py-1 bg-white dark:bg-[#30324e] border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 text-sm font-medium hover:bg-yellow-50 dark:hover:bg-yellow-900/30 hover:shadow-sm transition-all cursor-pointer"
+                                className="px-3 py-1 bg-white dark:bg-surface border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300 text-sm font-medium hover:bg-yellow-50 dark:hover:bg-yellow-900/30 hover:shadow-sm transition-all cursor-pointer"
                               >
                                 {cert}
                               </button>
@@ -1918,11 +1647,11 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
                       {/* Key Responsibilities */}
                       {displayedJob.extracted_data.key_responsibilities && displayedJob.extracted_data.key_responsibilities.length > 0 && (
-                        <div className="border border-indigo-200 dark:border-indigo-700 p-4 mb-3 bg-indigo-50 dark:bg-indigo-900/20 shadow-sm">
+                        <div className={jobSectionNeutral}>
                           <div className="mb-3">
-                            <h3 className="m-0 font-semibold text-indigo-800 dark:text-indigo-300">Key Responsibilities</h3>
+                            <h3 className={jobSectionNeutralTitle}>Key Responsibilities</h3>
                           </div>
-                          <ul className="list-disc list-inside space-y-2 text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
+                          <ul className="list-disc list-inside space-y-2 text-sm leading-normal text-gray-700 dark:text-ink">
                             {displayedJob.extracted_data.key_responsibilities.map((responsibility: string, index: number) => (
                               <li key={index}>{responsibility}</li>
                             ))}
@@ -1940,7 +1669,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             {displayedJob.extracted_data.soft_skills.map((skill: string, index: number) => (
                               <span
                                 key={index}
-                                className="px-3 py-1 bg-white dark:bg-[#30324e] border border-pink-200 dark:border-pink-700 text-pink-800 dark:text-pink-300 text-sm font-medium"
+                                className="px-3 py-1 bg-white dark:bg-surface border border-pink-200 dark:border-pink-700 text-pink-800 dark:text-pink-300 text-sm font-medium"
                               >
                                 {skill}
                               </span>
@@ -1956,16 +1685,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
               {activeJobDetailSection === 'additional' && (
                 <div>
                   {displayedJob.extracted_data && displayedJob.extracted_data.other && displayedJob.extracted_data.other.length > 0 ? (
-                    <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
+                    <div className="border border-gray-300 dark:border-line p-4 mb-3 bg-gray-50 dark:bg-canvas shadow-sm">
 
-                      <ul className="list-disc list-inside space-y-1 text-sm leading-normal text-gray-700 dark:text-[#d5d8df]">
+                      <ul className="list-disc list-inside space-y-1 text-sm leading-normal text-gray-700 dark:text-ink">
                         {displayedJob.extracted_data.other.map((item: string, index: number) => (
                           <li key={index}>{item}</li>
                         ))}
                       </ul>
                     </div>
                   ) : (
-                    <div className="text-gray-500 dark:text-[#9699a6] italic">No additional information extracted.</div>
+                    <div className="text-gray-500 dark:text-ink-muted italic">No additional information extracted.</div>
                   )}
                 </div>
               )}
@@ -1973,27 +1702,27 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
               {activeJobDetailSection === 'weights' && (
                 <div>
                   {displayedJob.skill_weights && Object.keys(displayedJob.skill_weights).length > 0 ? (
-                    <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
+                    <div className="border border-gray-300 dark:border-line p-4 mb-3 bg-gray-50 dark:bg-canvas shadow-sm">
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {Object.entries(displayedJob.skill_weights).map(([skill, weight]) => (
-                          <div key={skill} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-[#181b34] border border-gray-100">
-                            <span className="text-sm font-medium text-gray-700 dark:text-[#d5d8df]">{skill}</span>
+                          <div key={skill} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-canvas border border-gray-100">
+                            <span className="text-sm font-medium text-gray-700 dark:text-ink">{skill}</span>
                             <div className="flex items-center space-x-3">
                               <div className="w-20 bg-gray-200 rounded-full h-2">
                                 <div
-                                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                  className={cn('h-2 rounded-full transition-all duration-300', progressFill)}
                                   style={{ width: `${(Number(weight) / 10) * 100}%` }}
                                 ></div>
                               </div>
-                              <div className="text-sm text-gray-900 dark:text-[#d5d8df]">{Number(displayedJob.skill_weights![skill] || 0)}%</div>
+                              <div className="text-sm text-gray-900 dark:text-ink">{Number(displayedJob.skill_weights![skill] || 0)}%</div>
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-gray-500 dark:text-[#9699a6] italic">No skill weights available.</div>
+                    <div className="text-gray-500 dark:text-ink-muted italic">No skill weights available.</div>
                   )}
                 </div>
               )}
@@ -2001,23 +1730,23 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
               {activeJobDetailSection === 'questions' && (
                 <div>
                   {displayedJob.extracted_data && displayedJob.extracted_data.questions_for_candidate && displayedJob.extracted_data.questions_for_candidate.length > 0 ? (
-                    <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-gray-50 dark:bg-[#181b34] shadow-sm">
+                    <div className="border border-gray-300 dark:border-line p-4 mb-3 bg-gray-50 dark:bg-canvas shadow-sm">
                       <div className="mb-4">
-                        <h3 className="m-0 font-semibold text-base text-gray-900 dark:text-[#d5d8df]">
+                        <h3 className="m-0 font-semibold text-base text-gray-900 dark:text-ink">
                           Questions for Candidate
                         </h3>
-                        <p className="mt-2 text-xs text-gray-600 dark:text-[#9699a6]">
+                        <p className="mt-2 text-xs text-gray-600 dark:text-ink-muted">
                           Key questions to assess candidate suitability
                         </p>
                       </div>
-                      <ol className="list-decimal list-inside space-y-3 text-sm leading-relaxed text-gray-700 dark:text-[#d5d8df]">
+                      <ol className="list-decimal list-inside space-y-3 text-sm leading-relaxed text-gray-700 dark:text-ink">
                         {displayedJob.extracted_data.questions_for_candidate.map((question: string, index: number) => (
                           <li key={index} className="pl-2">{question}</li>
                         ))}
                       </ol>
                     </div>
                   ) : (
-                    <div className="text-gray-500 dark:text-[#9699a6] italic">No interview questions generated for this position.</div>
+                    <div className="text-gray-500 dark:text-ink-muted italic">No interview questions generated for this position.</div>
                   )}
                 </div>
               )}
@@ -2030,8 +1759,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
             <div className="flex h-full w-full flex-col bg-white">
               {chatLoading ? (
                 <div className="flex flex-1 items-center justify-center">
-                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-[#9699a6]">
-                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-ink-muted">
+                    <div className={cn('animate-spin h-4 w-4 border-2 rounded-full', spinner)}></div>
                     Loading chat history...
                   </div>
                 </div>
@@ -2043,7 +1772,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 <>
                   <div className="flex-1 overflow-y-auto px-4 py-4">
                     {chatMessages.length === 0 && !chatStreaming ? (
-                      <div className="text-sm text-gray-500 dark:text-[#9699a6]">
+                      <div className="text-sm text-gray-500 dark:text-ink-muted">
                         Ask about the job, candidates, or resume improvements to get started.
                       </div>
                     ) : (
@@ -2054,7 +1783,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             <div key={message.id || index} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                               <div
                                 className={`max-w-[75%] rounded-md px-3 py-2 text-sm leading-relaxed ${
-                                  isUser ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-[#30324e] text-gray-900 dark:text-[#d5d8df]'
+                                  isUser ? chatBubbleUser : 'bg-gray-100 dark:bg-surface text-gray-900 dark:text-ink'
                                 }`}
                               >
                                 <div className="prose prose-sm max-w-none whitespace-pre-wrap">
@@ -2068,7 +1797,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         })}
                         {chatStreaming && (
                           <div className="flex justify-start">
-                            <div className="max-w-[75%] rounded-md bg-gray-100 dark:bg-[#30324e] px-3 py-2 text-sm text-gray-700 dark:text-[#d5d8df]">
+                            <div className="max-w-[75%] rounded-md bg-gray-100 dark:bg-surface px-3 py-2 text-sm text-gray-700 dark:text-ink">
                               Generating response...
                             </div>
                           </div>
@@ -2078,7 +1807,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                     <div ref={chatEndRef} />
                   </div>
 
-                  <form onSubmit={handleChatSubmit} className="border-t border-gray-200 dark:border-[#4b4e69] px-4 py-2">
+                  <form onSubmit={handleChatSubmit} className="border-t border-gray-200 dark:border-line px-4 py-2">
                     <div className="flex items-center bg-white">
                       <textarea
                         value={chatInput}
@@ -2086,7 +1815,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         placeholder="Type your question"
                         rows={2}
                         disabled={chatStreaming}
-                        className="w-full resize-none border-0 px-3 py-2 text-sm text-gray-900 dark:text-[#d5d8df] focus:outline-none"
+                        className="w-full resize-none border-0 px-3 py-2 text-sm text-gray-900 dark:text-ink focus:outline-none"
                       />
                       <div className="border-l border-transparent px-2 py-2">
                         <Button
@@ -2113,8 +1842,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">Internal Candidates</h3>
-                <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">
+                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">Internal Candidates</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">
                   Search the knowledge base to find candidates whose skills and experience match this position.
                 </p>
                 <div className="mt-6">
@@ -2133,23 +1862,23 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 {searchingCandidates ? (
                   <div className="text-center py-16">
                     <div className="relative mb-6">
-                      <div className="animate-spin h-16 w-16 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto"></div>
+                      <div className={cn('animate-spin h-16 w-16 border-4 rounded-full mx-auto border-brand/30 border-t-brand')}></div>
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className={cn('h-8 w-8', textPrimary)} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                       </div>
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-[#d5d8df] mb-2">Searching Knowledge Base</h4>
-                    <p className="text-gray-600 dark:text-[#9699a6]">AI is analyzing resumes to find the best matches...</p>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-ink mb-2">Searching Knowledge Base</h4>
+                    <p className="text-gray-600 dark:text-ink-muted">AI is analyzing resumes to find the best matches...</p>
                   </div>
                 ) : searchError ? (
                   <div className="text-center py-12">
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">Search Failed</h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">{searchError}</p>
+                    <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">Search Failed</h3>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">{searchError}</p>
                     <div className="mt-6">
                       <Button onClick={handleSearchPotentialCandidates} size="small" kind="primary">
                         Try Again
@@ -2159,10 +1888,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 ) : (
                   <div>
                     <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-[#d5d8df]">Internal Candidates</h3>
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-ink">Internal Candidates</h3>
                       <button
                         onClick={handleSearchPotentialCandidates}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 transition-colors"
+                        className={cn('inline-flex items-center px-4 py-2 text-sm font-medium transition-colors', textLink, 'hover:bg-brand-soft dark:hover:bg-brand/10')}
                         title="Refresh search"
                       >
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2173,8 +1902,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                     </div>
 
                     {geminiResponse && (
-                      <div className="border border-gray-300 dark:border-[#4b4e69] p-4 mb-6 bg-gray-50 dark:bg-[#181b34] shadow-sm">
-                        <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-[#d5d8df]">
+                      <div className="border border-gray-300 dark:border-line p-4 mb-6 bg-gray-50 dark:bg-canvas shadow-sm">
+                        <div className="prose prose-sm max-w-none text-sm leading-relaxed text-gray-700 dark:text-ink">
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
@@ -2191,7 +1920,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                                 <p className="my-2" {...props} />
                               ),
                               strong: ({ ...props }) => (
-                                <strong className="font-bold text-gray-900 dark:text-[#d5d8df]" {...props} />
+                                <strong className="font-bold text-gray-900 dark:text-ink" {...props} />
                               ),
                               table: ({ ...props }) => (
                                 <div className="overflow-x-auto my-4">
@@ -2199,19 +1928,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                                 </div>
                               ),
                               thead: ({ ...props }) => (
-                                <thead className="bg-gray-100 dark:bg-[#30324e]" {...props} />
+                                <thead className="bg-gray-100 dark:bg-surface" {...props} />
                               ),
                               tbody: ({ ...props }) => (
                                 <tbody className="divide-y divide-gray-200 bg-white" {...props} />
                               ),
                               tr: ({ ...props }) => (
-                                <tr className="hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]" {...props} />
+                                <tr className="hover:bg-gray-50 dark:hover:bg-surface-hover dark:bg-canvas" {...props} />
                               ),
                               th: ({ ...props }) => (
-                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 dark:text-[#d5d8df] border-r border-gray-300 last:border-r-0" {...props} />
+                                <th className="px-4 py-2 text-left text-xs font-semibold text-gray-900 dark:text-ink border-r border-gray-300 last:border-r-0" {...props} />
                               ),
                               td: ({ ...props }) => (
-                                <td className="px-4 py-2 text-sm text-gray-700 dark:text-[#d5d8df] border-r border-gray-300 last:border-r-0" {...props} />
+                                <td className="px-4 py-2 text-sm text-gray-700 dark:text-ink border-r border-gray-300 last:border-r-0" {...props} />
                               ),
                             }}
                           >
@@ -2223,15 +1952,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
                     <div className="space-y-4">
                       {/* Action Bar */}
-                      <div className="flex flex-wrap items-start justify-between gap-3 bg-gray-50 dark:bg-[#181b34] p-3 border border-gray-200 dark:border-[#4b4e69]">
+                      <div className="flex flex-wrap items-start justify-between gap-3 bg-gray-50 dark:bg-canvas p-3 border border-gray-200 dark:border-line">
                         <div className="flex items-center space-x-4 text-sm mt-1">
                           <button
                             onClick={handleSelectAllPotential}
-                            className="text-blue-600 hover:text-blue-800 font-medium"
+                            className={cn('font-medium', textLink)}
                           >
                             {selectedPotentialFiles.size === potentialCandidates.length && potentialCandidates.length > 0 ? 'Deselect All' : 'Select All'}
                           </button>
-                          <span className="text-gray-600 dark:text-[#9699a6]">
+                          <span className="text-gray-600 dark:text-ink-muted">
                             {selectedPotentialFiles.size} selected
                           </span>
                         </div>
@@ -2268,14 +1997,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                       </div>
 
                       {/* File List */}
-                      <div className="bg-white dark:bg-[#30324e] border border-gray-200 dark:border-[#4b4e69] overflow-hidden">
+                      <div className="bg-white dark:bg-surface border border-gray-200 dark:border-line overflow-hidden">
                         {potentialCandidates.map((candidate, index) => {
                           const isSelected = selectedPotentialFiles.has(candidate.filename);
                           return (
                             <div
                               key={index}
                               onClick={() => handlePotentialFileToggle(candidate.filename)}
-                              className={`flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-[#3a3d5c] dark:bg-[#181b34]'}`}
+                              className={cn('flex items-center justify-between p-3 transition-colors cursor-pointer border-b border-gray-100 last:border-0', isSelected ? bgSelection : 'hover:bg-gray-50 dark:hover:bg-surface-hover dark:bg-canvas')}
                             >
                               <div className="flex items-center space-x-3 flex-1 overflow-hidden">
                                 <div className="flex-shrink-0 pointer-events-none">
@@ -2293,18 +2022,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
-                                        className="text-sm font-medium text-gray-900 dark:text-[#d5d8df] hover:text-blue-600 hover:underline truncate"
+                                        className={cn('text-sm font-medium text-gray-900 dark:text-ink hover:underline truncate', 'hover:text-brand dark:hover:text-brand-on-dark')}
                                         title={candidate.filename}
                                       >
                                         {candidate.filename}
                                       </a>
                                     ) : (
-                                      <span className="text-sm font-medium text-gray-900 dark:text-[#d5d8df] truncate" title={candidate.filename}>{candidate.filename}</span>
+                                      <span className="text-sm font-medium text-gray-900 dark:text-ink truncate" title={candidate.filename}>{candidate.filename}</span>
                                     )}
                                     {getFileIcon(candidate.filename)}
                                   </div>
                                   {/* Placeholder for metadata to match height/spacing if needed, or actual metadata if we have it */}
-                                  <div className="text-xs text-gray-500 dark:text-[#9699a6] flex items-center gap-2">
+                                  <div className="text-xs text-gray-500 dark:text-ink-muted flex items-center gap-2">
                                     <span>Potential Match</span>
                                   </div>
                                 </div>
@@ -2312,7 +2041,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
                               <div className="flex items-center space-x-2 ml-4">
                                 {candidate.download_url && processingFile === candidate.filename && (
-                                  <div className="flex items-center rounded px-3 py-1 space-x-2 bg-blue-600" style={{ minWidth: '140px' }}>
+                                  <div className="flex items-center rounded px-3 py-1 space-x-2 bg-brand" style={{ minWidth: '140px' }}>
                                     <div className="flex-1 rounded overflow-hidden bg-black/20" style={{ height: '6px' }}>
                                       <div
                                         className="h-full bg-white transition-all duration-500"
@@ -2338,8 +2067,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
         {activeTab === 'external-candidates' && (
           <div className="p-6">
             {/* Search Form */}
-            <h4 className="text-base font-semibold text-gray-900 dark:text-[#d5d8df] mb-3">LinkedIn Search Query</h4>
-            <div className="bg-gray-50 dark:bg-[#181b34] border border-gray-200 dark:border-[#4b4e69] rounded-lg p-4 mb-6">
+            <h4 className="text-base font-semibold text-gray-900 dark:text-ink mb-3">LinkedIn Search Query</h4>
+            <div className="bg-gray-50 dark:bg-canvas border border-gray-200 dark:border-line rounded-lg p-4 mb-6">
               <div className="flex flex-wrap items-end gap-4">
                 <div className="min-w-48 flex-1">
                   <Input
@@ -2389,7 +2118,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 </div>
               </div>
               {externalSearchRole && (
-                <p className="mt-3 text-xs text-gray-500 dark:text-[#9699a6]">
+                <p className="mt-3 text-xs text-gray-500 dark:text-ink-muted">
                   Query: site:linkedin.com/in "{externalSearchRole}"{externalSearchLocation ? ` ${externalSearchLocation}` : ''}
                 </p>
               )}
@@ -2401,7 +2130,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                 </svg>
-                <p className="mt-4 text-sm text-gray-500 dark:text-[#9699a6]">
+                <p className="mt-4 text-sm text-gray-500 dark:text-ink-muted">
                   Click "Extract" to get suggested role and location from the job description, then click "Search".
                 </p>
               </div>
@@ -2410,28 +2139,28 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 {searchingExternalCandidates ? (
                   <div className="text-center py-16">
                     <div className="relative mb-6">
-                      <div className="animate-spin h-16 w-16 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto"></div>
+                      <div className={cn('animate-spin h-16 w-16 border-4 rounded-full mx-auto border-brand/30 border-t-brand')}></div>
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className={cn('h-8 w-8', textPrimary)} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                         </svg>
                       </div>
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-[#d5d8df] mb-2">Searching LinkedIn</h4>
-                    <p className="text-gray-600 dark:text-[#9699a6]">Finding matching profiles...</p>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-ink mb-2">Searching LinkedIn</h4>
+                    <p className="text-gray-600 dark:text-ink-muted">Finding matching profiles...</p>
                   </div>
                 ) : externalSearchError && externalCandidates.length === 0 ? (
                   <div className="text-center py-8">
                     <svg className="mx-auto h-12 w-12 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="mt-4 text-sm text-gray-500 dark:text-[#9699a6]">{externalSearchError}</p>
+                    <p className="mt-4 text-sm text-gray-500 dark:text-ink-muted">{externalSearchError}</p>
                   </div>
                 ) : (
                   <div>
                     {/* Results header with bulk actions */}
                     <div className="flex items-center justify-between mb-4">
-                      <span className="text-sm text-gray-600 dark:text-[#9699a6]">
+                      <span className="text-sm text-gray-600 dark:text-ink-muted">
                         {externalCandidates.length} profile{externalCandidates.length !== 1 ? 's' : ''}
                         {selectedExternalIds.size > 0 && ` · ${selectedExternalIds.size} selected`}
                       </span>
@@ -2486,7 +2215,11 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         return (
                           <div
                             key={profile.linkedinId || index}
-                            className={`bg-white dark:bg-[#252740] rounded-lg border-l-4 ${isSelected ? 'border-l-indigo-500 ring-1 ring-indigo-200 dark:ring-indigo-900/50' : 'border-l-blue-500 dark:border-l-blue-400'} border border-gray-200 dark:border-[#4b4e69] p-4 transition-all shadow-sm flex flex-col gap-2 ${(canCompose || canViewThread) ? 'cursor-pointer hover:shadow-md' : 'cursor-default'} ${isSelected ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
+                            className={cn(
+                              'bg-white dark:bg-canvas-deep rounded-lg border-l-4 border border-gray-200 dark:border-line p-4 transition-all shadow-sm flex flex-col gap-2',
+                              isSelected ? externalCardSelected : externalCardDefault,
+                              (canCompose || canViewThread) ? 'cursor-pointer hover:shadow-md' : 'cursor-default'
+                            )}
                             onClick={() => {
                               if (canCompose) handleOpenCompose(profile);
                               else if (canViewThread) handleOpenThread(profile);
@@ -2501,23 +2234,23 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                                     onCheckedChange={() => handleExternalIdToggle(profile.linkedinId)}
                                   />
                                 </div>
-                                <h4 className="font-semibold text-gray-900 dark:text-[#d5d8df] text-sm leading-snug truncate" title={profile.name || profile.title}>
+                                <h4 className="font-semibold text-gray-900 dark:text-ink text-sm leading-snug truncate" title={profile.name || profile.title}>
                                   {profile.name || profile.linkedinId}
                                 </h4>
                               </div>
-                              <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">
+                              <svg className={cn('w-4 h-4 flex-shrink-0 mt-0.5', textPrimary)} fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                               </svg>
                             </div>
 
                             {profile.headline && (
-                              <p className="text-xs text-gray-600 dark:text-[#9699a6] line-clamp-2 leading-relaxed" title={profile.headline}>
+                              <p className="text-xs text-gray-600 dark:text-ink-muted line-clamp-2 leading-relaxed" title={profile.headline}>
                                 {profile.headline}
                               </p>
                             )}
 
                             {profile.location && (
-                              <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-[#9699a6]">
+                              <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-ink-muted">
                                 <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -2527,13 +2260,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             )}
 
                             {profile.snippet && (
-                              <p className="text-xs text-gray-400 dark:text-[#9699a6] line-clamp-2 flex-grow italic" title={profile.snippet}>
+                              <p className="text-xs text-gray-400 dark:text-ink-muted line-clamp-2 flex-grow italic" title={profile.snippet}>
                                 {profile.snippet}
                               </p>
                             )}
 
                             {/* Footer */}
-                            <div className="border-t border-gray-100 dark:border-[#4b4e69] pt-2 mt-auto" onClick={(e) => e.stopPropagation()}>
+                            <div className="border-t border-gray-100 dark:border-line pt-2 mt-auto" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Badge variant={badgeVariant as any} className="truncate max-w-[130px] shrink-0" title={emailBadgeText}>
                                   {emailBadgeText}
@@ -2549,7 +2282,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                                       Thread
                                     </UiButton>
                                   )}
-                                  <UiButton variant="ghost" size="xs" className="text-blue-600 dark:text-blue-400" onClick={() => window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer')}>
+                                  <UiButton variant="ghost" size="xs" className={textPrimary} onClick={() => window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer')}>
                                     Profile
                                   </UiButton>
                                 </div>
@@ -2575,7 +2308,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
               Email {composeCandidate?.name || composeCandidate?.linkedinId}
             </DialogTitle>
             {composeCandidate?.headline && (
-              <p className="text-xs text-gray-400 dark:text-[#9699a6] mt-0.5">{composeCandidate.headline}</p>
+              <p className="text-xs text-gray-400 dark:text-ink-muted mt-0.5">{composeCandidate.headline}</p>
             )}
           </DialogHeader>
 
@@ -2583,13 +2316,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
             <div className="px-5 py-4 space-y-3">
               {/* To field */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-500 dark:text-[#9699a6]">To</label>
+                <label className="text-xs font-medium text-gray-500 dark:text-ink-muted">To</label>
                 <EmailTagInput emails={emailToAddresses} onChange={setEmailToAddresses} />
               </div>
 
               {generatingEmail ? (
-                <div className="flex items-center gap-2 py-10 justify-center text-sm text-gray-500 dark:text-[#9699a6]">
-                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                <div className="flex items-center gap-2 py-10 justify-center text-sm text-gray-500 dark:text-ink-muted">
+                  <div className={cn('animate-spin h-4 w-4 border-2 rounded-full', spinner)} />
                   Generating personalized email...
                 </div>
               ) : (
@@ -2657,13 +2390,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
           {/* Thread messages — single scroll area */}
           <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-4">
             {fetchingThread && (
-              <div className="flex items-center gap-2 py-10 justify-center text-sm text-gray-500 dark:text-[#9699a6]">
-                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+              <div className="flex items-center gap-2 py-10 justify-center text-sm text-gray-500 dark:text-ink-muted">
+                <div className={cn('animate-spin h-4 w-4 border-2 rounded-full', spinner)} />
                 Loading thread...
               </div>
             )}
             {!fetchingThread && threadMessages.length === 0 && (
-              <div className="text-sm text-gray-500 dark:text-[#9699a6] text-center py-10">No messages yet.</div>
+              <div className="text-sm text-gray-500 dark:text-ink-muted text-center py-10">No messages yet.</div>
             )}
             {!fetchingThread && threadMessages.map((msg, i) => {
               const isSent = msg.direction === 'sent';
@@ -2675,14 +2408,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 : null;
               return (
                 <div key={i} className={`flex flex-col gap-1 ${isSent ? 'items-end' : 'items-start'}`}>
-                  <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-[#9699a6]">
-                    <span className={`font-medium ${isSent ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-[#d5d8df]'}`}>
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-ink-muted">
+                    <span className={cn('font-medium', isSent ? emailSentText : 'text-gray-600 dark:text-ink')}>
                       {isSent ? 'You' : threadCandidate?.name || 'Candidate'}
                     </span>
                     {msg.received_at && <span>{new Date(msg.received_at).toLocaleString()}</span>}
-                    {msg.subject && <span className="font-medium text-gray-500 dark:text-[#9699a6]">· {msg.subject}</span>}
+                    {msg.subject && <span className="font-medium text-gray-500 dark:text-ink-muted">· {msg.subject}</span>}
                   </div>
-                  <div className={`rounded-lg border w-full overflow-hidden ${isSent ? 'border-blue-200 dark:border-blue-900/60' : 'border-gray-200 dark:border-[#4b4e69]'}`}>
+                  <div className={cn('rounded-lg border w-full overflow-hidden', isSent ? emailSentBorder : 'border-gray-200 dark:border-line')}>
                     {iframeSrcDoc ? (
                       <iframe
                         key={i}
@@ -2700,7 +2433,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         title={`Email from ${isSent ? 'you' : threadCandidate?.name || 'candidate'}`}
                       />
                     ) : (
-                      <div className="px-4 py-3 text-sm text-gray-900 dark:text-[#d5d8df] whitespace-pre-wrap leading-relaxed">
+                      <div className="px-4 py-3 text-sm text-gray-900 dark:text-ink whitespace-pre-wrap leading-relaxed">
                         {msg.body.replace(/<[^>]+>/g, '').trim()}
                       </div>
                     )}
@@ -2711,7 +2444,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
           </div>
 
           {/* Reply box */}
-          <div className="border-t border-gray-200 dark:border-[#4b4e69] px-5 py-3 space-y-2.5">
+          <div className="border-t border-gray-200 dark:border-line px-5 py-3 space-y-2.5">
             <Input
               id="reply-subject"
               label="Subject"

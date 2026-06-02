@@ -7,11 +7,18 @@ import CandidateSidebar from './CandidateSidebar';
 import CandidateDashboardView from './CandidateDashboardView';
 import ActivityLogs from './ActivityLogs';
 import ActivityNotificationDropdown from './ActivityNotificationDropdown';
+import { JobListSkeleton, DetailPanelSkeleton } from './Skeletons';
+import BrandLogo from './BrandLogo';
 import ThemeToggle from './ThemeToggle';
+import CendienAppsNav from './CendienAppsNav';
 import { useAuth } from '../hooks/useAuth';
 import { useMsal } from '@azure/msal-react';
 import { ButtonGroup, Button, IconButton } from '@vibe/core';
 import '@vibe/core/tokens';
+import { cn } from '@/lib/utils';
+import { MondayColorStyles } from '../lib/mondayColors';
+
+type MobilePanel = 'list' | 'detail';
 
 // Type for grouped candidate (matching CandidateSidebar)
 interface GroupedCandidate {
@@ -36,7 +43,7 @@ const Dashboard: React.FC = () => {
   // Jobs state
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-  const [jobDetailInitialTab, setJobDetailInitialTab] = useState<'candidates' | 'job-details'>('candidates');
+  const [jobDetailInitialTab, setJobDetailInitialTab] = useState<'candidates' | 'job-details'>('job-details');
   const [showLogs, setShowLogs] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +53,7 @@ const Dashboard: React.FC = () => {
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [candidatesError, setCandidatesError] = useState<string | null>(null);
   const [selectedGroupedCandidate, setSelectedGroupedCandidate] = useState<GroupedCandidate | null>(null);
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>('list');
 
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { instance } = useMsal();
@@ -109,6 +117,7 @@ const Dashboard: React.FC = () => {
     setSelectedJob(newJob);
     setJobDetailInitialTab('job-details');
     setShowLogs(false);
+    setMobilePanel('detail');
   };
 
   const handleJobDeleted = (jobId: string) => {
@@ -142,10 +151,12 @@ const Dashboard: React.FC = () => {
   const handleShowLogs = () => {
     setSelectedJob(null);
     setShowLogs(true);
+    setMobilePanel('detail');
   };
 
   const handleViewModeToggle = (mode: 'jobs' | 'candidates') => {
     setViewMode(mode);
+    setMobilePanel('list');
     // Reset selections when switching views
     if (mode === 'jobs') {
       setSelectedGroupedCandidate(null);
@@ -154,6 +165,31 @@ const Dashboard: React.FC = () => {
       setShowLogs(false);
     }
   };
+
+  const openMobileDetail = () => setMobilePanel('detail');
+
+  const handleMobileBack = () => {
+    setMobilePanel('list');
+    if (viewMode === 'jobs') {
+      setSelectedJob(null);
+      setShowLogs(false);
+    } else {
+      setSelectedGroupedCandidate(null);
+    }
+  };
+
+  const showMobileBack =
+    mobilePanel === 'detail' &&
+    (viewMode === 'jobs'
+      ? selectedJob !== null || showLogs
+      : selectedGroupedCandidate !== null);
+
+  const mobileBackLabel =
+    viewMode === 'jobs'
+      ? selectedJob
+        ? 'Jobs'
+        : 'Activity'
+      : 'Candidates';
 
   const handleCandidateDeleted = (candidateId: string) => {
     setCandidates(prevCandidates => prevCandidates.filter(c => c.id !== candidateId));
@@ -178,17 +214,14 @@ const Dashboard: React.FC = () => {
     setSelectedJob(job);
     setSelectedGroupedCandidate(null);
     setShowLogs(false);
+    setMobilePanel('detail');
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
+  // Render the shell immediately and show per-section skeletons while data loads,
+  // instead of blocking the whole app behind a single "Loading..." screen.
+  const isLoading = authLoading || loading;
 
-  if (!isAuthenticated) {
+  if (!authLoading && !isAuthenticated) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-red-600 text-center">
@@ -219,55 +252,18 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 dark:bg-[#181b34] flex flex-col overflow-hidden">
-      <header className="bg-white dark:bg-[#30324e] shadow-sm border-b dark:border-[#4b4e69] flex-shrink-0">
-        <div className="flex w-full items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="min-w-0 flex items-center gap-4">
-            <h1 className="text-base font-semibold text-gray-700 dark:text-[#d5d8df]">TalentMax</h1>
-            {/* View Mode Toggle */}
-            <ButtonGroup
-              options={viewModeOptions}
-              value={viewMode}
-              onSelect={(value) => handleViewModeToggle(value as 'jobs' | 'candidates')}
-              size="small"
-            />
+    <div className="h-screen bg-gray-50 dark:bg-canvas flex flex-col overflow-hidden">
+      <MondayColorStyles />
+      <header className="bg-white dark:bg-surface shadow-elev-1 border-b border-gray-200 dark:border-line flex-shrink-0 z-10">
+        <div className="flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="min-w-0 flex items-center gap-5">
+            {/* Brand lockup */}
+            <BrandLogo size={32} />
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-5">
-            <nav className="flex items-center gap-3 text-sm text-gray-600 dark:text-[#9699a6] sm:gap-5">
-              <a
-                href="https://reconrfp.cendien.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 dark:hover:bg-[#3a3d5c] hover:text-gray-900 dark:hover:text-white"
-              >
-                RFPHub
-              </a>
-              <a
-                href="https://sales.cendien.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 dark:hover:bg-[#3a3d5c] hover:text-gray-900 dark:hover:text-white"
-              >
-                SalesIQ
-              </a>
-              <a
-                href="https://cendien.monday.com/boards/18004940852"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 dark:hover:bg-[#3a3d5c] hover:text-gray-900 dark:hover:text-white"
-              >
-                Monday
-              </a>
-              <a
-                href="https://rag.cendien.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md px-2 py-1 font-medium transition-colors hover:bg-gray-100 dark:hover:bg-[#3a3d5c] hover:text-gray-900 dark:hover:text-white"
-              >
-                RAG
-              </a>
-            </nav>
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            <CendienAppsNav />
+            <div className="hidden h-6 w-px bg-gray-200 dark:bg-line sm:block" />
             <ActivityNotificationDropdown onViewAll={handleShowLogs} />
             <ThemeToggle />
             <IconButton
@@ -285,102 +281,137 @@ const Dashboard: React.FC = () => {
                   />
                 </svg>
               )}
-              className="text-gray-600 dark:text-[#9699a6] hover:text-gray-900 dark:hover:text-white"
+              className="text-gray-600 dark:text-ink-muted hover:text-gray-900 dark:hover:text-white"
             />
           </div>
         </div>
       </header>
 
       <div className="flex flex-1 min-h-0">
-        {viewMode === 'jobs' ? (
-          <>
-            {/* Job List Sidebar - Responsive width */}
-            <div className="flex-shrink-0 basis-[60%] sm:basis-[52%] md:basis-[42%] lg:flex-[0_0_32%] xl:flex-[0_0_30%] 2xl:flex-[0_0_27%] min-w-[19rem] bg-white dark:bg-[#30324e] border-r border-gray-200 dark:border-[#4b4e69]">
-              <JobList
-                jobs={jobs}
-                selectedJob={selectedJob}
-                onJobSelect={(job) => {
-                  setSelectedJob(job);
-                  setJobDetailInitialTab('candidates');
-                  setShowLogs(false);
-                }}
-                onJobCreated={handleJobCreated}
-                onJobGenerated={handleJobGenerated}
-                onJobDeleted={handleJobDeleted}
-              />
-            </div>
+        {/* Sidebar: full-width list on mobile; fixed fraction from lg up. */}
+        <div
+          className={cn(
+            'flex flex-col min-h-0 bg-white dark:bg-surface border-r border-gray-200 dark:border-line',
+            'w-full lg:flex-shrink-0 lg:min-w-[19rem] lg:flex-[0_0_32%] xl:flex-[0_0_30%] 2xl:flex-[0_0_27%]',
+            mobilePanel === 'detail' ? 'hidden lg:flex' : 'flex flex-1 lg:flex-none'
+          )}
+        >
+          {/* View Mode Toggle */}
+          <div className="flex-shrink-0 px-3 py-2.5 border-b border-gray-200 dark:border-line">
+            <ButtonGroup
+              options={viewModeOptions}
+              value={viewMode}
+              onSelect={(value) => handleViewModeToggle(value as 'jobs' | 'candidates')}
+              size="small"
+            />
+          </div>
 
-            {/* Job Detail Main Content - Takes remaining space */}
-            <div className="flex-1 bg-gray-50 dark:bg-[#181b34] overflow-y-auto">
-              <div className="p-6">
-                {selectedJob ? (
-                  <JobDetail key={selectedJob.id + jobDetailInitialTab} job={selectedJob} onJobUpdated={handleJobUpdated} initialTab={jobDetailInitialTab} />
-                ) : (
-                  <ActivityLogs />
-                )}
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Candidate Sidebar - Responsive width */}
-            <div className="flex-shrink-0 basis-[60%] sm:basis-[52%] md:basis-[42%] lg:flex-[0_0_32%] xl:flex-[0_0_30%] 2xl:flex-[0_0_27%] min-w-[19rem] bg-white dark:bg-[#30324e] border-r border-gray-200 dark:border-[#4b4e69]">
+          {/* Active list */}
+          <div className="flex-1 min-h-0">
+            {viewMode === 'jobs' ? (
+              isLoading ? (
+                <JobListSkeleton />
+              ) : (
+                <JobList
+                  jobs={jobs}
+                  selectedJob={selectedJob}
+                  onJobSelect={(job) => {
+                    setSelectedJob(job);
+                    setJobDetailInitialTab('job-details');
+                    setShowLogs(false);
+                    openMobileDetail();
+                  }}
+                  onJobCreated={handleJobCreated}
+                  onJobGenerated={handleJobGenerated}
+                  onJobDeleted={handleJobDeleted}
+                />
+              )
+            ) : (
               <CandidateSidebar
                 candidates={candidates}
                 selectedCandidate={selectedGroupedCandidate}
                 onCandidateSelect={(candidate) => {
                   setSelectedGroupedCandidate(candidate);
+                  openMobileDetail();
                 }}
                 loading={candidatesLoading}
               />
-            </div>
+            )}
+          </div>
+        </div>
 
-            {/* Candidate Detail Main Content - Takes remaining space */}
-            <div className="flex-1 bg-gray-50 dark:bg-[#181b34] overflow-y-auto">
-              <div className="p-6">
-                {candidatesError ? (
-                  <div className="text-center py-12">
-                    <div className="text-red-600 dark:text-red-400 mb-4">{candidatesError}</div>
-                    <Button
-                      onClick={loadCandidates}
-                      kind="primary"
-                      size="small"
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                ) : selectedGroupedCandidate ? (
-                  <CandidateDashboardView
-                    groupedCandidate={selectedGroupedCandidate}
-                    jobs={jobs}
-                    onJobSelect={handleJobSelectFromCandidateView}
-                    onCandidateDeleted={handleCandidateDeleted}
-                  />
-                ) : (
-                  <div className="text-center py-12">
-                    <svg
-                      className="mx-auto h-12 w-12 text-gray-400 dark:text-[#9699a6]"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                      />
-                    </svg>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">Select a Candidate</h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">
-                      Choose a candidate from the sidebar to view their resumes, jobs, and verification details.
-                    </p>
-                  </div>
-                )}
-              </div>
+        {/* Main content: hidden on mobile until a job/candidate/activity is opened */}
+        <div
+          className={cn(
+            'flex-1 min-h-0 bg-gray-50 dark:bg-canvas overflow-y-auto',
+            mobilePanel === 'list' ? 'hidden lg:block' : 'block w-full'
+          )}
+        >
+          {showMobileBack && (
+            <div className="sticky top-0 z-[1] flex items-center gap-2 border-b border-gray-200 dark:border-line bg-white dark:bg-surface px-4 py-2.5 lg:hidden">
+              <button
+                type="button"
+                onClick={handleMobileBack}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-gray-700 dark:text-ink hover:bg-gray-100 dark:hover:bg-surface-hover"
+                aria-label={`Back to ${mobileBackLabel}`}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                {mobileBackLabel}
+              </button>
             </div>
-          </>
-        )}
+          )}
+          <div className="p-4 sm:p-6">
+            {viewMode === 'jobs' ? (
+              isLoading ? (
+                <DetailPanelSkeleton />
+              ) : selectedJob ? (
+                <JobDetail key={selectedJob.id + jobDetailInitialTab} job={selectedJob} onJobUpdated={handleJobUpdated} initialTab={jobDetailInitialTab} />
+              ) : (
+                <ActivityLogs />
+              )
+            ) : candidatesError ? (
+              <div className="text-center py-12">
+                <div className="text-red-600 dark:text-red-400 mb-4">{candidatesError}</div>
+                <Button
+                  onClick={loadCandidates}
+                  kind="primary"
+                  size="small"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : selectedGroupedCandidate ? (
+              <CandidateDashboardView
+                groupedCandidate={selectedGroupedCandidate}
+                jobs={jobs}
+                onJobSelect={handleJobSelectFromCandidateView}
+                onCandidateDeleted={handleCandidateDeleted}
+              />
+            ) : (
+              <div className="text-center py-12">
+                <svg
+                  className="mx-auto h-12 w-12 text-gray-400 dark:text-ink-muted"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">Select a Candidate</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">
+                  Choose a candidate from the sidebar to view their resumes, jobs, and verification details.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

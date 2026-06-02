@@ -5,8 +5,10 @@ import { PublicClientApplication } from '@azure/msal-browser';
 import { Toaster } from 'sonner';
 import { msalConfig } from './config/msalConfig';
 import { ThemeProvider } from './context/ThemeContext';
+import { BoardMembersProvider } from './context/BoardMembersContext';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
+import AppLoading from './components/AppLoading';
 import './index.css';
 
 const msalInstance = new PublicClientApplication(msalConfig);
@@ -23,7 +25,7 @@ const App: React.FC = () => {
     });
   }, []);
 
-  if (!msalReady) return null;
+  if (!msalReady) return <AppLoading />;
 
   return (
     <MsalProvider instance={msalInstance}>
@@ -32,11 +34,13 @@ const App: React.FC = () => {
           <div className="App">
             <Toaster position="top-right" richColors closeButton />
             <AuthenticatedTemplate>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <BoardMembersProvider>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </BoardMembersProvider>
             </AuthenticatedTemplate>
 
             <UnauthenticatedTemplate>

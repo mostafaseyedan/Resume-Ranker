@@ -45,14 +45,15 @@ const RadialProgress: React.FC<RadialProgressProps> = ({
         height={size}
         className="transform -rotate-90"
       >
-        {/* Background circle */}
+        {/* Background track (theme-aware) */}
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#e5e7eb"
+          stroke="currentColor"
           strokeWidth={strokeWidth}
           fill="none"
+          className="text-gray-200 dark:text-line"
         />
         {/* Progress circle */}
         <circle

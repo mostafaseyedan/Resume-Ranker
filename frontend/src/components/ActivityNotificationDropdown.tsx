@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { IconButton, Button, Icon } from '@vibe/core';
-import { Notifications, LogIn, Add, Check, Delete, Send, Reply, Prompt, Search } from '@vibe/icons';
+import { Notifications } from '@vibe/icons';
 import '@vibe/core/tokens';
+import UserAvatar from './common/UserAvatar';
+import { formatActivityMessage } from '@/utils/activityMessages';
 
 interface Activity {
   id: string;
@@ -54,75 +56,6 @@ const ActivityNotificationDropdown: React.FC<ActivityNotificationDropdownProps> 
     }
   };
 
-  const formatActivityMessage = (activity: Activity): string => {
-    const { user_name, action, details } = activity;
-
-    switch (action) {
-      case 'login':
-        return `${user_name} logged in`;
-      case 'job_created':
-        return `${user_name} created job '${details.job_title}'`;
-      case 'candidate_analyzed':
-        return `${user_name} analyzed candidate '${details.candidate_name}' for job '${details.job_title}'`;
-      case 'resume_improved':
-        return `${user_name} improved resume for candidate '${details.candidate_name}'`;
-      case 'potential_candidates_search':
-        return `${user_name} searched for potential candidates`;
-      case 'external_candidates_search':
-        return `${user_name} searched external candidates`;
-      case 'skill_search':
-        return `${user_name} searched by skill`;
-      case 'candidate_verified':
-        return `${user_name} verified candidate '${details.candidate_name}'`;
-      case 'job_deleted':
-        return `${user_name} deleted job '${details.job_title}'`;
-      case 'candidate_deleted':
-        return `${user_name} deleted candidate '${details.candidate_name}'`;
-      case 'external_candidate_reach_out':
-        return `${user_name} reached out to '${details.candidate_name}'`;
-      case 'conversation_reply':
-        return `${user_name} sent a reply to '${details.candidate_name}'`;
-      case 'followup_generated':
-        return `${user_name} generated follow-up message for '${details.candidate_name}'`;
-      case 'connection_checked':
-        return `${user_name} checked LinkedIn connection status`;
-      default:
-        return `${user_name} performed action: ${action}`;
-    }
-  };
-
-  const getActionIcon = (action: string): JSX.Element => {
-    switch (action) {
-      case 'login':
-        return <Icon icon={LogIn} iconSize={16} className="text-blue-500" />;
-      case 'job_created':
-        return <Icon icon={Add} iconSize={16} className="text-green-500" />;
-      case 'candidate_analyzed':
-        return <Icon icon={Check} iconSize={16} className="text-purple-500" />;
-      case 'resume_improved':
-        return <Icon icon={Check} iconSize={16} className="text-yellow-500" />;
-      case 'potential_candidates_search':
-      case 'external_candidates_search':
-      case 'skill_search':
-        return <Icon icon={Search} iconSize={16} className="text-indigo-500" />;
-      case 'candidate_verified':
-        return <Icon icon={Check} iconSize={16} className="text-green-500" />;
-      case 'job_deleted':
-      case 'candidate_deleted':
-        return <Icon icon={Delete} iconSize={16} className="text-red-500" />;
-      case 'external_candidate_reach_out':
-        return <Icon icon={Send} iconSize={16} className="text-blue-500" />;
-      case 'conversation_reply':
-        return <Icon icon={Reply} iconSize={16} className="text-teal-500" />;
-      case 'followup_generated':
-        return <Icon icon={Prompt} iconSize={16} className="text-purple-500" />;
-      case 'connection_checked':
-        return <Icon icon={Check} iconSize={16} className="text-cyan-500" />;
-      default:
-        return <Icon icon={Check} iconSize={16} className="text-gray-500" />;
-    }
-  };
-
   const formatTime = (timestamp: string): string => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -153,13 +86,13 @@ const ActivityNotificationDropdown: React.FC<ActivityNotificationDropdownProps> 
         kind="tertiary"
         size="small"
         icon={Notifications}
-        className="text-gray-600 dark:text-[#d5d8df] hover:text-gray-900 dark:hover:text-white"
+        className="text-gray-600 dark:text-ink hover:text-gray-900 dark:hover:text-white"
       />
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 sm:w-[28rem] origin-top-right rounded-md bg-white dark:bg-[#30324e] shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50 border border-gray-200 dark:border-[#4b4e69]">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-[#4b4e69]">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-[#d5d8df]">Recent Activity</h3>
+        <div className="absolute right-0 mt-2 w-96 sm:w-[28rem] origin-top-right rounded-md bg-white dark:bg-surface shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-50 border border-gray-200 dark:border-line">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-line">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-ink">Recent Activity</h3>
             <Button
               onClick={() => {
                 onViewAll();
@@ -174,33 +107,34 @@ const ActivityNotificationDropdown: React.FC<ActivityNotificationDropdownProps> 
 
           <div className="max-h-[400px] overflow-y-auto">
             {loading ? (
-              <div className="px-4 py-8 text-center text-gray-500 dark:text-[#9699a6]">
+              <div className="px-4 py-8 text-center text-gray-500 dark:text-ink-muted">
                 <p className="text-sm">Loading...</p>
               </div>
             ) : activities.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500 dark:text-[#9699a6]">
+              <div className="px-4 py-8 text-center text-gray-500 dark:text-ink-muted">
                 <p className="text-sm">No recent activity</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100 dark:divide-[#4b4e69]">
+              <div className="divide-y divide-gray-100 dark:divide-line">
                 {activities.map((activity) => (
                   <div
                     key={activity.id}
-                    className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-[#3a3d5c] transition-colors cursor-pointer"
+                    className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-surface-hover transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center">
-                        {getActionIcon(activity.action)}
-                      </div>
-
+                      <UserAvatar
+                        userId={activity.user_email || activity.user_name}
+                        name={activity.user_name}
+                        size="small"
+                      />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-[#d5d8df]">
-                          {formatActivityMessage(activity)}
+                        <p className="text-sm text-gray-700 dark:text-ink">
+                          {formatActivityMessage(activity.action, activity.details)}
                         </p>
                       </div>
 
                       <div className="flex flex-col items-end min-w-[60px]">
-                        <span className="text-[10px] text-gray-400 dark:text-[#9699a6]">
+                        <span className="text-[10px] text-gray-400 dark:text-ink-muted">
                           {formatTime(activity.timestamp)}
                         </span>
                       </div>

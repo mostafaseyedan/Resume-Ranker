@@ -7,6 +7,11 @@ import ResumeTemplateSelector from './ResumeTemplateSelector';
 import RadialProgress from './RadialProgress';
 import { Button, ButtonGroup, Label, MenuItem, SplitButton, SplitButtonMenu } from '@vibe/core';
 import { Check } from '@vibe/icons';
+import { getVibeLabelColor } from '../lib/mondayColors';
+import { panelShellClass, radiusSurface } from '@/lib/radius';
+import { cn } from '@/lib/utils';
+import { tabActive, tabInactive, textLink } from '@/lib/semanticColors';
+import UserAvatar from './common/UserAvatar';
 
 interface GroupedCandidate {
   name: string;
@@ -25,108 +30,6 @@ interface CandidateDashboardViewProps {
   onJobSelect: (job: Job) => void;
   onCandidateDeleted: (candidateId: string) => void;
 }
-
-const MONDAY_TO_VIBE_COLOR_MAP: Record<string, string> = {
-  'green-shadow': 'done-green',
-  'grass-green': 'grass_green',
-  'lime-green': 'saladish',
-  'orange': 'working_orange',
-  'dark-orange': 'dark-orange',
-  'yellow': 'egg_yolk',
-  'mustered': 'tan',
-  'red-shadow': 'stuck-red',
-  'dark-red': 'dark-red',
-  'dark-pink': 'sofia_pink',
-  'light-pink': 'pink',
-  'dark-purple': 'dark_purple',
-  'dark_indigo': 'dark_indigo',
-  'purple': 'purple',
-  'bright-blue': 'bright-blue',
-  'blue-links': 'river',
-  'sky': 'sky',
-  'navy': 'navy',
-  'australia': 'aquamarine',
-  'grey': 'american_gray',
-  'trolley-grey': 'american_gray',
-  'soft-black': 'blackish',
-  'dark-grey': 'american_gray',
-  'gray': 'american_gray',
-  'wolf-gray': 'american_gray',
-  'stone': 'american_gray',
-  'sunset': 'sunset',
-  'winter': 'winter',
-  'sail': 'winter',
-  'eden': 'teal',
-  'old_rose': 'berry'
-};
-
-const COLOR_OVERRIDES: Record<string, string> = {
-  'grey': 'american_gray',
-  'trolley-grey': 'steel',
-  'winter': 'winter',
-  'purple_gray': 'lavender',
-  'old_rose': 'berry',
-  'dark-purple': 'royal',
-  'red-shadow': 'stuck-red',
-  'green-shadow': 'done-green',
-  'blue-links': 'river',
-  'sky': 'sky',
-  'orange': 'working_orange'
-};
-
-const STATIC_VAR_NAME_MAP: Record<string, string> = {
-  'open': 'sky',
-  'submitted': 'green-shadow',
-  'won': 'lime-green',
-  'in progress': 'orange',
-  'interviewing': 'light-pink',
-  'analysis': 'dark-purple',
-  'closed - filled': 'red-shadow',
-  'closed': 'old_rose',
-  'hold': 'grey',
-  'not pursuing': 'trolley-grey',
-  'not won': 'dark-orange',
-  'monitor': 'sunset',
-  'onsite': 'orange',
-  'remote': 'green-shadow',
-  'hybrid': 'purple',
-  'uk': 'blue-links',
-  'europe': 'australia',
-  'latin america': 'grass-green',
-  'part-time': 'blue-links',
-  'consultant': 'grey',
-  'full-time': 'winter',
-  'contract-to-hire': 'purple'
-};
-
-const getVibeLabelColor = (text: string, dynamicVarName?: string): string => {
-  if (dynamicVarName) {
-    const normalizedVar = dynamicVarName.toLowerCase().replace(/_/g, '-');
-    if (COLOR_OVERRIDES[normalizedVar]) return COLOR_OVERRIDES[normalizedVar];
-    if (MONDAY_TO_VIBE_COLOR_MAP[normalizedVar]) return MONDAY_TO_VIBE_COLOR_MAP[normalizedVar];
-  }
-
-  if (!text) return 'american_gray';
-  const normalizedText = text.toLowerCase().trim();
-
-  let varName = STATIC_VAR_NAME_MAP[normalizedText];
-  if (!varName) {
-    if (normalizedText.includes('open')) varName = 'sky';
-    else if (normalizedText.includes('submit')) varName = 'green-shadow';
-    else if (normalizedText.includes('won') && !normalizedText.includes('not')) varName = 'lime-green';
-    else if (normalizedText.includes('interview')) varName = 'light-pink';
-    else if (normalizedText.includes('hold')) varName = 'grey';
-    else if (normalizedText.includes('not pursuing')) varName = 'trolley-grey';
-    else if (normalizedText.includes('closed')) varName = 'old_rose';
-  }
-
-  if (varName) {
-    if (COLOR_OVERRIDES[varName]) return COLOR_OVERRIDES[varName];
-    if (MONDAY_TO_VIBE_COLOR_MAP[varName]) return MONDAY_TO_VIBE_COLOR_MAP[varName];
-  }
-
-  return 'american_gray';
-};
 
 const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
   groupedCandidate,
@@ -196,19 +99,10 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
     return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
   };
 
-  const formatCreatedBy = (createdBy?: string) => {
-    if (!createdBy) return 'Unknown';
-    if (createdBy === 'monday_sync') return 'Monday Sync';
-    const local = createdBy.split('@')[0] || createdBy;
-    const parts = local.split(/[._-]+/).filter(Boolean);
-    if (parts.length === 0) return createdBy;
-    return parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
-  };
-
   const getVerificationBadge = (): { label: string; style: string } => {
     const status = verificationResult?.overall_verification_status;
     if (!verificationResult) {
-      return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
+      return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-surface text-gray-600 dark:text-ink-muted' };
     }
     switch (status) {
       case 'verified':
@@ -220,9 +114,9 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
       case 'limited_information':
         return { label: 'Limited Verification Info', style: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400' };
       case 'no_information_found':
-        return { label: 'No Verification Info', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
+        return { label: 'No Verification Info', style: 'bg-gray-100 dark:bg-surface text-gray-600 dark:text-ink-muted' };
       default:
-        return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-[#30324e] text-gray-600 dark:text-[#9699a6]' };
+        return { label: 'Verification Pending', style: 'bg-gray-100 dark:bg-surface text-gray-600 dark:text-ink-muted' };
     }
   };
 
@@ -270,6 +164,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
         <CandidateDetail
           candidate={selectedResume}
           job={job}
+          backLabel="Resumes"
           onBack={handleBackToResumes}
           hasImprovedVersion={hasImprovedVersion}
         />
@@ -324,31 +219,31 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
       case 'contradicted':
         return 'bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700';
       default:
-        return 'bg-gray-50 dark:bg-[#181b34] border border-gray-200 dark:border-[#4b4e69]';
+        return 'bg-gray-50 dark:bg-canvas border border-gray-200 dark:border-line';
     }
   };
 
   // Converted inline styles to Tailwind classes for dark mode support
-  const cardStyle = "border border-gray-300 dark:border-[#4b4e69] p-4 mb-3 bg-white dark:bg-[#30324e] shadow-sm";
+  const cardStyle = "border border-gray-300 dark:border-line p-4 mb-3 bg-white dark:bg-surface shadow-sm";
   const cardHeaderStyle = "flex justify-between items-start gap-3 mb-3";
-  const cardTitleStyle = "m-0 font-semibold text-gray-900 dark:text-[#d5d8df] text-sm leading-snug";
-  const blockStyle = "border border-gray-200 dark:border-[#4b4e69] p-3 bg-white dark:bg-[#30324e] shadow-sm";
-  const sectionLabelStyle = "mb-1.5 text-xs font-semibold text-gray-600 dark:text-[#9699a6]";
-  const bodyTextStyle = "m-0 text-sm leading-normal text-gray-700 dark:text-[#d5d8df] whitespace-pre-wrap";
+  const cardTitleStyle = "m-0 font-semibold text-gray-900 dark:text-ink text-sm leading-snug";
+  const blockStyle = "border border-gray-200 dark:border-line p-3 bg-white dark:bg-surface shadow-sm";
+  const sectionLabelStyle = "mb-1.5 text-xs font-semibold text-gray-600 dark:text-ink-muted";
+  const bodyTextStyle = "m-0 text-sm leading-normal text-gray-700 dark:text-ink whitespace-pre-wrap";
 
   const structuredClaims = verificationResult?.claim_verifications || [];
 
   return (
-    <div className="bg-white dark:bg-[#30324e] shadow">
+    <div className={panelShellClass}>
       {/* Header */}
-      <div className="border-b border-gray-200 dark:border-[#4b4e69] px-6 py-4">
+      <div className="border-b border-gray-200 dark:border-line px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3 flex-1">
             <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-[#d5d8df]">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-ink">
                 {groupedCandidate.name}
               </h2>
-              <p className="text-sm text-gray-600 dark:text-[#9699a6]">
+              <p className="text-sm text-gray-600 dark:text-ink-muted">
                 {groupedCandidate.candidates.length} resume{groupedCandidate.candidates.length !== 1 ? 's' : ''} across {groupedCandidate.jobCount} job{groupedCandidate.jobCount !== 1 ? 's' : ''}
               </p>
               <div className="mt-2 flex items-center gap-2">
@@ -371,7 +266,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
           </div>
           <div className="text-center flex-1 flex flex-col items-center">
             <RadialProgress score={groupedCandidate.bestScore} size={96} strokeWidth={10} />
-            <div className="text-xs text-gray-500 dark:text-[#9699a6] mt-2">Best Score</div>
+            <div className="text-xs text-gray-500 dark:text-ink-muted mt-2">Best Score</div>
           </div>
           <div className="flex justify-end flex-1 items-center gap-2">
             <Button
@@ -403,32 +298,23 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
       )}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-[#4b4e69]">
+      <div className="border-b border-gray-200 dark:border-line">
         <nav className="-mb-px flex items-center gap-2">
           <button
             onClick={() => setActiveTab('resumes')}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'resumes'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#4b4e69]'
-              }`}
+            className={cn('py-2 px-4 text-sm font-medium', activeTab === 'resumes' ? tabActive : tabInactive)}
           >
-            {`Resumes (${groupedCandidate.candidates.length})`}
+            Resumes
           </button>
           <button
             onClick={() => setActiveTab('jobs')}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'jobs'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#4b4e69]'
-              }`}
+            className={cn('py-2 px-4 text-sm font-medium', activeTab === 'jobs' ? tabActive : tabInactive)}
           >
-            {`Jobs (${candidateJobs.length})`}
+            Jobs
           </button>
           <button
             onClick={() => setActiveTab('verification')}
-            className={`py-2 px-4 text-sm font-medium ${activeTab === 'verification'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 dark:text-[#9699a6] hover:text-gray-700 dark:hover:text-[#d5d8df] hover:border-gray-300 dark:hover:border-[#4b4e69]'
-              }`}
+            className={cn('py-2 px-4 text-sm font-medium', activeTab === 'verification' ? tabActive : tabInactive)}
           >
             Verification
           </button>
@@ -449,14 +335,13 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
           <div className="space-y-4">
             {candidateJobs.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-gray-500 dark:text-[#9699a6]">No jobs found for this candidate.</p>
+                <p className="text-gray-500 dark:text-ink-muted">No jobs found for this candidate.</p>
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {candidateJobs.map((job) => {
                   const scoreInfo = jobScores[job.id] || { bestScore: 0, resumeCount: 0 };
                   const status = job.monday_metadata?.status || job.status;
-                  const createdByLabel = formatCreatedBy(job.created_by);
                   const createdByTitle = job.created_by || 'Unknown';
                   const client = job.monday_metadata?.client;
 
@@ -464,11 +349,14 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                     <div
                       key={job.id}
                       onClick={() => onJobSelect(job)}
-                      className="bg-white dark:bg-[#30324e] border border-gray-200 dark:border-[#4b4e69] p-4 hover:bg-gray-50 dark:hover:bg-[#3a3d5c] hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md"
+                      className={cn(
+                        'cursor-pointer border border-gray-200 dark:border-line bg-white dark:bg-surface p-4 transition-colors hover:bg-gray-50 dark:hover:bg-surface-hover',
+                        radiusSurface
+                      )}
                     >
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1 min-w-0 pr-2">
-                          <h4 className="font-semibold text-gray-900 dark:text-[#d5d8df] text-base truncate" title={job.title}>
+                          <h4 className="font-semibold text-gray-900 dark:text-ink text-base truncate" title={job.title}>
                             {job.title}
                           </h4>
                           <div className="mt-2 flex flex-wrap gap-1">
@@ -511,20 +399,18 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                         </div>
                       </div>
 
-                      <div className="space-y-2 text-xs text-gray-500 dark:text-[#9699a6]">
+                      <div className="space-y-2 text-xs text-gray-500 dark:text-ink-muted">
                         <div className="flex justify-between">
                           <span>Resumes submitted:</span>
-                          <span className="font-medium text-gray-700 dark:text-[#d5d8df]">{scoreInfo.resumeCount}</span>
+                          <span className="font-medium text-gray-700 dark:text-ink">{scoreInfo.resumeCount}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Created:</span>
-                          <span className="font-medium text-gray-700 dark:text-[#d5d8df]">{new Date(job.created_at).toLocaleDateString()}</span>
+                          <span className="font-medium text-gray-700 dark:text-ink">{new Date(job.created_at).toLocaleDateString()}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between items-center">
                           <span>Created by:</span>
-                          <span className="font-medium text-gray-700 dark:text-[#d5d8df]" title={createdByTitle}>
-                            {createdByLabel}
-                          </span>
+                          <UserAvatar userId={job.created_by} name={createdByTitle} size="xs" />
                         </div>
                       </div>
                     </div>
@@ -580,28 +466,26 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                           text={getVerificationStatusLabel(verificationResult.overall_verification_status)}
                           size="small"
                           color={getLabelColorForVerificationStatus(verificationResult.overall_verification_status) as any}
-                          className="!rounded-none"
                         />
                         <Label
                           id="verification-overall-confidence"
                           text={`${verificationResult.overall_confidence} confidence`}
                           size="small"
                           color={getLabelColor('confidence', verificationResult.overall_confidence) as any}
-                          className="!rounded-none"
                         />
                       </div>
-                      <div className="text-sm text-gray-600 dark:text-[#9699a6]">{verificationResult.candidate_name || groupedCandidate.name}</div>
+                      <div className="text-sm text-gray-600 dark:text-ink-muted">{verificationResult.candidate_name || groupedCandidate.name}</div>
                     </div>
                   </div>
 
                   {verificationResult.verification_summary && (
-                    <div className={`${blockStyle} bg-gray-50 dark:bg-[#181b34]`}>
+                    <div className={`${blockStyle} bg-gray-50 dark:bg-canvas`}>
                       <p className={bodyTextStyle}>{verificationResult.verification_summary}</p>
                     </div>
                   )}
 
                   <div className={`mt-4 ${blockStyle}`}>
-                    <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-3 text-sm text-gray-600 dark:text-[#9699a6]">
+                    <div className="flex flex-wrap items-center justify-between gap-x-10 gap-y-3 text-sm text-gray-600 dark:text-ink-muted">
                       <div className="flex items-center gap-2">
                         <span>Claims</span>
                         <Label
@@ -609,7 +493,6 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                           text={String(verificationResult.metrics?.claims_total ?? structuredClaims.length)}
                           size="small"
                           color={Label.colors.AMERICAN_GRAY as any}
-                          className="!rounded-none"
                         />
                       </div>
 
@@ -620,7 +503,6 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                           text={String(verificationResult.metrics?.claims_verified ?? 0)}
                           size="small"
                           color={Label.colors.POSITIVE as any}
-                          className="!rounded-none"
                         />
                       </div>
 
@@ -631,7 +513,6 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                           text={verificationResult.online_presence?.presence_level || '-'}
                           size="small"
                           color={getLabelColor('presence', verificationResult.online_presence?.presence_level) as any}
-                          className="!rounded-none"
                         />
                       </div>
 
@@ -642,7 +523,6 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                           text={verificationResult.identity_resolution?.status || '-'}
                           size="small"
                           color={getLabelColor('identity', verificationResult.identity_resolution?.status) as any}
-                          className="!rounded-none"
                         />
                       </div>
                     </div>
@@ -658,7 +538,6 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                       text={verificationResult.online_presence?.presence_level || '-'}
                       size="small"
                       color={getLabelColor('presence', verificationResult.online_presence?.presence_level) as any}
-                      className="!rounded-none"
                     />
                   </div>
 
@@ -678,14 +557,12 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                               text={profile.type}
                               size="small"
                               color={Label.colors.AMERICAN_GRAY as any}
-                              className="!rounded-none"
                             />
                             <Label
                               id={`profile-match-${idx}`}
                               text={`match: ${profile.match_strength}`}
                               size="small"
                               color={getLabelColor('confidence', profile.match_strength) as any}
-                              className="!rounded-none"
                             />
                           </div>
                           <div className="mt-2">
@@ -693,12 +570,12 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                               href={profile.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline break-all text-sm"
+                              className={cn(textLink, 'hover:underline break-all text-sm')}
                             >
                               {profile.title || profile.url}
                             </a>
                           </div>
-                          {profile.notes && <div className="text-sm text-gray-700 dark:text-[#d5d8df] mt-2 whitespace-pre-wrap">{profile.notes}</div>}
+                          {profile.notes && <div className="text-sm text-gray-700 dark:text-ink mt-2 whitespace-pre-wrap">{profile.notes}</div>}
                         </div>
                       ))}
                     </div>
@@ -715,14 +592,12 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                         text={verificationResult.identity_resolution?.status || '-'}
                         size="small"
                         color={getLabelColor('identity', verificationResult.identity_resolution?.status) as any}
-                        className="!rounded-none"
                       />
                       <Label
                         id="identity-confidence"
                         text={`${verificationResult.identity_resolution?.confidence || '-'} confidence`}
                         size="small"
                         color={getLabelColor('confidence', verificationResult.identity_resolution?.confidence) as any}
-                        className="!rounded-none"
                       />
                     </div>
                   </div>
@@ -730,7 +605,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                   <div className={blockStyle}>
                     <p className={bodyTextStyle}>{verificationResult.identity_resolution?.reason || 'No details available'}</p>
                     {verificationResult.identity_resolution?.signals && verificationResult.identity_resolution.signals.length > 0 && (
-                      <div className="text-xs text-gray-600 dark:text-[#9699a6] mt-2">
+                      <div className="text-xs text-gray-600 dark:text-ink-muted mt-2">
                         Signals: {verificationResult.identity_resolution.signals.join(', ')}
                       </div>
                     )}
@@ -747,7 +622,6 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                         text={`${structuredClaims.length} items`}
                         size="small"
                         color={Label.colors.AMERICAN_GRAY as any}
-                        className="!rounded-none"
                       />
                     </div>
 
@@ -756,7 +630,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                         <div key={claim.id} className={blockStyle}>
                           <div className="flex justify-between items-start gap-3 flex-wrap">
                             <div className="flex-1 min-w-[220px]">
-                              <div className="text-sm font-semibold text-gray-800 dark:text-[#d5d8df]">{claim.claim}</div>
+                              <div className="text-sm font-semibold text-gray-800 dark:text-ink">{claim.claim}</div>
                             </div>
                             <div className="flex gap-2 flex-wrap justify-end">
                               <Label
@@ -764,22 +638,20 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                                 text={getVerificationStatusLabel(claim.verification_status)}
                                 size="small"
                                 color={getLabelColorForVerificationStatus(claim.verification_status) as any}
-                                className="!rounded-none"
                               />
                               <Label
                                 id={`claim-category-${claim.id}`}
                                 text={claim.category}
                                 size="small"
                                 color={Label.colors.AMERICAN_GRAY as any}
-                                className="!rounded-none"
                               />
                             </div>
                           </div>
-                          {claim.reason && <div className="text-sm text-gray-700 dark:text-[#d5d8df] mt-3 whitespace-pre-wrap">{claim.reason}</div>}
+                          {claim.reason && <div className="text-sm text-gray-700 dark:text-ink mt-3 whitespace-pre-wrap">{claim.reason}</div>}
                         </div>
                       ))}
                       {structuredClaims.length > 5 && (
-                        <div className="text-sm text-gray-500 dark:text-[#9699a6] text-center">
+                        <div className="text-sm text-gray-500 dark:text-ink-muted text-center">
                           + {structuredClaims.length - 5} more claims. View full details in resume analysis.
                         </div>
                       )}
@@ -789,8 +661,8 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
 
                 {/* Sources */}
                 {verificationResult.sources && verificationResult.sources.length > 0 && (
-                  <div className="pt-2 border-t border-gray-200 dark:border-[#4b4e69]">
-                    <div className="text-sm font-semibold text-gray-600 dark:text-[#9699a6]">Sources Consulted</div>
+                  <div className="pt-2 border-t border-gray-200 dark:border-line">
+                    <div className="text-sm font-semibold text-gray-600 dark:text-ink-muted">Sources Consulted</div>
                     <div className="mt-1 space-y-1 text-sm">
                       {verificationResult.sources.slice(0, 5).map((source, idx) => (
                         <a
@@ -798,7 +670,7 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
                           href={source.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline break-all"
+                          className={cn('block hover:underline break-all', textLink)}
                         >
                           {source.title || source.url}
                         </a>
@@ -809,11 +681,11 @@ const CandidateDashboardView: React.FC<CandidateDashboardViewProps> = ({
               </div>
             ) : (
               <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-[#9699a6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-ink-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-[#d5d8df]">No Verification Data</h3>
-                <p className="mt-2 text-sm text-gray-500 dark:text-[#9699a6]">Run web verification to validate key claims.</p>
+                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">No Verification Data</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">Run web verification to validate key claims.</p>
                 <div className="mt-4">
                   <SplitButton
                     id="verify-empty-split-button"

@@ -2,6 +2,7 @@ import * as React from 'react'
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { focusVisibleRing } from '@/lib/semanticColors'
 
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
@@ -10,7 +11,8 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      'peer h-4 w-4 shrink-0 rounded-sm border border-gray-300 dark:border-[#4b4e69] bg-white dark:bg-[#1e2035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:text-white transition-colors cursor-pointer',
+      'peer h-4 w-4 shrink-0 rounded-sm border border-gray-300 dark:border-line bg-white dark:bg-canvas-deep disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-brand data-[state=checked]:border-brand data-[state=checked]:text-brand-fg transition-colors cursor-pointer',
+      focusVisibleRing,
       className
     )}
     {...props}

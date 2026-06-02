@@ -2,6 +2,7 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { focusVisibleRing } from '@/lib/semanticColors'
 
 const Dialog = DialogPrimitive.Root
 const DialogTrigger = DialogPrimitive.Trigger
@@ -32,14 +33,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-full max-w-lg bg-white dark:bg-[#1e2035] shadow-xl border border-gray-200 dark:border-[#4b4e69] rounded-lg flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+        'fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-full max-w-lg bg-white dark:bg-canvas-deep shadow-xl border border-gray-200 dark:border-line rounded-lg flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
         className
       )}
       {...props}
     >
       {children}
       {!hideClose && (
-        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-gray-400 hover:text-gray-600 dark:text-[#9699a6] dark:hover:text-[#d5d8df] hover:bg-gray-100 dark:hover:bg-[#30324e] transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:pointer-events-none">
+        <DialogPrimitive.Close className={cn('absolute right-3 top-3 rounded-md p-1 text-gray-400 hover:text-gray-600 dark:text-ink-muted dark:hover:text-ink hover:bg-gray-100 dark:hover:bg-surface transition-colors disabled:pointer-events-none', focusVisibleRing)}>
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
@@ -51,7 +52,7 @@ DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col px-5 pt-4 pb-3 border-b border-gray-100 dark:border-[#4b4e69]', className)}
+    className={cn('flex flex-col px-5 pt-4 pb-3 border-b border-gray-100 dark:border-line', className)}
     {...props}
   />
 )
@@ -59,7 +60,7 @@ DialogHeader.displayName = 'DialogHeader'
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 dark:border-[#4b4e69]', className)}
+    className={cn('flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 dark:border-line', className)}
     {...props}
   />
 )
@@ -71,7 +72,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-base font-semibold text-gray-900 dark:text-[#d5d8df] leading-none', className)}
+    className={cn('text-base font-semibold text-gray-900 dark:text-ink leading-none', className)}
     {...props}
   />
 ))
@@ -83,7 +84,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-gray-500 dark:text-[#9699a6]', className)}
+    className={cn('text-sm text-gray-500 dark:text-ink-muted', className)}
     {...props}
   />
 ))

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently --names \"backend,frontend\" --prefix-colors \"yellow,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "concurrently --kill-others-on-fail --names \"backend,frontend\" --prefix-colors \"yellow,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && venv/bin/python app.py",
     "dev:frontend": "cd frontend && npm run dev"
   },

@@ -33,7 +33,7 @@ const ThemeToggle: React.FC = () => {
           </svg>
         )
       )}
-      className="text-gray-600 dark:text-[#d5d8df] hover:text-gray-900 dark:hover:text-white"
+      className="text-gray-600 dark:text-ink hover:text-gray-900 dark:hover:text-white"
     />
   );
 };

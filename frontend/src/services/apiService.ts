@@ -561,4 +561,21 @@ export const apiService = {
     const response = await apiClient.get(`/activities?limit=${limit}`);
     return response.data;
   },
+
+  async getBoardMembers(boardId?: string): Promise<{
+    success: boolean;
+    members: Array<{
+      id: string;
+      name: string;
+      email: string;
+      photoThumb: string | null;
+      photoSmall: string | null;
+    }>;
+    count: number;
+  }> {
+    const response = await apiClient.get('/monday/board-members', {
+      params: boardId ? { board_id: boardId } : undefined,
+    });
+    return response.data;
+  },
 };

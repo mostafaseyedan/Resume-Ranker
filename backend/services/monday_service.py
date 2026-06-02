@@ -20,6 +20,7 @@ class MondayService:
             "Content-Type": "application/json"
         }
         self.cache_ttl_seconds = max(int(cache_ttl_seconds or 0), 0)
+        self.board_members_ttl_seconds = max(int(os.getenv('MONDAY_MEMBERS_CACHE_TTL_SECONDS', '86400')), 0)
         self._cache: Dict[str, Dict[str, any]] = {}
         self._cache_lock = threading.Lock()
 
@@ -47,6 +48,89 @@ class MondayService:
     def clear_cache(self) -> None:
         with self._cache_lock:
             self._cache.clear()
+
+    def _cache_get_members(self, key: str):
+        if self.board_members_ttl_seconds <= 0:
+            return None
+        with self._cache_lock:
+            entry = self._cache.get(key)
+            if not entry or entry.get('kind') != 'members':
+                return None
+            if datetime.utcnow() > entry['expires_at']:
+                self._cache.pop(key, None)
+                return None
+            return entry['data']
+
+    def _cache_set_members(self, key: str, data: any):
+        if self.board_members_ttl_seconds <= 0:
+            return
+        with self._cache_lock:
+            self._cache[key] = {
+                'kind': 'members',
+                'data': data,
+                'expires_at': datetime.utcnow() + timedelta(seconds=self.board_members_ttl_seconds),
+            }
+
+    def get_board_members(self, board_id: Optional[str] = None, use_cache: bool = True) -> List[Dict]:
+        """Fetch board subscribers for avatar resolution (name, email, photos)."""
+        board_id_to_use = str(board_id if board_id is not None else self.board_id)
+        cache_key = f"members:{board_id_to_use}"
+        if use_cache:
+            cached = self._cache_get_members(cache_key)
+            if cached is not None:
+                return cached
+
+        try:
+            query = """
+            query ($boardId: [ID!]) {
+                boards(ids: $boardId) {
+                    id
+                    subscribers {
+                        id
+                        name
+                        email
+                        photo_thumb
+                        photo_small
+                        enabled
+                    }
+                }
+            }
+            """
+            payload = {
+                "query": query,
+                "variables": {"boardId": [int(board_id_to_use)]},
+            }
+            response = requests.post(self.base_url, json=payload, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+
+            if 'errors' in data:
+                logger.error(f"Monday.com board members errors: {data['errors']}")
+                return []
+
+            boards = data.get('data', {}).get('boards', [])
+            if not boards:
+                return []
+
+            subscribers = boards[0].get('subscribers') or []
+            members = [
+                {
+                    'id': user.get('id'),
+                    'name': user.get('name'),
+                    'email': user.get('email'),
+                    'photoThumb': user.get('photo_thumb'),
+                    'photoSmall': user.get('photo_small'),
+                }
+                for user in subscribers
+                if user.get('enabled', True) is not False
+            ]
+
+            if use_cache:
+                self._cache_set_members(cache_key, members)
+            return members
+        except Exception as e:
+            logger.error(f"Error fetching Monday board members: {e}")
+            return []
 
     def get_board_data(self, board_id: Optional[str] = None, use_cache: bool = True) -> Dict:
         """
