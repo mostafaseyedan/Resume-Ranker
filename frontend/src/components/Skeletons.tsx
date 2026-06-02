@@ -12,7 +12,7 @@ const Shimmer: React.FC<{ className?: string }> = ({ className = '' }) => (
 export const JobListSkeleton: React.FC = () => (
   <div className="h-full flex flex-col" aria-busy="true" aria-label="Loading jobs">
     {/* Toolbar: status filter + search + new-job button */}
-    <div className="p-4 bg-white dark:bg-surface border-b border-gray-200 dark:border-line shadow-sm">
+    <div className="flex-shrink-0 p-4 bg-white dark:bg-surface border-b border-gray-200 dark:border-line">
       <div className="flex items-center gap-2">
         <Shimmer className="h-8 w-44" />
         <Shimmer className="h-8 flex-1" />

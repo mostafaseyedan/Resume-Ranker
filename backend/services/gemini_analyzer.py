@@ -98,6 +98,7 @@ class JobExtraction(BaseModel):
     other: List[str]
     questions_for_candidate: List[str] = Field(default_factory=list)
 
+
 class GeminiAnalyzer:
     def __init__(self, api_key):
         self.client = genai.Client(api_key=api_key)

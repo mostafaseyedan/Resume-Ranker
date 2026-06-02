@@ -603,6 +603,38 @@ class SharePointService:
             logger.error(f"Error downloading file content: {e}")
             return None
 
+    def delete_file(self, file_id: str, site_id: str, drive_id: str) -> bool:
+        """Delete a drive item by id. Returns True on success (or if already gone)."""
+        if not (file_id and site_id and drive_id):
+            return False
+        try:
+            token = self._get_access_token()
+            if not token:
+                logger.error("Failed to get access token for delete")
+                return False
+
+            url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{file_id}"
+            headers = {'Authorization': f'Bearer {token}'}
+            response = requests.delete(url, headers=headers)
+
+            # Token expired mid-flight: refresh once and retry.
+            if response.status_code == 401:
+                self._token = None
+                token = self._get_access_token()
+                if not token:
+                    return False
+                headers['Authorization'] = f'Bearer {token}'
+                response = requests.delete(url, headers=headers)
+
+            # 204 = deleted, 404 = already gone (treat as success).
+            if response.status_code in (200, 204, 404):
+                return True
+            logger.error(f"Failed to delete SharePoint item {file_id}: {response.status_code} - {response.text}")
+            return False
+        except Exception as e:
+            logger.error(f"Error deleting SharePoint item: {e}")
+            return False
+
     def categorize_files(self, files: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
         """Show all files in both categories - let users decide which to process"""
         # Filter to only include PDF and DOCX files
@@ -757,13 +789,38 @@ class SharePointService:
             folder_path_raw = url_info['folder_path']
             folder_path = folder_path_raw.strip('/') if isinstance(folder_path_raw, str) else ''
 
+            def ensure_child_folder(parent_item_id: str, folder_name: str) -> Optional[str]:
+                children_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{parent_item_id}/children"
+                children_response = requests.get(children_url, headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json'})
+                if children_response.status_code == 200:
+                    for child in children_response.json().get('value', []):
+                        if child.get('folder') and child.get('name') == folder_name:
+                            return child.get('id')
+
+                create_response = requests.post(
+                    children_url,
+                    headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json', 'Content-Type': 'application/json'},
+                    json={
+                        'name': folder_name,
+                        'folder': {},
+                        '@microsoft.graph.conflictBehavior': 'fail'
+                    },
+                )
+                if create_response.status_code in [200, 201]:
+                    return create_response.json().get('id')
+                logger.error(f"Failed to create SharePoint subfolder '{folder_name}': {create_response.status_code} - {create_response.text}")
+                return None
+
             # Handle sharing links - try to find specific job folder
             if url_info.get('sharing_link') and job_title:
                 job_folder = self._find_job_folder_by_title(site_id, drive_id, headers, job_title)
                 if job_folder:
                     # Upload to specific job folder (with optional subfolder)
                     if subfolder:
-                        upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{job_folder['id']}:/{quote(subfolder)}/{filename}:/content"
+                        subfolder_id = ensure_child_folder(job_folder['id'], subfolder)
+                        if not subfolder_id:
+                            return None
+                        upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{subfolder_id}:/{filename}:/content"
                         logger.info(f"Uploading to job folder: {job_folder['name']}/{subfolder}")
                     else:
                         upload_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{job_folder['id']}:/{filename}:/content"

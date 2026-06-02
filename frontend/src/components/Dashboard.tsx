@@ -7,38 +7,24 @@ import CandidateSidebar from './CandidateSidebar';
 import CandidateDashboardView from './CandidateDashboardView';
 import ActivityLogs from './ActivityLogs';
 import ActivityNotificationDropdown from './ActivityNotificationDropdown';
+import SidebarViewTabs from './SidebarViewTabs';
 import { JobListSkeleton, DetailPanelSkeleton } from './Skeletons';
 import BrandLogo from './BrandLogo';
 import ThemeToggle from './ThemeToggle';
 import CendienAppsNav from './CendienAppsNav';
 import { useAuth } from '../hooks/useAuth';
 import { useMsal } from '@azure/msal-react';
-import { ButtonGroup, Button, IconButton } from '@vibe/core';
+import { Button, IconButton } from '@vibe/core';
 import '@vibe/core/tokens';
 import { cn } from '@/lib/utils';
 import { MondayColorStyles } from '../lib/mondayColors';
+import { groupCandidatesByName, type GroupedCandidate } from '@/utils/groupCandidates';
 
 type MobilePanel = 'list' | 'detail';
-
-// Type for grouped candidate (matching CandidateSidebar)
-interface GroupedCandidate {
-  name: string;
-  candidates: Candidate[];
-  bestScore: number;
-  jobCount: number;
-  jobTitles: string[];
-  latestDate: string;
-  verificationStatus: string | null;
-  hasImproved: boolean;
-}
 
 const Dashboard: React.FC = () => {
   // View mode state
   const [viewMode, setViewMode] = useState<'jobs' | 'candidates'>('jobs');
-  const viewModeOptions = [
-    { value: 'jobs', text: 'Jobs' },
-    { value: 'candidates', text: 'Candidates' }
-  ];
 
   // Jobs state
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -51,12 +37,20 @@ const Dashboard: React.FC = () => {
   // Candidates state
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [candidatesFetched, setCandidatesFetched] = useState(false);
   const [candidatesError, setCandidatesError] = useState<string | null>(null);
   const [selectedGroupedCandidate, setSelectedGroupedCandidate] = useState<GroupedCandidate | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('list');
 
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { instance } = useMsal();
+
+  const jobsCount = jobs.length > 0 || !loading ? jobs.length : null;
+  const groupedCandidates = useMemo(
+    () => groupCandidatesByName(candidates),
+    [candidates]
+  );
+  const candidatesCount = candidatesFetched ? groupedCandidates.length : null;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -81,6 +75,7 @@ const Dashboard: React.FC = () => {
       setCandidatesError('Failed to load candidates: ' + (err.response?.data?.error || err.message));
     } finally {
       setCandidatesLoading(false);
+      setCandidatesFetched(true);
     }
   };
 
@@ -296,18 +291,20 @@ const Dashboard: React.FC = () => {
             mobilePanel === 'detail' ? 'hidden lg:flex' : 'flex flex-1 lg:flex-none'
           )}
         >
-          {/* View Mode Toggle */}
-          <div className="flex-shrink-0 px-3 py-2.5 border-b border-gray-200 dark:border-line">
-            <ButtonGroup
-              options={viewModeOptions}
-              value={viewMode}
-              onSelect={(value) => handleViewModeToggle(value as 'jobs' | 'candidates')}
-              size="small"
-            />
-          </div>
+          <SidebarViewTabs
+            value={viewMode}
+            onChange={handleViewModeToggle}
+            jobsCount={jobsCount}
+            candidatesCount={candidatesCount}
+            candidatesLoading={candidatesLoading}
+          />
 
-          {/* Active list */}
-          <div className="flex-1 min-h-0">
+          <div
+            className="flex-1 min-h-0 flex flex-col"
+            role="tabpanel"
+            id={`sidebar-panel-${viewMode}`}
+            aria-labelledby={`sidebar-tab-${viewMode}`}
+          >
             {viewMode === 'jobs' ? (
               isLoading ? (
                 <JobListSkeleton />
@@ -328,7 +325,7 @@ const Dashboard: React.FC = () => {
               )
             ) : (
               <CandidateSidebar
-                candidates={candidates}
+                groupedCandidates={groupedCandidates}
                 selectedCandidate={selectedGroupedCandidate}
                 onCandidateSelect={(candidate) => {
                   setSelectedGroupedCandidate(candidate);

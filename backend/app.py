@@ -1,7 +1,11 @@
+from dotenv import load_dotenv, find_dotenv
+
+# Load .env before service modules read GEMINI_* variables at runtime/import.
+load_dotenv(find_dotenv())
+
 from flask import Flask, request, jsonify, session, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 import os
-from dotenv import load_dotenv, find_dotenv
 import msal
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -22,15 +26,15 @@ from services.hunter_service import HunterService, extract_company_from_profile
 from services.graph_email_service import GraphEmailService
 from services.email_generator import EmailGeneratorService
 from services.tavily_enrichment_service import TavilyEnrichmentService
+from services.job_infographic_service import JobInfographicService
 import logging
 import base64
+import asyncio
+import re
 import json
 import uuid
 import time
 from datetime import datetime
-
-# Load environment variables from shared .env
-load_dotenv(find_dotenv())
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
@@ -91,6 +95,7 @@ AZURE_CONFIG = {
 sharepoint_cache_ttl = int(os.getenv('SHAREPOINT_CACHE_TTL_MINUTES', '15'))
 sharepoint_service = SharePointService(AZURE_CONFIG, cache_ttl_minutes=sharepoint_cache_ttl)
 logger.info(f"SharePoint service initialized with cache TTL: {sharepoint_cache_ttl} minutes")
+job_infographic_service = JobInfographicService(sharepoint_service)
 
 # Initialize Vertex Search service with SharePoint service for metadata enrichment
 vertex_search_service = VertexSearchService(sharepoint_service=sharepoint_service)
@@ -576,6 +581,156 @@ def get_job(job_id):
     except Exception as e:
         logger.error(f"Get job error: {e}")
         return jsonify({'error': 'Failed to retrieve job'}), 500
+
+@app.route('/api/jobs/<job_id>/infographic', methods=['POST'])
+@require_auth
+def generate_job_infographic(job_id):
+    try:
+        job = firestore_service.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        if not (job.get('description') or '').strip():
+            return jsonify({'error': 'Job description is required to generate an infographic'}), 400
+
+        data = request.get_json(silent=True) or {}
+        raw_theme = (data.get('visual_theme') or data.get('style_preset') or '').strip()
+        visual_theme = raw_theme or None
+        aspect_ratio = (data.get('aspect_ratio') or '').strip() or None
+        image_quality = (data.get('image_quality') or data.get('quality') or '').strip() or None
+
+        result = asyncio.run(
+            job_infographic_service.generate_for_job(
+                job,
+                visual_theme=visual_theme,
+                aspect_ratio=aspect_ratio,
+                image_quality=image_quality,
+                user_email=session['user']['email'],
+            )
+        )
+
+        infographic_meta = result['infographic']
+        existing_versions = job.get('infographic_versions') or []
+        firestore_service.update_job(job_id, {
+            'infographic': infographic_meta,
+            'infographic_versions': [infographic_meta, *existing_versions][:10],
+        })
+        updated_job = firestore_service.get_job(job_id)
+
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='job_infographic_generated',
+            details={
+                'job_title': job.get('title', 'Unknown'),
+                'visual_theme': infographic_meta.get('visual_theme'),
+                'aspect_ratio': infographic_meta.get('aspect_ratio'),
+                'image_quality': infographic_meta.get('image_quality'),
+                'sharepoint_url': infographic_meta.get('sharepoint_web_url'),
+            },
+        )
+
+        payload = {
+            'success': True,
+            'job': updated_job,
+            'infographic': infographic_meta,
+        }
+        if not infographic_meta.get('sharepoint_web_url'):
+            payload['image_base64'] = base64.b64encode(result['image_bytes']).decode('utf-8')
+            payload['warning'] = 'Generated image was not saved to SharePoint'
+
+        return jsonify(payload)
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Generate job infographic error: {e}")
+        return jsonify({'error': 'Failed to generate job infographic'}), 500
+
+
+@app.route('/api/jobs/<job_id>/infographic/download', methods=['GET'])
+@require_auth
+def download_job_infographic(job_id):
+    try:
+        job = firestore_service.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        if not job.get('infographic'):
+            return jsonify({'error': 'No infographic found for this job'}), 404
+
+        requested_file_id = (request.args.get('file_id') or '').strip() or None
+        record = job_infographic_service.select_record(job, requested_file_id)
+        if not record:
+            return jsonify({'error': 'Requested infographic version not found'}), 404
+
+        image_bytes = job_infographic_service.get_image_bytes(job, file_id=requested_file_id)
+        if not image_bytes:
+            return jsonify({'error': 'Failed to retrieve infographic from SharePoint'}), 502
+
+        mime_type = record.get('mime_type') or 'image/png'
+        filename = record.get('filename') or 'hiring_infographic.png'
+        safe_name = re.sub(r'[^\w.\-]+', '_', filename)
+
+        return Response(
+            image_bytes,
+            mimetype=mime_type,
+            headers={
+                'Content-Disposition': f'attachment; filename="{safe_name}"',
+                'Cache-Control': 'private, max-age=300',
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"Download job infographic error: {e}")
+        return jsonify({'error': 'Failed to download infographic'}), 500
+
+
+@app.route('/api/jobs/<job_id>/infographic', methods=['DELETE'])
+@require_auth
+def delete_job_infographic(job_id):
+    try:
+        job = firestore_service.get_job(job_id)
+        if not job:
+            return jsonify({'error': 'Job not found'}), 404
+
+        file_id = (request.args.get('file_id') or '').strip()
+        if not file_id:
+            return jsonify({'error': 'file_id is required'}), 400
+
+        record = job_infographic_service.select_record(job, file_id)
+        if not record:
+            return jsonify({'error': 'Infographic version not found'}), 404
+
+        result = job_infographic_service.delete_version(job, file_id)
+        firestore_service.update_job(job_id, {
+            'infographic': result['infographic'],
+            'infographic_versions': result['infographic_versions'],
+        })
+        updated_job = firestore_service.get_job(job_id)
+
+        activity_logger.log_activity(
+            user_email=session['user']['email'],
+            user_name=session['user']['name'],
+            action='job_infographic_deleted',
+            details={
+                'job_title': job.get('title', 'Unknown'),
+                'visual_theme': record.get('visual_theme'),
+            },
+        )
+
+        return jsonify({
+            'success': True,
+            'job': updated_job,
+            'sharepoint_deleted': result['sharepoint_deleted'],
+        })
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Delete job infographic error: {e}")
+        return jsonify({'error': 'Failed to delete infographic'}), 500
+
 
 @app.route('/api/jobs/<job_id>', methods=['DELETE'])
 @require_auth

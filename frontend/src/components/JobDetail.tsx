@@ -9,7 +9,7 @@ import CandidatesGroupedList from './CandidatesGroupedList';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
-import { Button, SplitButton, SplitButtonMenu, MenuItem, Icon, Label } from '@vibe/core';
+import { Button, SplitButton, SplitButtonMenu, MenuItem, Icon, Label, TextField } from '@vibe/core';
 import '@vibe/core/tokens';
 import { PDF, File as FileIcon, Check } from '@vibe/icons';
 import { Button as UiButton } from '@/components/ui/button';
@@ -51,6 +51,8 @@ import {
   textPrimary,
 } from '@/lib/semanticColors';
 import { cn } from '@/lib/utils';
+import { useJobInfographic } from '../hooks/useJobInfographic';
+import { JobInfographicDialog, JobInfographicHeaderActions } from './job/JobInfographicDialog';
 
 interface JobDetailProps {
   job: Job;
@@ -162,6 +164,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
   // Preview Provider State (null = default/root job data)
   const [previewProvider, setPreviewProvider] = useState<string | null>(null);
+
+  const infographic = useJobInfographic(job, onJobUpdated);
 
   const fileNameSets = useMemo(() => {
     const jobNames = new Set<string>();
@@ -1356,7 +1360,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-end gap-3">
+              <div className="flex items-center justify-end gap-2 flex-wrap">
+                <JobInfographicHeaderActions
+                  hasInfographic={infographic.hasInfographic}
+                  canGenerate={infographic.canGenerate}
+                  generating={infographic.generatingInfographic}
+                  onRegenerate={() => infographic.openDialog('generate')}
+                  onView={() => infographic.openDialog('view')}
+                />
                 <button
                   title="Copy for LinkedIn"
                   onClick={() => {
@@ -2067,55 +2078,62 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
         {activeTab === 'external-candidates' && (
           <div className="p-6">
             {/* Search Form */}
-            <h4 className="text-base font-semibold text-gray-900 dark:text-ink mb-3">LinkedIn Search Query</h4>
-            <div className="bg-gray-50 dark:bg-canvas border border-gray-200 dark:border-line rounded-lg p-4 mb-6">
-              <div className="flex flex-wrap items-end gap-4">
-                <div className="min-w-48 flex-1">
-                  <Input
-                    id="external-search-role"
-                    label="Role Title"
-                    placeholder="e.g., Software Engineer"
-                    value={externalSearchRole}
-                    onChange={(e) => setExternalSearchRole(e.target.value)}
-                  />
-                </div>
-                <div className="w-48">
-                  <Input
-                    id="external-search-location"
-                    label="Location (optional)"
-                    placeholder="e.g., San Francisco, CA"
-                    value={externalSearchLocation}
-                    onChange={(e) => setExternalSearchLocation(e.target.value)}
-                  />
-                </div>
-                <div className="w-20">
-                  <Input
-                    id="external-candidates-count"
-                    label="Count"
-                    type="number"
-                    value={externalCandidatesCount}
-                    onChange={(e) => setExternalCandidatesCount(Number(e.target.value) || 10)}
-                    min={1}
-                    max={50}
-                  />
-                </div>
-                <div className="flex gap-2 pb-0.5">
-                  <UiButton
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExtractSearchQuery}
-                    disabled={!job.description || extractingSearchQuery}
-                  >
-                    {extractingSearchQuery ? 'Extracting...' : 'Extract'}
-                  </UiButton>
-                  <UiButton
-                    size="sm"
-                    onClick={handleSearchExternalCandidates}
-                    disabled={!externalSearchRole.trim() || searchingExternalCandidates}
-                  >
-                    {searchingExternalCandidates ? 'Searching...' : 'Search'}
-                  </UiButton>
-                </div>
+            <div className="mb-6">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <h4 className="text-base font-semibold text-gray-900 dark:text-ink">
+                  LinkedIn Search Query
+                </h4>
+                <Button
+                  kind="secondary"
+                  size="small"
+                  onClick={handleExtractSearchQuery}
+                  disabled={!job.description || extractingSearchQuery}
+                  loading={extractingSearchQuery}
+                >
+                  Extract from job
+                </Button>
+              </div>
+              <div className="grid items-end gap-3 md:grid-cols-[minmax(14rem,1fr)_minmax(12rem,16rem)_5.5rem_auto]">
+                <TextField
+                  id="external-search-role"
+                  title="Role Title"
+                  placeholder="e.g., Software Engineer"
+                  value={externalSearchRole}
+                  onChange={(value) => setExternalSearchRole(value)}
+                  size="small"
+                  wrapperClassName="w-full"
+                />
+                <TextField
+                  id="external-search-location"
+                  title="Location (optional)"
+                  placeholder="e.g., San Francisco, CA"
+                  value={externalSearchLocation}
+                  onChange={(value) => setExternalSearchLocation(value)}
+                  size="small"
+                  wrapperClassName="w-full"
+                />
+                <TextField
+                  id="external-candidates-count"
+                  title="Count"
+                  type="number"
+                  value={String(externalCandidatesCount)}
+                  onChange={(value) => {
+                    const next = Number(value);
+                    setExternalCandidatesCount(Number.isFinite(next) ? Math.min(50, Math.max(1, next)) : 10);
+                  }}
+                  size="small"
+                  wrapperClassName="w-full"
+                />
+                <Button
+                  kind="primary"
+                  size="small"
+                  onClick={handleSearchExternalCandidates}
+                  disabled={!externalSearchRole.trim() || searchingExternalCandidates}
+                  loading={searchingExternalCandidates}
+                  className="w-full md:w-auto"
+                >
+                  Search
+                </Button>
               </div>
               {externalSearchRole && (
                 <p className="mt-3 text-xs text-gray-500 dark:text-ink-muted">
@@ -2495,6 +2513,35 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
           </div>
         </DialogContent>
       </Dialog>
+
+      <JobInfographicDialog
+        job={job}
+        open={infographic.dialogOpen}
+        mode={infographic.dialogMode}
+        onSwitchToView={() => infographic.switchDialogMode('view')}
+        onOpenChange={(open) => {
+          if (!open) {
+            infographic.closeDialog();
+          }
+        }}
+        previewUrl={infographic.previewUrl}
+        loadingPreview={infographic.loadingPreview}
+        generating={infographic.generatingInfographic}
+        canGenerate={infographic.canGenerate}
+        selectedInfographic={infographic.selectedInfographic}
+        activeFileId={infographic.activeFileId}
+        onSelectVersion={infographic.selectVersion}
+        aspectRatio={infographic.aspectRatio}
+        onAspectRatioChange={infographic.setAspectRatio}
+        imageQuality={infographic.imageQuality}
+        onImageQualityChange={infographic.setImageQuality}
+        visualTheme={infographic.visualTheme}
+        onVisualThemeChange={infographic.setVisualTheme}
+        onDownload={infographic.handleDownload}
+        onDeleteVersion={infographic.handleDeleteVersion}
+        deleting={infographic.deleting}
+        onGenerate={infographic.handleGenerate}
+      />
     </div>
   );
 };

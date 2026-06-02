@@ -106,7 +106,8 @@ class BadgeService:
             raise ValueError("GEMINI_API_KEY is required for badge generation")
 
         self.client = genai.Client(api_key=self.api_key)
-        self.image_model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview")
+        raw_image_model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image") or ""
+        self.image_model = raw_image_model.strip().strip('"').strip("'") or "gemini-3.1-flash-image"
         self.text_model = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
         self.badge_width_inches = 1  # Target badge width in resume
         self.badge_px = 500  # Target badge size in pixels

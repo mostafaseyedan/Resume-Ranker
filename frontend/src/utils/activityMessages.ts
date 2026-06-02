@@ -1,11 +1,19 @@
 /** Activity log copy without the actor name (shown via UserAvatar instead). */
 
+import { JOB_INFOGRAPHIC_VISUAL_THEMES } from '@/lib/jobInfographicThemes';
+
 export interface ActivityDetails {
   job_title?: string;
   candidate_name?: string;
   template_used?: string;
   connection_status?: string;
+  visual_theme?: string;
   [key: string]: unknown;
+}
+
+function visualThemeLabel(slug?: string): string | undefined {
+  if (!slug) return undefined;
+  return JOB_INFOGRAPHIC_VISUAL_THEMES.find((t) => t.value === slug)?.text ?? slug;
 }
 
 export function formatActivityMessage(action: string, details: ActivityDetails = {}): string {
@@ -38,6 +46,15 @@ export function formatActivityMessage(action: string, details: ActivityDetails =
       return `Generated follow-up for '${details.candidate_name}'`;
     case 'connection_checked':
       return `Checked LinkedIn connection (${details.connection_status})`;
+    case 'job_infographic_generated': {
+      const title = details.job_title || 'job';
+      const theme = visualThemeLabel(details.visual_theme);
+      return theme
+        ? `Generated hiring poster (${theme}) for '${title}'`
+        : `Generated hiring poster for '${title}'`;
+    }
+    case 'job_infographic_deleted':
+      return `Deleted a hiring poster for '${details.job_title || 'job'}'`;
     default:
       return `Performed: ${action}`;
   }

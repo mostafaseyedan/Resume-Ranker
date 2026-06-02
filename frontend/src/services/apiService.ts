@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { JobInfographicVisualTheme } from '@/lib/jobInfographicThemes';
 import { API_BASE_URL, API_ENDPOINTS } from '../config/apiConfig';
 
 const apiClient = axios.create({
@@ -31,6 +32,37 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export interface JobInfographic {
+  filename?: string;
+  visual_theme?: string;
+  /** @deprecated use visual_theme */
+  style_preset?: string;
+  aspect_ratio?: JobInfographicAspectRatio;
+  image_quality?: JobInfographicQuality;
+  generated_at?: string;
+  generated_by?: string;
+  sharepoint_web_url?: string;
+  download_url?: string;
+  file_id?: string;
+  site_id?: string;
+  drive_id?: string;
+  mime_type?: string;
+  model?: string;
+  version?: string;
+  saved_to_sharepoint?: boolean;
+}
+
+export type JobInfographicAspectRatio =
+  | '3:4'
+  | '16:9';
+export type JobInfographicQuality = '1K' | '2K' | '4K';
+
+export interface GenerateJobInfographicOptions {
+  visualTheme?: JobInfographicVisualTheme;
+  aspectRatio?: JobInfographicAspectRatio;
+  imageQuality?: JobInfographicQuality;
+}
 
 export interface JobExtractedData {
   required_skills: string[];
@@ -73,6 +105,8 @@ export interface Job {
   source_filename?: string;
   gemini_analysis?: any;
   openai_analysis?: any;
+  infographic?: JobInfographic;
+  infographic_versions?: JobInfographic[];
   // Internal candidates (SharePoint/Vertex AI Search)
   potential_candidates?: Array<{ filename: string; sharepoint_url: string | null; download_url: string | null }>;
   potential_candidates_last_search?: string;
@@ -390,6 +424,42 @@ export const apiService = {
 
   async getJob(jobId: string): Promise<{ job: Job }> {
     const response = await apiClient.get(`/jobs/${jobId}`);
+    return response.data;
+  },
+
+  async generateJobInfographic(
+    jobId: string,
+    options: GenerateJobInfographicOptions = {}
+  ): Promise<{ success: boolean; job: Job; infographic: JobInfographic; image_base64?: string; warning?: string }> {
+    const body: { visual_theme?: string; aspect_ratio?: string; image_quality?: string } = {};
+    if (options.visualTheme?.trim()) {
+      body.visual_theme = options.visualTheme.trim();
+    }
+    if (options.aspectRatio) {
+      body.aspect_ratio = options.aspectRatio;
+    }
+    if (options.imageQuality) {
+      body.image_quality = options.imageQuality;
+    }
+    const response = await apiClient.post(`/jobs/${jobId}/infographic`, body);
+    return response.data;
+  },
+
+  async downloadJobInfographicBlob(jobId: string, fileId?: string): Promise<Blob> {
+    const response = await apiClient.get(`/jobs/${jobId}/infographic/download`, {
+      responseType: 'blob',
+      params: fileId ? { file_id: fileId } : undefined,
+    });
+    return response.data;
+  },
+
+  async deleteJobInfographicVersion(
+    jobId: string,
+    fileId: string
+  ): Promise<{ success: boolean; job: Job; sharepoint_deleted: boolean }> {
+    const response = await apiClient.delete(`/jobs/${jobId}/infographic`, {
+      params: { file_id: fileId },
+    });
     return response.data;
   },
 

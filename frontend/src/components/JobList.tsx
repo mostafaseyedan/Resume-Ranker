@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Button, Label, TextField, TextArea, Search as SearchField } from '@vibe/core';
 import { Dropdown } from '@vibe/core/next';
@@ -38,9 +38,8 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [resumeCounts, setResumeCounts] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const hasInitializedGroups = useRef(false);
-  const knownGroupIdsRef = useRef<Set<string>>(new Set());
+  /** At most one Monday group expanded (accordion). */
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
 
   const normalizeStatus = (status: string) =>
     (status || '')
@@ -214,51 +213,22 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
   }, [filteredJobs, getGroupKey, getGroupPosition, getGroupTitle]);
 
   const toggleGroup = useCallback((groupId: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupId)) {
-        next.delete(groupId);
-      } else {
-        next.add(groupId);
-      }
-      return next;
-    });
+    setExpandedGroupId((prev) => (prev === groupId ? null : groupId));
   }, []);
 
   const toggleAllGroups = useCallback(() => {
-    if (collapsedGroups.size === 0) {
-      const allGroupIds = new Set(jobs.map(getGroupKey));
-      setCollapsedGroups(allGroupIds);
-    } else {
-      setCollapsedGroups(new Set());
+    setExpandedGroupId((prev) => {
+      if (prev) return null;
+      const first = groupedJobs.keys().next().value as string | undefined;
+      return first ?? null;
+    });
+  }, [groupedJobs]);
+
+  useEffect(() => {
+    if (expandedGroupId && !groupedJobs.has(expandedGroupId)) {
+      setExpandedGroupId(null);
     }
-  }, [collapsedGroups, jobs, getGroupKey]);
-
-  useEffect(() => {
-    if (hasInitializedGroups.current || jobs.length === 0) return;
-    const allGroupIds = new Set(jobs.map(getGroupKey));
-    setCollapsedGroups(allGroupIds);
-    knownGroupIdsRef.current = new Set(allGroupIds);
-    hasInitializedGroups.current = true;
-  }, [jobs, getGroupKey]);
-
-  useEffect(() => {
-    if (jobs.length === 0) return;
-    const newGroupIds: string[] = [];
-    jobs.forEach((job) => {
-      const groupId = getGroupKey(job);
-      if (!knownGroupIdsRef.current.has(groupId)) {
-        newGroupIds.push(groupId);
-      }
-    });
-    if (newGroupIds.length === 0) return;
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      newGroupIds.forEach(groupId => next.add(groupId));
-      return next;
-    });
-    newGroupIds.forEach(groupId => knownGroupIdsRef.current.add(groupId));
-  }, [jobs, getGroupKey]);
+  }, [groupedJobs, expandedGroupId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -490,7 +460,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
 
   return (
     <div className="h-full flex flex-col">
-      <div className="board-toolbar p-4 bg-white dark:bg-surface border-b border-gray-200 dark:border-line shadow-sm">
+      <div className="board-toolbar flex-shrink-0 p-4 bg-white dark:bg-surface border-b border-gray-200 dark:border-line">
         <div className="flex items-center gap-2">
           <div className="w-44">
             <Dropdown
@@ -672,7 +642,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
         ) : (
           <div className="space-y-3">
             {Array.from(groupedJobs.entries()).map(([groupId, { items, groupTitle }]) => {
-              const isCollapsed = collapsedGroups.has(groupId);
+              const isCollapsed = expandedGroupId !== groupId;
               const groupColor = items.length > 0 ? getGroupColor(items[0]) : MONDAY_COLORS.BLUE;
 
               return (
