@@ -397,8 +397,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
       console.error('Failed to load SharePoint files:', err);
       if (currentJobId === job.id) {
         setSharepointFiles(null);
+        const message =
+          err?.response?.data?.error ||
+          err?.message ||
+          'Failed to load SharePoint files';
+        toast.error(message);
       }
-      // Don't show error if SharePoint is just not available
     } finally {
       if (currentJobId === job.id) {
         setLoadingSharePoint(false);
