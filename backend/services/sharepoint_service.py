@@ -1,3 +1,4 @@
+import base64
 import requests
 import msal
 import logging
@@ -353,8 +354,10 @@ class SharePointService:
             logger.error(f"Error in recursive file fetch: {e}")
             return []
 
-    def download_file(self, file_id: str, site_id: str, drive_id: str) -> Optional[bytes]:
-        """Download a file by its ID"""
+    def get_item_download_url(
+        self, file_id: str, site_id: str, drive_id: str
+    ) -> Optional[str]:
+        """Resolve a fresh @microsoft.graph.downloadUrl for a drive item."""
         try:
             token = self._get_access_token()
             if not token:
@@ -362,30 +365,58 @@ class SharePointService:
 
             headers = {
                 'Authorization': f'Bearer {token}',
+                'Accept': 'application/json',
             }
-
-            # Get download URL
-            file_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/items/{file_id}"
+            file_url = (
+                f"https://graph.microsoft.com/v1.0/sites/{site_id}"
+                f"/drives/{drive_id}/items/{file_id}"
+            )
             file_response = requests.get(file_url, headers=headers)
 
+            if file_response.status_code == 401:
+                self._token = None
+                token = self._get_access_token()
+                if not token:
+                    return None
+                headers['Authorization'] = f'Bearer {token}'
+                file_response = requests.get(file_url, headers=headers)
+
             if file_response.status_code != 200:
-                logger.error(f"Failed to get file info: {file_response.status_code}")
+                logger.error(
+                    "Failed to get file metadata for download: %s",
+                    file_response.status_code,
+                )
                 return None
 
-            file_data = file_response.json()
-            download_url = file_data.get('@microsoft.graph.downloadUrl')
+            return file_response.json().get('@microsoft.graph.downloadUrl')
+        except Exception as e:
+            logger.error(f"Error resolving download URL for {file_id}: {e}")
+            return None
 
+    def download_file(self, file_id: str, site_id: str, drive_id: str) -> Optional[bytes]:
+        """Download a file by its Graph drive item id (always uses a fresh download URL)."""
+        try:
+            download_url = self.get_item_download_url(file_id, site_id, drive_id)
             if not download_url:
-                logger.error("No download URL found")
                 return None
 
-            # Download the file
             download_response = requests.get(download_url)
-            if download_response.status_code == 200:
+            if download_response.status_code in (200, 206):
                 return download_response.content
-            else:
-                logger.error(f"Failed to download file: {download_response.status_code}")
-                return None
+
+            if download_response.status_code in (401, 403):
+                logger.warning(
+                    "Pre-authenticated download URL rejected (%s), refreshing via Graph",
+                    download_response.status_code,
+                )
+                fresh_url = self.get_item_download_url(file_id, site_id, drive_id)
+                if fresh_url and fresh_url != download_url:
+                    download_response = requests.get(fresh_url)
+                    if download_response.status_code in (200, 206):
+                        return download_response.content
+
+            logger.error(f"Failed to download file: {download_response.status_code}")
+            return None
 
         except Exception as e:
             logger.error(f"Error downloading file {file_id}: {e}")
@@ -415,6 +446,46 @@ class SharePointService:
             logger.error(f"Error downloading file content as text: {e}")
             return None
 
+    def _resolve_web_url_via_shares_api(
+        self, sharepoint_web_url: str, headers: Dict[str, str]
+    ) -> Optional[Dict[str, str]]:
+        """Resolve a SharePoint browser URL (including Doc.aspx links) via /shares."""
+        try:
+            encoded = (
+                base64.urlsafe_b64encode(sharepoint_web_url.encode('utf-8'))
+                .decode('utf-8')
+                .rstrip('=')
+            )
+            share_token = f"u!{encoded}"
+            share_url = f"https://graph.microsoft.com/v1.0/shares/{quote(share_token, safe='')}/driveItem"
+            share_response = requests.get(share_url, headers=headers)
+            if share_response.status_code != 200:
+                logger.error(
+                    "Shares API could not resolve web URL: %s - %s",
+                    share_response.status_code,
+                    share_response.text,
+                )
+                return None
+
+            item = share_response.json()
+            parent = item.get('parentReference') or {}
+            download_url = item.get('@microsoft.graph.downloadUrl')
+            file_id = item.get('id')
+            site_id = parent.get('siteId')
+            drive_id = parent.get('driveId')
+            if not download_url or not file_id:
+                logger.error("Shares API response missing download URL or file id")
+                return None
+            return {
+                'download_url': download_url,
+                'file_id': file_id,
+                'site_id': site_id,
+                'drive_id': drive_id,
+            }
+        except Exception as e:
+            logger.error(f"Error resolving SharePoint URL via shares API: {e}")
+            return None
+
     def convert_web_url_to_download_url(self, sharepoint_web_url: str) -> Optional[Dict[str, str]]:
         """
         Convert a SharePoint web URL to a Graph API download URL
@@ -438,6 +509,14 @@ class SharePointService:
             if 'sharepoint.com' not in sharepoint_web_url:
                 logger.error(f"Not a SharePoint URL: {sharepoint_web_url}")
                 return None
+
+            headers = {
+                'Authorization': f'Bearer {token}',
+                'Accept': 'application/json',
+            }
+
+            if '_layouts/' in sharepoint_web_url or 'Doc.aspx' in sharepoint_web_url:
+                return self._resolve_web_url_via_shares_api(sharepoint_web_url, headers)
 
             # Extract tenant and site
             url_parts = sharepoint_web_url.split('/')
@@ -465,11 +544,6 @@ class SharePointService:
                 file_path = remaining_path
 
             logger.info(f"Converting web URL to download URL - Site: {site_name}, File path: {file_path}")
-
-            headers = {
-                'Authorization': f'Bearer {token}',
-                'Accept': 'application/json'
-            }
 
             # Get site ID
             site_url = f"https://graph.microsoft.com/v1.0/sites/{tenant}.sharepoint.com:/sites/{site_name}"
@@ -520,16 +594,19 @@ class SharePointService:
             file_response = requests.get(file_url, headers=headers)
 
             if file_response.status_code != 200:
-                logger.error(f"Failed to get file info: {file_response.status_code} - {file_response.text}")
-                return None
+                logger.warning(
+                    "Path-based file lookup failed (%s), trying shares API",
+                    file_response.status_code,
+                )
+                return self._resolve_web_url_via_shares_api(sharepoint_web_url, headers)
 
             file_data = file_response.json()
             download_url = file_data.get('@microsoft.graph.downloadUrl')
             file_id = file_data.get('id')
 
             if not download_url or not file_id:
-                logger.error("No download URL or file ID in response")
-                return None
+                logger.warning("Path lookup missing download metadata, trying shares API")
+                return self._resolve_web_url_via_shares_api(sharepoint_web_url, headers)
 
             logger.info(f"Successfully converted web URL to download URL for file: {file_path}")
             return {
@@ -548,10 +625,20 @@ class SharePointService:
     def get_file_content_as_binary(self, download_url: str, file_id: str = None, site_id: str = None, drive_id: str = None) -> Optional[bytes]:
         """Download file content and return as binary data (for resume files)"""
         try:
+            if file_id and site_id and drive_id:
+                by_id = self.download_file(file_id, site_id, drive_id)
+                if by_id is not None:
+                    return by_id
+                if not download_url:
+                    return None
+
+            if not download_url:
+                return None
+
             response = requests.get(download_url)
 
-            # If download URL expired (401), try to refresh it using file_id
-            if response.status_code == 401 and file_id and site_id and drive_id:
+            # Pre-authenticated SharePoint URLs expire (often 401/403); refresh via Graph.
+            if response.status_code in (401, 403) and file_id and site_id and drive_id:
                 logger.warning("Download URL expired, refreshing...")
 
                 token = self._get_access_token()
@@ -852,7 +939,9 @@ class SharePointService:
                     'id': upload_data.get('id'),
                     'name': upload_data.get('name'),
                     'web_url': upload_data.get('webUrl'),
-                    'size': upload_data.get('size')
+                    'size': upload_data.get('size'),
+                    'site_id': site_id,
+                    'drive_id': drive_id,
                 }
             else:
                 logger.error(f"Failed to upload file: {upload_response.status_code} - {upload_response.text}")

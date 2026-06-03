@@ -196,15 +196,26 @@ class JobInfographicService:
                 INFOGRAPHIC_SHAREPOINT_SUBFOLDER,
             )
             if upload_meta and upload_meta.get("web_url"):
-                fresh = await asyncio.to_thread(
-                    self.sharepoint.convert_web_url_to_download_url,
-                    upload_meta["web_url"],
-                )
-                if fresh:
-                    download_url = fresh.get("download_url")
-                    file_id = fresh.get("file_id")
-                    site_id = fresh.get("site_id")
-                    drive_id = fresh.get("drive_id")
+                file_id = upload_meta.get("id")
+                site_id = upload_meta.get("site_id")
+                drive_id = upload_meta.get("drive_id")
+                if file_id and site_id and drive_id:
+                    download_url = await asyncio.to_thread(
+                        self.sharepoint.get_item_download_url,
+                        file_id,
+                        site_id,
+                        drive_id,
+                    )
+                if not download_url:
+                    fresh = await asyncio.to_thread(
+                        self.sharepoint.convert_web_url_to_download_url,
+                        upload_meta["web_url"],
+                    )
+                    if fresh:
+                        download_url = fresh.get("download_url")
+                        file_id = file_id or fresh.get("file_id")
+                        site_id = site_id or fresh.get("site_id")
+                        drive_id = drive_id or fresh.get("drive_id")
             else:
                 logger.warning("Infographic generated but SharePoint upload failed")
         else:
@@ -294,18 +305,39 @@ class JobInfographicService:
         info = self.select_record(job, file_id)
         if not info:
             return None
+
+        item_file_id = info.get("file_id")
+        site_id = info.get("site_id")
+        drive_id = info.get("drive_id")
+        web_url = info.get("sharepoint_web_url")
+
+        if web_url and (not item_file_id or not site_id or not drive_id):
+            fresh = self.sharepoint.convert_web_url_to_download_url(web_url)
+            if fresh:
+                item_file_id = item_file_id or fresh.get("file_id")
+                site_id = site_id or fresh.get("site_id")
+                drive_id = drive_id or fresh.get("drive_id")
+
+        if item_file_id and site_id and drive_id:
+            content = self.sharepoint.download_file(item_file_id, site_id, drive_id)
+            if content is not None:
+                return content
+
         download_url = info.get("download_url")
-        if not download_url:
-            web_url = info.get("sharepoint_web_url")
-            if web_url:
-                fresh = self.sharepoint.convert_web_url_to_download_url(web_url)
-                if fresh:
-                    download_url = fresh.get("download_url")
-        if not download_url:
+        if not download_url and web_url:
+            fresh = self.sharepoint.convert_web_url_to_download_url(web_url)
+            if fresh:
+                download_url = fresh.get("download_url")
+                item_file_id = item_file_id or fresh.get("file_id")
+                site_id = site_id or fresh.get("site_id")
+                drive_id = drive_id or fresh.get("drive_id")
+
+        if not download_url and not (item_file_id and site_id and drive_id):
             return None
+
         return self.sharepoint.get_file_content_as_binary(
-            download_url,
-            file_id=info.get("file_id"),
-            site_id=info.get("site_id"),
-            drive_id=info.get("drive_id"),
+            download_url or "",
+            file_id=item_file_id,
+            site_id=site_id,
+            drive_id=drive_id,
         )
