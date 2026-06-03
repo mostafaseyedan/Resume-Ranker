@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Job, Candidate, apiService } from '../services/apiService';
+import { Job, JobListItem, MondayBoardGroup, Candidate, apiService } from '../services/apiService';
 import JobList from './JobList';
 import JobDetail from './JobDetail';
 import CandidateSidebar from './CandidateSidebar';
@@ -8,7 +8,7 @@ import CandidateDashboardView from './CandidateDashboardView';
 import ActivityLogs from './ActivityLogs';
 import ActivityNotificationDropdown from './ActivityNotificationDropdown';
 import SidebarViewTabs from './SidebarViewTabs';
-import { JobListSkeleton, DetailPanelSkeleton } from './Skeletons';
+import { DetailPanelSkeleton } from './Skeletons';
 import BrandLogo from './BrandLogo';
 import ThemeToggle from './ThemeToggle';
 import CendienAppsNav from './CendienAppsNav';
@@ -22,16 +22,32 @@ import { groupCandidatesByName, type GroupedCandidate } from '@/utils/groupCandi
 
 type MobilePanel = 'list' | 'detail';
 
+function jobToListItem(job: Job): JobListItem {
+  return {
+    id: job.id,
+    title: job.title,
+    status: job.status,
+    created_at: job.created_at,
+    created_by: job.created_by,
+    monday_id: job.monday_id,
+    has_job_details: Boolean(job.description || job.extracted_data),
+    monday_metadata: job.monday_metadata,
+  };
+}
+
 const Dashboard: React.FC = () => {
   // View mode state
   const [viewMode, setViewMode] = useState<'jobs' | 'candidates'>('jobs');
 
   // Jobs state
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<JobListItem[]>([]);
+  const [boardGroups, setBoardGroups] = useState<MondayBoardGroup[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(true);
+  const [jobsLoading, setJobsLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [selectedJobLoading, setSelectedJobLoading] = useState(false);
   const [jobDetailInitialTab, setJobDetailInitialTab] = useState<'candidates' | 'job-details'>('job-details');
   const [showLogs, setShowLogs] = useState(true);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Candidates state
@@ -45,7 +61,7 @@ const Dashboard: React.FC = () => {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { instance } = useMsal();
 
-  const jobsCount = jobs.length > 0 || !loading ? jobs.length : null;
+  const jobsCount = !jobsLoading || jobs.length > 0 ? jobs.length : null;
   const groupedCandidates = useMemo(
     () => groupCandidatesByName(candidates),
     [candidates]
@@ -79,36 +95,84 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const loadJobs = async () => {
-    try {
-      setLoading(true);
-      // Auto-sync with Monday.com first
-      try {
-        const syncResponse = await apiService.syncJobsFromMonday();
+  const refreshJobSummaries = async () => {
+    const response = await apiService.getJobSummaries();
+    setJobs(response.jobs);
+  };
+
+  const syncJobsInBackground = () => {
+    apiService
+      .syncJobsFromMonday()
+      .then(async (syncResponse) => {
         if (syncResponse.synced_jobs?.length > 0) {
           toast.success(`Synced ${syncResponse.synced_jobs.length} jobs from Monday.com`);
         }
-      } catch (syncErr) {
-        // Silently fail sync - jobs will still load from database
+        await refreshJobSummaries();
+        try {
+          const groupsResponse = await apiService.getBoardGroups();
+          setBoardGroups(groupsResponse.groups || []);
+        } catch (groupsErr) {
+          console.warn('Board groups refresh failed:', groupsErr);
+        }
+      })
+      .catch((syncErr) => {
         console.warn('Monday sync failed:', syncErr);
-      }
-      // Load jobs from database
-      const response = await apiService.getAllJobs();
-      setJobs(response.jobs);
-      setError(null);
-    } catch (err: any) {
-      setError('Failed to load jobs: ' + (err.response?.data?.error || err.message));
+      });
+  };
+
+  const loadJobs = async () => {
+    setGroupsLoading(true);
+    setJobsLoading(true);
+    setError(null);
+
+    const groupsPromise = apiService
+      .getBoardGroups()
+      .then((response) => {
+        setBoardGroups(response.groups || []);
+      })
+      .catch((err) => {
+        console.warn('Board groups unavailable:', err);
+        setBoardGroups([]);
+      })
+      .finally(() => {
+        setGroupsLoading(false);
+      });
+
+    const jobsPromise = refreshJobSummaries()
+      .catch((err: any) => {
+        setError('Failed to load jobs: ' + (err.response?.data?.error || err.message));
+      })
+      .finally(() => {
+        setJobsLoading(false);
+      });
+
+    await Promise.allSettled([groupsPromise, jobsPromise]);
+    syncJobsInBackground();
+  };
+
+  const handleJobSelect = async (job: JobListItem) => {
+    setJobDetailInitialTab('job-details');
+    setShowLogs(false);
+    openMobileDetail();
+    setSelectedJobLoading(true);
+    setSelectedJob(job as Job);
+
+    try {
+      const response = await apiService.getJob(job.id);
+      setSelectedJob(response.job);
+    } catch (err) {
+      console.error('Failed to load job details:', err);
     } finally {
-      setLoading(false);
+      setSelectedJobLoading(false);
     }
   };
 
   const handleJobCreated = (newJob: Job) => {
-    setJobs(prevJobs => [newJob, ...prevJobs]);
+    setJobs((prevJobs) => [jobToListItem(newJob), ...prevJobs]);
   };
 
   const handleJobGenerated = (newJob: Job) => {
-    setJobs(prevJobs => [newJob, ...prevJobs]);
+    setJobs((prevJobs) => [jobToListItem(newJob), ...prevJobs]);
     setSelectedJob(newJob);
     setJobDetailInitialTab('job-details');
     setShowLogs(false);
@@ -124,10 +188,10 @@ const Dashboard: React.FC = () => {
   };
 
   const handleJobUpdated = (updatedJob: Job) => {
-    // Update the job in the jobs list
-    setJobs(prevJobs =>
-      prevJobs.map(job =>
-        job.id === updatedJob.id ? updatedJob : job
+    const summary = jobToListItem(updatedJob);
+    setJobs((prevJobs) =>
+      prevJobs.map((job) =>
+        job.id === updatedJob.id ? summary : job
       )
     );
 
@@ -203,18 +267,14 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleJobSelectFromCandidateView = (job: Job) => {
-    // Switch to jobs view and select the job
+  const handleJobSelectFromCandidateView = async (job: JobListItem) => {
     setViewMode('jobs');
-    setSelectedJob(job);
     setSelectedGroupedCandidate(null);
-    setShowLogs(false);
-    setMobilePanel('detail');
+    await handleJobSelect(job);
   };
 
-  // Render the shell immediately and show per-section skeletons while data loads,
-  // instead of blocking the whole app behind a single "Loading..." screen.
-  const isLoading = authLoading || loading;
+  const showFatalJobsError =
+    error && !groupsLoading && !jobsLoading && jobs.length === 0 && boardGroups.length === 0;
 
   if (!authLoading && !isAuthenticated) {
     return (
@@ -227,7 +287,7 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (showFatalJobsError) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-red-600 text-center">
@@ -306,23 +366,17 @@ const Dashboard: React.FC = () => {
             aria-labelledby={`sidebar-tab-${viewMode}`}
           >
             {viewMode === 'jobs' ? (
-              isLoading ? (
-                <JobListSkeleton />
-              ) : (
-                <JobList
-                  jobs={jobs}
-                  selectedJob={selectedJob}
-                  onJobSelect={(job) => {
-                    setSelectedJob(job);
-                    setJobDetailInitialTab('job-details');
-                    setShowLogs(false);
-                    openMobileDetail();
-                  }}
-                  onJobCreated={handleJobCreated}
-                  onJobGenerated={handleJobGenerated}
-                  onJobDeleted={handleJobDeleted}
-                />
-              )
+              <JobList
+                jobs={jobs}
+                boardGroups={boardGroups}
+                groupsLoading={groupsLoading}
+                jobsLoading={jobsLoading}
+                selectedJob={selectedJob}
+                onJobSelect={handleJobSelect}
+                onJobCreated={handleJobCreated}
+                onJobGenerated={handleJobGenerated}
+                onJobDeleted={handleJobDeleted}
+              />
             ) : (
               <CandidateSidebar
                 groupedCandidates={groupedCandidates}
@@ -361,7 +415,7 @@ const Dashboard: React.FC = () => {
           )}
           <div className="p-4 sm:p-6">
             {viewMode === 'jobs' ? (
-              isLoading ? (
+              selectedJobLoading ? (
                 <DetailPanelSkeleton />
               ) : selectedJob ? (
                 <JobDetail key={selectedJob.id + jobDetailInitialTab} job={selectedJob} onJobUpdated={handleJobUpdated} initialTab={jobDetailInitialTab} />

@@ -3,23 +3,37 @@ import { toast } from 'sonner';
 import { Button, Label, TextField, TextArea, Search as SearchField } from '@vibe/core';
 import { Dropdown } from '@vibe/core/next';
 import '@vibe/core/tokens';
-import { Job, apiService, CreateJobRequest } from '../services/apiService';
+import { Job, JobListItem, MondayBoardGroup, apiService, CreateJobRequest } from '../services/apiService';
 import {
   MONDAY_COLORS,
   getGroupColorFromVar,
   getVibeLabelColor,
 } from '../lib/mondayColors';
+import { JobGroupHeadersSkeleton, JobRowSkeleton } from './Skeletons';
 
 interface JobListProps {
-  jobs: Job[];
-  selectedJob: Job | null;
-  onJobSelect: (job: Job) => void;
+  jobs: JobListItem[];
+  boardGroups: MondayBoardGroup[];
+  groupsLoading?: boolean;
+  jobsLoading?: boolean;
+  selectedJob: Job | JobListItem | null;
+  onJobSelect: (job: JobListItem) => void;
   onJobCreated: (job: Job) => void;
   onJobGenerated: (job: Job) => void;
   onJobDeleted: (jobId: string) => void;
 }
 
-const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJobCreated, onJobGenerated, onJobDeleted }) => {
+const JobList: React.FC<JobListProps> = ({
+  jobs,
+  boardGroups,
+  groupsLoading = false,
+  jobsLoading = false,
+  selectedJob,
+  onJobSelect,
+  onJobCreated,
+  onJobGenerated,
+  onJobDeleted,
+}) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showPDFForm, setShowPDFForm] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -110,7 +124,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     [jobs, statusFilter, searchQuery, hasSearch]
   );
 
-  const getGroupKey = useCallback((job: Job) => {
+  const getGroupKey = useCallback((job: JobListItem) => {
     const meta = job.monday_metadata as any;
     const groupMeta = meta?.group && typeof meta.group === 'object' ? meta.group : null;
     return (
@@ -123,7 +137,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     );
   }, []);
 
-  const getGroupTitle = useCallback((job: Job) => {
+  const getGroupTitle = useCallback((job: JobListItem) => {
     const meta = job.monday_metadata as any;
     const groupMeta = meta?.group && typeof meta.group === 'object' ? meta.group : null;
     return (
@@ -136,7 +150,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     );
   }, []);
 
-  const getGroupPosition = useCallback((job: Job) => {
+  const getGroupPosition = useCallback((job: JobListItem) => {
     const meta = job.monday_metadata as any;
     const groupMeta = meta?.group && typeof meta.group === 'object' ? meta.group : null;
     const raw =
@@ -157,7 +171,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     return 999999;
   }, []);
 
-  const getGroupColor = useCallback((job: Job) => {
+  const getGroupColor = useCallback((job: JobListItem) => {
     const meta = job.monday_metadata as any;
     const groupMeta = meta?.group && typeof meta.group === 'object' ? meta.group : null;
     const candidates = [
@@ -188,8 +202,44 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     return MONDAY_COLORS.BLUE;
   }, []);
 
+  const resolveGroupColor = useCallback(
+    (groupId: string, items: JobListItem[], groupColor?: string | null) => {
+      if (items.length > 0) {
+        return getGroupColor(items[0]);
+      }
+      if (groupColor) {
+        return getGroupColorFromVar(groupColor);
+      }
+      const boardGroup = boardGroups.find((group) => group.id === groupId);
+      if (boardGroup?.color) {
+        return getGroupColorFromVar(boardGroup.color);
+      }
+      return MONDAY_COLORS.BLUE;
+    },
+    [boardGroups, getGroupColor]
+  );
+
   const groupedJobs = useMemo(() => {
-    const groups = new Map<string, { items: Job[]; groupId: string; groupTitle: string; groupPosition: number }>();
+    const groups = new Map<
+      string,
+      {
+        items: JobListItem[];
+        groupId: string;
+        groupTitle: string;
+        groupPosition: number;
+        groupColor?: string | null;
+      }
+    >();
+
+    boardGroups.forEach((group) => {
+      groups.set(group.id, {
+        items: [],
+        groupId: group.id,
+        groupTitle: group.title,
+        groupPosition: group.position,
+        groupColor: group.color,
+      });
+    });
 
     filteredJobs.forEach((job) => {
       const groupKey = getGroupKey(job);
@@ -201,7 +251,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
           items: [],
           groupId: groupKey,
           groupTitle,
-          groupPosition
+          groupPosition,
         });
       }
       groups.get(groupKey)!.items.push(job);
@@ -210,7 +260,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     return new Map(
       Array.from(groups.entries()).sort((a, b) => a[1].groupPosition - b[1].groupPosition)
     );
-  }, [filteredJobs, getGroupKey, getGroupPosition, getGroupTitle]);
+  }, [boardGroups, filteredJobs, getGroupKey, getGroupPosition, getGroupTitle]);
 
   const toggleGroup = useCallback((groupId: string) => {
     setExpandedGroupId((prev) => (prev === groupId ? null : groupId));
@@ -340,8 +390,9 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     return 'text-red-600';
   };
 
-  const hasJobDetails = (job: Job) => Boolean((job as any).extracted_data || job.description);
-  const hasResumeAnalysis = (job: Job) => {
+  const hasJobDetails = (job: JobListItem) =>
+    Boolean(job.has_job_details || (job as Job).extracted_data || (job as Job).description);
+  const hasResumeAnalysis = (job: JobListItem) => {
     if (resumeCounts[job.id] > 0) {
       return true;
     }
@@ -382,7 +433,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     return hasAnalysisFields;
   };
 
-  const getJobTypeBreakdown = (items: Job[]) => {
+  const getJobTypeBreakdown = (items: JobListItem[]) => {
     let detailsTotal = 0;
     let resumeTotal = 0;
 
@@ -430,9 +481,12 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     };
   };
 
-  // Fetch candidate counts in a single batched request to drive the R badge.
-  // One GET /candidates, grouped by job_id, instead of one request per visible job.
+  // Load resume badge counts only after a group is expanded.
   useEffect(() => {
+    if (!expandedGroupId) {
+      return;
+    }
+
     let cancelled = false;
 
     const fetchCounts = async () => {
@@ -456,7 +510,14 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [expandedGroupId]);
+
+  if (groupsLoading) {
+    return <JobGroupHeadersSkeleton />;
+  }
+
+  const showEmptyState =
+    !jobsLoading && filteredJobs.length === 0 && boardGroups.length === 0 && groupedJobs.size === 0;
 
   return (
     <div className="h-full flex flex-col">
@@ -620,7 +681,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
       )}
 
       <div className="flex-1 overflow-y-scroll bg-gray-100 dark:bg-canvas py-4">
-        {filteredJobs.length === 0 ? (
+        {showEmptyState ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-soft/60 dark:bg-brand/10 mb-4">
               <svg className="h-7 w-7 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -641,9 +702,10 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
           </div>
         ) : (
           <div className="space-y-3">
-            {Array.from(groupedJobs.entries()).map(([groupId, { items, groupTitle }]) => {
+            {Array.from(groupedJobs.entries()).map(([groupId, { items, groupTitle, groupColor }]) => {
               const isCollapsed = expandedGroupId !== groupId;
-              const groupColor = items.length > 0 ? getGroupColor(items[0]) : MONDAY_COLORS.BLUE;
+              const resolvedGroupColor = resolveGroupColor(groupId, items, groupColor);
+              const showGroupItemSkeleton = jobsLoading && items.length === 0;
 
               return (
                 <div
@@ -660,7 +722,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                     {isCollapsed && (
                       <div
                         className="absolute left-0 top-0 bottom-0 w-1.5"
-                        style={{ backgroundColor: groupColor }}
+                        style={{ backgroundColor: resolvedGroupColor }}
                       />
                     )}
 
@@ -674,7 +736,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        style={{ color: groupColor }}
+                        style={{ color: resolvedGroupColor }}
                       >
                         <polyline points="6,4 10,8 6,12" />
                       </svg>
@@ -682,24 +744,29 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                       <div className="flex-1 min-w-0">
                         <h3
                           className="text-base font-semibold"
-                          style={{ color: groupColor }}
+                          style={{ color: resolvedGroupColor }}
                         >
                           {groupTitle}
                         </h3>
                         <div className="text-sm text-gray-500 dark:text-ink-muted mt-0.5">
-                          {getJobTypeBreakdown(items)}
+                          {jobsLoading && items.length === 0
+                            ? 'Loading jobs…'
+                            : getJobTypeBreakdown(items)}
                         </div>
                       </div>
 
                       <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 dark:bg-surface-raised text-gray-700 dark:text-ink">
-                        {items.length}
+                        {jobsLoading && items.length === 0 ? '…' : items.length}
                       </span>
                     </div>
                   </div>
 
                   {!isCollapsed && (
                     <div className="border-t border-gray-200 dark:border-line">
-                      {items.map((job, idx) => {
+                      {showGroupItemSkeleton ? (
+                        Array.from({ length: 3 }).map((_, rowIdx) => <JobRowSkeleton key={rowIdx} />)
+                      ) : (
+                        items.map((job) => {
                         const dueInfo = getDueInfo(job.monday_metadata?.due_date);
 
                         const itemContent = (
@@ -710,7 +777,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                               : 'bg-white dark:bg-surface'
                               }`}
                             style={{
-                              borderLeft: `6px solid ${groupColor}`,
+                              borderLeft: `6px solid ${resolvedGroupColor}`,
                               borderBottomWidth: 1,
                               borderBottomStyle: 'solid'
                             }}
@@ -784,7 +851,8 @@ const JobList: React.FC<JobListProps> = ({ jobs, selectedJob, onJobSelect, onJob
                         );
 
                         return <div key={job.id}>{itemContent}</div>;
-                      })}
+                      })
+                      )}
                     </div>
                   )}
                 </div>

@@ -127,6 +127,77 @@ class FirestoreService:
             logger.error(f"Error getting all jobs: {e}")
             raise
 
+    _JOB_LIST_METADATA_KEYS = (
+        'group',
+        'group_id',
+        'group_title',
+        'group_color',
+        'group_position',
+        'status',
+        'status_color',
+        'due_date',
+        'employment_type',
+        'employment_type_color',
+        'work_mode',
+        'work_mode_color',
+        'client',
+        'sharepoint_link',
+    )
+
+    def _serialize_created_at(self, value):
+        if not value:
+            return None
+        if hasattr(value, 'isoformat'):
+            return value.isoformat()
+        return str(value)
+
+    def _job_sort_key(self, job):
+        if job.get('monday_id'):
+            try:
+                return (0, -int(job['monday_id']))
+            except (ValueError, TypeError):
+                return (0, job['monday_id'])
+        created_at = job.get('created_at')
+        return (1, created_at if created_at else '')
+
+    def get_jobs_summary(self):
+        """Lightweight job list for sidebar rendering."""
+        try:
+            cached = self._cache_get('jobs:summary')
+            if cached is not None:
+                return cached
+
+            docs = self.db.collection(self.COLLECTION_ROOT).document('jobs').collection('jobs').stream()
+            jobs = []
+            for doc in docs:
+                job_data = doc.to_dict()
+                metadata = job_data.get('monday_metadata') or {}
+                summary = {
+                    'id': doc.id,
+                    'title': job_data.get('title'),
+                    'status': job_data.get('status'),
+                    'monday_id': job_data.get('monday_id'),
+                    'created_by': job_data.get('created_by'),
+                    'created_at': self._serialize_created_at(job_data.get('created_at')),
+                    'has_job_details': bool(
+                        job_data.get('description') or job_data.get('extracted_data')
+                    ),
+                    'monday_metadata': {
+                        key: metadata[key]
+                        for key in self._JOB_LIST_METADATA_KEYS
+                        if key in metadata
+                    },
+                }
+                jobs.append(summary)
+
+            jobs.sort(key=self._job_sort_key, reverse=False)
+            logger.info(f"Retrieved {len(jobs)} job summaries")
+            self._cache_set('jobs:summary', jobs)
+            return jobs
+        except Exception as e:
+            logger.error(f"Error getting job summaries: {e}")
+            raise
+
     def update_job(self, job_id, update_data):
         """Update a job posting"""
         try:

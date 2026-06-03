@@ -8,6 +8,52 @@ const Shimmer: React.FC<{ className?: string }> = ({ className = '' }) => (
   </div>
 );
 
+// Skeleton for group headers only (toolbar + accordion headers, no job rows).
+export const JobGroupHeadersSkeleton: React.FC = () => (
+  <div className="h-full flex flex-col" aria-busy="true" aria-label="Loading job groups">
+    <div className="flex-shrink-0 p-4 bg-white dark:bg-surface border-b border-gray-200 dark:border-line">
+      <div className="flex items-center gap-2">
+        <Shimmer className="h-8 w-44" />
+        <Shimmer className="h-8 flex-1" />
+        <Shimmer className="h-8 w-24" />
+      </div>
+    </div>
+    <div className="flex-1 overflow-hidden bg-gray-100 dark:bg-canvas py-4">
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, groupIdx) => (
+          <div key={groupIdx} className="bg-white dark:bg-surface shadow-sm overflow-hidden rounded-l-[4px]">
+            <div className="flex items-center gap-2 py-3 pl-4 pr-4">
+              <Shimmer className="h-3.5 w-3.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0 space-y-2">
+                <Shimmer className="h-4 w-40" />
+                <Shimmer className="h-3 w-28" />
+              </div>
+              <Shimmer className="h-5 w-8 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+export const JobRowSkeleton: React.FC = () => (
+  <div className="px-4 py-4 border-b border-gray-200 dark:border-line last:border-b-0 bg-white dark:bg-surface">
+    <div className="flex justify-between items-start">
+      <Shimmer className="h-4 w-3/5" />
+      <div className="flex items-center gap-1 ml-2">
+        <Shimmer className="h-4 w-4" />
+        <Shimmer className="h-4 w-4" />
+      </div>
+    </div>
+    <div className="mt-2.5 flex items-center gap-1.5">
+      <Shimmer className="h-3 w-16" />
+      <Shimmer className="h-4 w-14 rounded-full" />
+      <Shimmer className="h-4 w-20 rounded-full" />
+    </div>
+  </div>
+);
+
 // Skeleton for the JobList sidebar: mirrors the toolbar + grouped job cards.
 export const JobListSkeleton: React.FC = () => (
   <div className="h-full flex flex-col" aria-busy="true" aria-label="Loading jobs">

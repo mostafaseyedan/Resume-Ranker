@@ -81,6 +81,7 @@ export interface Job {
   title: string;
   description: string;
   status: string;
+  monday_id?: string;
   requirements: any;
   skill_weights: any;
   extracted_data?: JobExtractedData;
@@ -115,6 +116,24 @@ export interface Job {
   external_candidates?: ExternalCandidateProfile[];
   external_candidates_last_search?: string;
   external_candidates_parsed_query?: ParsedSearchQuery;
+}
+
+export interface JobListItem {
+  id: string;
+  title: string;
+  status: string;
+  created_at: string;
+  created_by?: string;
+  monday_id?: string;
+  has_job_details?: boolean;
+  monday_metadata?: Job['monday_metadata'];
+}
+
+export interface MondayBoardGroup {
+  id: string;
+  title: string;
+  color: string | null;
+  position: number;
 }
 
 export interface Candidate {
@@ -419,6 +438,22 @@ export const apiService = {
 
   async getAllJobs(): Promise<{ jobs: Job[] }> {
     const response = await apiClient.get('/jobs');
+    return response.data;
+  },
+
+  async getJobSummaries(): Promise<{ jobs: JobListItem[] }> {
+    const response = await apiClient.get('/jobs', { params: { summary: '1' } });
+    return response.data;
+  },
+
+  async getBoardGroups(boardId?: string): Promise<{
+    success: boolean;
+    groups: MondayBoardGroup[];
+    count: number;
+  }> {
+    const response = await apiClient.get('/monday/board-groups', {
+      params: boardId ? { board_id: boardId } : undefined,
+    });
     return response.data;
   },
 

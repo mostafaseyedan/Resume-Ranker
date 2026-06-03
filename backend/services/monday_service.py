@@ -209,6 +209,82 @@ class MondayService:
             logger.error(f"Unexpected error: {e}")
             return {}
 
+    def _normalize_board_groups(self, groups: List[Dict]) -> List[Dict]:
+        normalized = []
+        for idx, group in enumerate(groups or []):
+            group_id = group.get('id')
+            if not group_id:
+                continue
+            position = group.get('position')
+            if position is None:
+                position = idx
+            normalized.append({
+                'id': group_id,
+                'title': group.get('title') or 'Untitled',
+                'color': group.get('color'),
+                'position': position,
+            })
+        normalized.sort(key=lambda g: g['position'])
+        return normalized
+
+    def get_board_groups(self, board_id: Optional[str] = None, use_cache: bool = True) -> List[Dict]:
+        """Fetch Monday board group headers only (fast path for sidebar shell)."""
+        board_id_to_use = board_id if board_id is not None else self.board_id
+        cache_key = f"board:groups:{board_id_to_use}"
+        if use_cache:
+            cached = self._cache_get(cache_key)
+            if cached is not None:
+                return cached
+
+        board_cache_key = f"board:{board_id_to_use}"
+        if use_cache:
+            board_cached = self._cache_get(board_cache_key)
+            if board_cached is not None:
+                groups = self._normalize_board_groups(board_cached.get('groups', []))
+                self._cache_set(cache_key, groups)
+                return groups
+
+        try:
+            query = """
+            query {
+                boards (ids: %s) {
+                    groups {
+                        id
+                        title
+                        color
+                        position
+                    }
+                }
+            }
+            """ % board_id_to_use
+
+            response = requests.post(
+                self.base_url,
+                json={"query": query},
+                headers=self.headers,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if 'errors' in data:
+                logger.error(f"Monday.com board groups errors: {data['errors']}")
+                return []
+
+            boards = data.get('data', {}).get('boards', [])
+            if not boards:
+                return []
+
+            groups = self._normalize_board_groups(boards[0].get('groups', []))
+            if use_cache:
+                self._cache_set(cache_key, groups)
+            return groups
+        except requests.RequestException as e:
+            logger.error(f"Error fetching Monday board groups: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error fetching board groups: {e}")
+            return []
+
     def parse_column_colors(self, columns: List[Dict]) -> Dict[str, Dict[str, str]]:
         """
         Parse column settings to get text-to-color mapping.

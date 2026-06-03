@@ -563,7 +563,10 @@ def generate_job_requisition():
 @require_auth
 def get_jobs():
     try:
-        jobs = firestore_service.get_all_jobs()
+        if request.args.get('summary') in ('1', 'true', 'yes'):
+            jobs = firestore_service.get_jobs_summary()
+        else:
+            jobs = firestore_service.get_all_jobs()
         return jsonify({'jobs': jobs})
     except Exception as e:
         logger.error(f"Get jobs error: {e}")
@@ -761,6 +764,24 @@ def delete_job(job_id):
     except Exception as e:
         logger.error(f"Delete job error: {e}")
         return jsonify({'error': 'Failed to delete job'}), 500
+
+@app.route('/api/monday/board-groups', methods=['GET'])
+@require_auth
+def get_monday_board_groups():
+    try:
+        if not monday_service:
+            return jsonify({'error': 'Monday.com integration not configured'}), 500
+
+        board_id = request.args.get('board_id')
+        groups = monday_service.get_board_groups(board_id=board_id)
+        return jsonify({
+            'success': True,
+            'groups': groups,
+            'count': len(groups),
+        })
+    except Exception as e:
+        logger.error(f"Get Monday board groups error: {e}")
+        return jsonify({'error': 'Failed to fetch board groups'}), 500
 
 @app.route('/api/monday/board-members', methods=['GET'])
 @require_auth

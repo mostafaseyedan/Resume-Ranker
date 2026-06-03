@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Candidate, Job, apiService, WebVerificationResult } from '../services/apiService';
+import { Candidate, Job, JobListItem, apiService, WebVerificationResult } from '../services/apiService';
 import CandidateList from './CandidateList';
 import CandidateDetail from './CandidateDetail';
 import ResumeTemplateSelector from './ResumeTemplateSelector';
@@ -26,8 +26,8 @@ interface GroupedCandidate {
 
 interface CandidateDashboardViewProps {
   groupedCandidate: GroupedCandidate;
-  jobs: Job[];
-  onJobSelect: (job: Job) => void;
+  jobs: JobListItem[];
+  onJobSelect: (job: JobListItem) => void;
   onCandidateDeleted: (candidateId: string) => void;
 }
 

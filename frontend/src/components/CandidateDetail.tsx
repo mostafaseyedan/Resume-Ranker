@@ -22,7 +22,7 @@ import { DetailPanelBack } from './common/DetailPanelBack';
 
 interface CandidateDetailProps {
   candidate: Candidate;
-  job: Job;
+  job: Pick<Job, 'id' | 'title'>;
   backLabel: string;
   onBack: () => void;
   hasImprovedVersion?: boolean;
