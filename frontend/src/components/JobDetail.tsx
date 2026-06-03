@@ -2213,6 +2213,21 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         const isSelected = selectedExternalIds.has(profile.linkedinId);
                         const canCompose = emailStatus === 'found';
                         const canViewThread = emailStatus === 'sent' || emailStatus === 'replied';
+                        const linkedinUrl = profile.linkedinUrl?.trim();
+
+                        const handleExternalCardClick = () => {
+                          if (canCompose) {
+                            handleOpenCompose(profile);
+                          } else if (canViewThread) {
+                            handleOpenThread(profile);
+                          } else if (linkedinUrl) {
+                            window.open(linkedinUrl, '_blank', 'noopener,noreferrer');
+                          }
+                        };
+
+                        const isCardClickable = Boolean(
+                          canCompose || canViewThread || linkedinUrl
+                        );
 
                         const badgeVariant =
                           emailStatus === 'found' ? 'success' :
@@ -2233,15 +2248,25 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         return (
                           <div
                             key={profile.linkedinId || index}
+                            role={isCardClickable ? 'button' : undefined}
+                            tabIndex={isCardClickable ? 0 : undefined}
                             className={cn(
                               'bg-white dark:bg-canvas-deep rounded-lg border-l-4 border border-gray-200 dark:border-line p-4 transition-all shadow-sm flex flex-col gap-2',
                               isSelected ? externalCardSelected : externalCardDefault,
-                              (canCompose || canViewThread) ? 'cursor-pointer hover:shadow-md' : 'cursor-default'
+                              isCardClickable &&
+                                'cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
                             )}
-                            onClick={() => {
-                              if (canCompose) handleOpenCompose(profile);
-                              else if (canViewThread) handleOpenThread(profile);
-                            }}
+                            onClick={isCardClickable ? handleExternalCardClick : undefined}
+                            onKeyDown={
+                              isCardClickable
+                                ? (e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      handleExternalCardClick();
+                                    }
+                                  }
+                                : undefined
+                            }
                           >
                             {/* Header: checkbox + name + LinkedIn icon */}
                             <div className="flex justify-between items-start gap-2">
@@ -2256,9 +2281,20 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                                   {profile.name || profile.linkedinId}
                                 </h4>
                               </div>
-                              <svg className={cn('w-4 h-4 flex-shrink-0 mt-0.5', textPrimary)} fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                              </svg>
+                              {linkedinUrl ? (
+                                <a
+                                  href={linkedinUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={cn('flex-shrink-0 mt-0.5', textPrimary)}
+                                  title="Open LinkedIn profile"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+                                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                                  </svg>
+                                </a>
+                              ) : null}
                             </div>
 
                             {profile.headline && (
@@ -2300,9 +2336,18 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                                       Thread
                                     </UiButton>
                                   )}
-                                  <UiButton variant="ghost" size="xs" className={textPrimary} onClick={() => window.open(profile.linkedinUrl, '_blank', 'noopener,noreferrer')}>
-                                    Profile
-                                  </UiButton>
+                                  {linkedinUrl && (
+                                    <UiButton
+                                      variant="ghost"
+                                      size="xs"
+                                      className={textPrimary}
+                                      onClick={() =>
+                                        window.open(linkedinUrl, '_blank', 'noopener,noreferrer')
+                                      }
+                                    >
+                                      Profile
+                                    </UiButton>
+                                  )}
                                 </div>
                               </div>
                             </div>

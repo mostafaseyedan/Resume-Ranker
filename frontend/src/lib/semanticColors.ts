@@ -76,7 +76,8 @@ export const jobSectionNeutralTitle = 'm-0 font-semibold text-gray-900 dark:text
 export const externalCardSelected = cn(
   'border-l-brand ring-1 ring-brand/20 dark:ring-brand/30 bg-brand-soft/50 dark:bg-brand/10'
 );
-export const externalCardDefault = 'border-l-brand dark:border-l-brand-on-dark';
+export const externalCardDefault =
+  'border-l-gray-200 dark:border-l-line hover:border-l-brand dark:hover:border-l-brand-on-dark';
 
 // —— Email thread ——
 export const emailSentText = textPrimary;
