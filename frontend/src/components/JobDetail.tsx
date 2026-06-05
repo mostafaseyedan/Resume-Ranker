@@ -157,8 +157,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
   // Files Tab State
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-  const [resumeProvider, setResumeProvider] = useState<'gemini' | 'openai'>('gemini');
-  const [jobProvider, setJobProvider] = useState<'gemini' | 'openai'>('gemini');
+  const [resumeProvider, setResumeProvider] = useState<'gemini' | 'openai' | 'both'>('gemini');
+  const [jobProvider, setJobProvider] = useState<'gemini' | 'openai' | 'both'>('gemini');
+  const [providerModels, setProviderModels] = useState<{
+    resume: { gemini: string | null; openai: string | null };
+    job: { gemini: string | null; openai: string | null };
+  } | null>(null);
   const [batchProcessing, setBatchProcessing] = useState(false);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
 
@@ -327,6 +331,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, chatStreaming]);
 
+  // Load model names mapped from backend env vars (no hardcoded model labels)
+  useEffect(() => {
+    let cancelled = false;
+    apiService.getAnalysisProviders()
+      .then((models) => { if (!cancelled) setProviderModels(models); })
+      .catch((err) => console.error('Failed to load analysis provider models:', err));
+    return () => { cancelled = true; };
+  }, []);
+
   const loadCandidates = async () => {
     try {
       setLoading(true);
@@ -410,7 +423,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     }
   };
 
-  const handleProcessJobFile = async (downloadUrl: string, fileName: string) => {
+  const handleProcessJobFile = async (downloadUrl: string, fileName: string, providerOverride?: 'gemini' | 'openai') => {
+    const provider = providerOverride || (jobProvider === 'both' ? 'gemini' : jobProvider);
     let progressInterval: NodeJS.Timeout | null = null;
     try {
       setProcessingFile(fileName);
@@ -427,7 +441,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
         downloadUrl,
         fileName,
         job.id,
-        jobProvider
+        provider
       );
 
       if (progressInterval) clearInterval(progressInterval);
@@ -466,7 +480,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     }
   };
 
-  const handleProcessResumeFile = async (downloadUrl: string, fileName: string, fileId?: string, siteId?: string, driveId?: string) => {
+  const handleProcessResumeFile = async (downloadUrl: string, fileName: string, fileId?: string, siteId?: string, driveId?: string, providerOverride?: 'gemini' | 'openai') => {
+    const provider = providerOverride || (resumeProvider === 'both' ? 'gemini' : resumeProvider);
     let progressInterval: NodeJS.Timeout | null = null;
     try {
       setProcessingFile(fileName);
@@ -500,7 +515,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
       const file = new File([blob], fileName, { type: mimeType });
 
       // Upload as resume
-      const uploadResponse = await apiService.uploadResume(job.id, file, resumeProvider);
+      const uploadResponse = await apiService.uploadResume(job.id, file, provider);
 
       if (progressInterval) clearInterval(progressInterval);
       setFileProgress(100);
@@ -521,6 +536,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
           skill_analysis: uploadResponse.analysis.skill_analysis,
           experience_match: uploadResponse.analysis.experience_match,
           education_match: uploadResponse.analysis.education_match,
+          analysis_provider: provider,
           uploaded_by: 'sharepoint',
           created_at: new Date().toISOString(),
         };
@@ -866,12 +882,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
     const uniqueFiles = getUniqueFiles();
     const filesToProcess = uniqueFiles.filter((f) => selectedFiles.has(getSharePointFileKey(f)));
+    const providers: ('gemini' | 'openai')[] = resumeProvider === 'both' ? ['gemini', 'openai'] : [resumeProvider];
 
     try {
       for (const file of filesToProcess) {
         // We await each one to avoid overwhelming the server, or we could Promise.all for parallel
         // Sequential is safer for now given the complexity of analysis
-        await handleProcessResumeFile(file.download_url, file.name, file.id, file.site_id, file.drive_id);
+        for (const provider of providers) {
+          await handleProcessResumeFile(file.download_url, file.name, file.id, file.site_id, file.drive_id, provider);
+        }
       }
       toast.success("Batch resume analysis completed!");
       setSelectedFiles(new Set());
@@ -890,10 +909,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
     const uniqueFiles = getUniqueFiles();
     const filesToProcess = uniqueFiles.filter((f) => selectedFiles.has(getSharePointFileKey(f)));
+    const providers: ('gemini' | 'openai')[] = jobProvider === 'both' ? ['gemini', 'openai'] : [jobProvider];
 
     try {
       for (const file of filesToProcess) {
-        await handleProcessJobFile(file.download_url, file.name);
+        for (const provider of providers) {
+          await handleProcessJobFile(file.download_url, file.name, provider);
+        }
       }
       toast.success("Job description updated!");
       setSelectedFiles(new Set());
@@ -923,6 +945,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     }
   };
 
+  // Build a menu title from the provider label plus the model name configured in env vars.
+  const providerMenuTitle = (label: string, model: string | null | undefined) =>
+    model ? `${label} — ${model}` : label;
+
   // Helper for Internal Candidates selection
   const handlePotentialFileToggle = (fileName: string) => {
     setSelectedPotentialFiles(prev => {
@@ -950,17 +976,21 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     toast.info(`Starting batch analysis for ${selectedPotentialFiles.size} candidates...`);
 
     const filesToProcess = potentialCandidates.filter(c => selectedPotentialFiles.has(c.filename));
+    const providers: ('gemini' | 'openai')[] = resumeProvider === 'both' ? ['gemini', 'openai'] : [resumeProvider];
 
     try {
       for (const file of filesToProcess) {
         if (!file.download_url) continue;
-        await handleProcessResumeFile(
-          file.download_url,
-          file.filename,
-          (file as any).id,
-          (file as any).site_id,
-          (file as any).drive_id
-        );
+        for (const provider of providers) {
+          await handleProcessResumeFile(
+            file.download_url,
+            file.filename,
+            (file as any).id,
+            (file as any).site_id,
+            (file as any).drive_id,
+            provider
+          );
+        }
       }
       toast.success("Batch analysis completed!");
       setSelectedPotentialFiles(new Set());
@@ -1247,15 +1277,21 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             <SplitButtonMenu id="resume-menu">
                               <MenuItem
                                 id="resume-gemini"
-                                title="Gemini Flash"
+                                title={providerMenuTitle('Gemini', providerModels?.resume.gemini)}
                                 onClick={() => setResumeProvider('gemini')}
                                 rightIcon={resumeProvider === 'gemini' ? Check : undefined}
                               />
                               <MenuItem
                                 id="resume-openai"
-                                title="ChatGPT 5.1"
+                                title={providerMenuTitle('ChatGPT', providerModels?.resume.openai)}
                                 onClick={() => setResumeProvider('openai')}
                                 rightIcon={resumeProvider === 'openai' ? Check : undefined}
+                              />
+                              <MenuItem
+                                id="resume-both"
+                                title="Both"
+                                onClick={() => setResumeProvider('both')}
+                                rightIcon={resumeProvider === 'both' ? Check : undefined}
                               />
                             </SplitButtonMenu>
                           }
@@ -1275,15 +1311,21 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             <SplitButtonMenu id="job-menu">
                               <MenuItem
                                 id="job-gemini"
-                                title="Gemini Flash"
+                                title={providerMenuTitle('Gemini', providerModels?.job.gemini)}
                                 onClick={() => setJobProvider('gemini')}
                                 rightIcon={jobProvider === 'gemini' ? Check : undefined}
                               />
                               <MenuItem
                                 id="job-openai"
-                                title="ChatGPT 5.1"
+                                title={providerMenuTitle('ChatGPT', providerModels?.job.openai)}
                                 onClick={() => setJobProvider('openai')}
                                 rightIcon={jobProvider === 'openai' ? Check : undefined}
+                              />
+                              <MenuItem
+                                id="job-both"
+                                title="Both"
+                                onClick={() => setJobProvider('both')}
+                                rightIcon={jobProvider === 'both' ? Check : undefined}
                               />
                             </SplitButtonMenu>
                           }
@@ -1771,7 +1813,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
         {activeTab === 'ai-chat' && (
           <div className="h-full w-full">
-            <div className="flex h-full w-full flex-col bg-white">
+            <div className="flex h-full w-full flex-col bg-white dark:bg-surface">
               {chatLoading ? (
                 <div className="flex flex-1 items-center justify-center">
                   <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-ink-muted">
@@ -1823,14 +1865,14 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                   </div>
 
                   <form onSubmit={handleChatSubmit} className="border-t border-gray-200 dark:border-line px-4 py-2">
-                    <div className="flex items-center bg-white">
+                    <div className="flex items-center bg-white dark:bg-surface">
                       <textarea
                         value={chatInput}
                         onChange={handleChatInputChange}
                         placeholder="Type your question"
                         rows={2}
                         disabled={chatStreaming}
-                        className="w-full resize-none border-0 px-3 py-2 text-sm text-gray-900 dark:text-ink focus:outline-none"
+                        className="w-full resize-none border-0 bg-white dark:bg-surface px-3 py-2 text-sm text-gray-900 dark:text-ink focus:outline-none"
                       />
                       <div className="border-l border-transparent px-2 py-2">
                         <Button

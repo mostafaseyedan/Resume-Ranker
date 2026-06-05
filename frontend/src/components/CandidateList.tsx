@@ -6,7 +6,7 @@ import UserAvatar from './common/UserAvatar';
 import {
   candidateAnalysisCardClass,
   formatCandidateDate,
-  getProviderLabel,
+  getAnalysisProviderBadge,
   getScoreTone,
   getVerificationBadge,
   MetricRow,
@@ -98,7 +98,7 @@ const CandidateList: React.FC<CandidateListProps> = ({
           const sharepointFile = findSharePointFile(candidate.resume_filename || '');
           const isImproved = (candidate.resume_filename || '').toLowerCase().includes('improved');
           const verification = getVerificationBadge(candidate);
-          const provider = getProviderLabel(candidate);
+          const providerBadge = getAnalysisProviderBadge(candidate);
           const isExpanded = !collapsedCandidates.has(candidate.id);
           const scoreTone = getScoreTone(candidate.overall_score);
 
@@ -119,10 +119,13 @@ const CandidateList: React.FC<CandidateListProps> = ({
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <ScoreChip score={candidate.overall_score} />
-                  {provider && (
-                    <span className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-ink-muted">
-                      {provider}
-                    </span>
+                  {providerBadge && (
+                    <img
+                      src={providerBadge.image}
+                      alt={`Analyzed by ${providerBadge.label}`}
+                      title={`Analyzed by ${providerBadge.label}`}
+                      className={`${providerBadge.className} object-contain`}
+                    />
                   )}
                 </div>
               </div>

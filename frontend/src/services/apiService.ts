@@ -190,6 +190,8 @@ export interface Candidate {
   };
   uploaded_by: string;
   created_at: string;
+  // AI provider used to analyze the resume ('gemini' | 'openai')
+  analysis_provider?: string;
   // Web verification data (optional - populated after verification)
   web_verification?: WebVerificationResult;
   web_verification_provider?: string;
@@ -443,6 +445,14 @@ export const apiService = {
 
   async getJobSummaries(): Promise<{ jobs: JobListItem[] }> {
     const response = await apiClient.get('/jobs', { params: { summary: '1' } });
+    return response.data;
+  },
+
+  async getAnalysisProviders(): Promise<{
+    resume: { gemini: string | null; openai: string | null };
+    job: { gemini: string | null; openai: string | null };
+  }> {
+    const response = await apiClient.get('/analysis-providers');
     return response.data;
   },
 

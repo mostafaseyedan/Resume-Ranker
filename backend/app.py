@@ -1849,6 +1849,7 @@ def upload_resume(job_id):
             'resume_text': analysis_result.get('extracted_text', ''),
             'job_id': job_id,
             'analysis': analysis_result,
+            'analysis_provider': provider,
             'uploaded_by': session['user']['email'],
             'created_at': firestore.SERVER_TIMESTAMP
         }
@@ -1897,6 +1898,22 @@ def get_all_candidates():
     except Exception as e:
         logger.error(f"Get all candidates error: {e}")
         return jsonify({'error': 'Failed to retrieve candidates'}), 500
+
+@app.route('/api/analysis-providers', methods=['GET'])
+@require_auth
+def get_analysis_providers():
+    """Expose the configured model names for resume analysis and job review,
+    mapped directly from environment variables so the UI never hardcodes them."""
+    return jsonify({
+        'resume': {
+            'gemini': os.getenv('GEMINI_MODEL'),
+            'openai': os.getenv('OPENAI_RESUME_MODEL'),
+        },
+        'job': {
+            'gemini': os.getenv('GEMINI_MODEL'),
+            'openai': os.getenv('OPENAI_JOB_MODEL'),
+        },
+    })
 
 @app.route('/api/candidates/<candidate_id>', methods=['GET'])
 @require_auth

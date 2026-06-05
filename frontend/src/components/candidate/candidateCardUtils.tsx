@@ -101,6 +101,24 @@ export function getProviderLabel(candidate: Candidate): string | null {
   return null;
 }
 
+export interface ProviderBadge {
+  label: string;
+  image: string;
+  className: string;
+}
+
+// Logo for the AI provider that analyzed the resume.
+export function getAnalysisProviderBadge(candidate: Candidate): ProviderBadge | null {
+  const p = (candidate.analysis_provider || '').toLowerCase();
+  if (p === 'openai') {
+    return { label: 'ChatGPT', image: '/chatgpt.png', className: 'h-4 w-auto dark:invert' };
+  }
+  if (p === 'gemini') {
+    return { label: 'Gemini', image: '/gemini-icon.svg', className: 'h-5 w-auto' };
+  }
+  return null;
+}
+
 export function MetricRow({ label, value, valueClassName }: { label: string; value: React.ReactNode; valueClassName?: string }) {
   return (
     <div className="flex items-center justify-between gap-2 text-sm">

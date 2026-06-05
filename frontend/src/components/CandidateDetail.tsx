@@ -19,6 +19,7 @@ import { panelShellClass, radiusSurface } from '@/lib/radius';
 import { bgPrimaryWell, borderPrimary, jobSectionBrandTitle, textLink, timelineDot } from '@/lib/semanticColors';
 import { cn } from '@/lib/utils';
 import { DetailPanelBack } from './common/DetailPanelBack';
+import { getAnalysisProviderBadge } from './candidate/candidateCardUtils';
 
 interface CandidateDetailProps {
   candidate: Candidate;
@@ -256,9 +257,22 @@ const CandidateDetail: React.FC<CandidateDetailProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-ink">
-                {candidate.name}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-ink">
+                  {candidate.name}
+                </h2>
+                {(() => {
+                  const providerBadge = getAnalysisProviderBadge(candidate);
+                  return providerBadge ? (
+                    <img
+                      src={providerBadge.image}
+                      alt={`Analyzed by ${providerBadge.label}`}
+                      title={`Analyzed by ${providerBadge.label}`}
+                      className={`${providerBadge.className} object-contain`}
+                    />
+                  ) : null;
+                })()}
+              </div>
               <p className="text-sm text-gray-600 dark:text-ink-muted">Candidate Analysis for {job.title}</p>
               <div className="mt-2 flex items-center gap-2">
                 {isImprovedResume && (

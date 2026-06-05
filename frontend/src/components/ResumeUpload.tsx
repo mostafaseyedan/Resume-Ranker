@@ -94,6 +94,7 @@ const ResumeUpload: React.FC<ResumeUploadProps> = ({ job, onResumeUploaded }) =>
           skill_analysis: response.analysis.skill_analysis,
           experience_match: response.analysis.experience_match,
           education_match: response.analysis.education_match,
+          analysis_provider: 'gemini',
           uploaded_by: 'current-user',
           created_at: new Date().toISOString(),
         };
