@@ -840,6 +840,11 @@ def get_job_sharepoint_files(job_id):
         if not sharepoint_link:
             return jsonify({'error': 'No SharePoint link found for this job'}), 404
 
+        if not sharepoint_service.can_acquire_access_token():
+            return jsonify({
+                'error': 'SharePoint integration is not configured correctly. Check the Azure client secret.'
+            }), 503
+
         # Get files from SharePoint
         files = sharepoint_service.get_folder_files(sharepoint_link, recursive=True, job_title=job.get('title'))
         if not files:

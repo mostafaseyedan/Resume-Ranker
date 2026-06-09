@@ -42,6 +42,8 @@ _US_STATE_ABBR = {
     "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia",
 }
 
+_US_STATE_NAMES = {name.upper(): name for name in _US_STATE_ABBR.values()}
+
 
 def _normalize_serpapi_location(location: str) -> str:
     """
@@ -56,14 +58,30 @@ def _normalize_serpapi_location(location: str) -> str:
     if not location:
         return location
 
-    parts = [p.strip() for p in location.split(",")]
+    cleaned = re.sub(r"\([^)]*\)", "", location)
+    cleaned = re.sub(r"\b(remote|hybrid|onsite|on-site|in[- ]person)\b", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,-/")
+    if not cleaned:
+        return ""
+
+    parts = [p.strip() for p in cleaned.split(",") if p.strip()]
     expanded = []
     has_us_state = False
 
     for part in parts:
-        upper = part.upper()
+        upper = part.upper().strip()
         if upper in _US_STATE_ABBR:
             expanded.append(_US_STATE_ABBR[upper])
+            has_us_state = True
+        elif upper.endswith(" STATE"):
+            state_candidate = upper[:-6].strip()
+            if state_candidate in _US_STATE_NAMES:
+                expanded.append(_US_STATE_NAMES[state_candidate])
+                has_us_state = True
+            else:
+                expanded.append(part)
+        elif upper in _US_STATE_NAMES:
+            expanded.append(_US_STATE_NAMES[upper])
             has_us_state = True
         else:
             expanded.append(part)
@@ -141,17 +159,23 @@ class ExternalSearchService:
             # Step 1: Build search query
             if role:
                 # User provided role (from HITL) - skip Gemini extraction
-                location_part = f" {location}" if location else ""
+                normalized_location = _normalize_serpapi_location(location or "")
+                location_part = f" {normalized_location}" if normalized_location else ""
                 google_query = f'site:linkedin.com/in "{role}"{location_part}'
                 parsed_query = {
                     "role": role,
-                    "location": location,
-                    "countryCode": None,
+                    "location": normalized_location or None,
+                    "countryCode": "US" if normalized_location and "United States" in normalized_location else None,
                     "keywords": [],
                     "googleQuery": google_query,
                     "source": "user"
                 }
-                logger.info(f"Using user-provided role: {role}, location: {location}")
+                logger.info(
+                    "Using user-provided role: %s, location: %s -> %s",
+                    role,
+                    location,
+                    normalized_location,
+                )
             else:
                 # No role provided - use Gemini to extract
                 parsed_query = self._generate_search_query(job_description)

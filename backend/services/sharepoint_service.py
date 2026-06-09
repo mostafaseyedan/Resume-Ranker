@@ -84,6 +84,10 @@ class SharePointService:
             logger.error(f"Error getting access token: {e}")
             return None
 
+    def can_acquire_access_token(self) -> bool:
+        """Return whether current Azure client credentials can acquire a Graph token."""
+        return bool(self._get_access_token())
+
     def _parse_sharepoint_url(self, sharepoint_url: str) -> Optional[Dict[str, Union[str, bool]]]:
         """Parse SharePoint URL to extract site, drive, and folder path"""
         try:
