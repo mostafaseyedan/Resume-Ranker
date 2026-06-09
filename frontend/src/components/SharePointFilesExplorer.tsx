@@ -29,9 +29,6 @@ interface SharePointFilesExplorerProps {
   selectedKeys: Set<string>;
   onToggleFile: (key: string) => void;
   getFileKind: (file: SharePointExplorerFile) => SharePointFileKind;
-  processingFileName: string | null;
-  processingFileType: 'job' | 'resume' | null;
-  fileProgress: number;
   navigationDisabled?: boolean;
 }
 
@@ -48,9 +45,6 @@ const SharePointFilesExplorer: React.FC<SharePointFilesExplorerProps> = ({
   selectedKeys,
   onToggleFile,
   getFileKind,
-  processingFileName,
-  processingFileType,
-  fileProgress,
   navigationDisabled = false,
 }) => {
   const [currentPath, setCurrentPath] = useState('');
@@ -67,10 +61,12 @@ const SharePointFilesExplorer: React.FC<SharePointFilesExplorerProps> = ({
       <div
         className={cn(
           radiusSurface,
-          'border border-dashed border-gray-300 dark:border-line bg-gray-50 dark:bg-canvas px-6 py-8 text-center text-sm text-gray-500 dark:text-ink-muted'
+          'flex flex-col items-center gap-2 border border-dashed border-gray-300 dark:border-line bg-gray-50 dark:bg-canvas px-6 py-10 text-center'
         )}
       >
-        No files found in SharePoint folder
+        <FolderGlyph />
+        <p className="text-sm font-semibold text-gray-900 dark:text-ink">No files found</p>
+        <p className="text-sm text-gray-500 dark:text-ink-muted">This SharePoint folder does not contain files yet.</p>
       </div>
     );
   }
@@ -148,6 +144,8 @@ const SharePointFilesExplorer: React.FC<SharePointFilesExplorerProps> = ({
           <span>
             {filesInFolder.length} {filesInFolder.length === 1 ? 'file' : 'files'}
           </span>
+          <span className="text-gray-300 dark:text-ink-faint">·</span>
+          <span>{selectedKeys.size} selected</span>
         </div>
       </div>
 
@@ -155,10 +153,11 @@ const SharePointFilesExplorer: React.FC<SharePointFilesExplorerProps> = ({
         <div
           className={cn(
             radiusSurface,
-            'border border-gray-200 dark:border-line bg-white dark:bg-surface px-4 py-8 text-center text-sm text-gray-500 dark:text-ink-muted'
+            'flex flex-col items-center gap-2 border border-gray-200 dark:border-line bg-white dark:bg-surface px-4 py-10 text-center'
           )}
         >
-          This folder is empty
+          <FolderGlyph />
+          <p className="text-sm font-semibold text-gray-900 dark:text-ink">This folder is empty</p>
         </div>
       ) : (
         <div
@@ -197,7 +196,6 @@ const SharePointFilesExplorer: React.FC<SharePointFilesExplorerProps> = ({
             const key = getSharePointFileKey(file);
             const isSelected = selectedKeys.has(key);
             const fileKind = getFileKind(file);
-            const isProcessing = processingFileName === file.name;
 
             return (
               <div
@@ -239,20 +237,6 @@ const SharePointFilesExplorer: React.FC<SharePointFilesExplorerProps> = ({
                   </div>
                   <div className="shrink-0 text-right text-xs text-gray-500 dark:text-ink-muted">
                     {file.size != null && <div>{Math.round(file.size / 1024)} KB</div>}
-                    {isProcessing && (
-                      <div
-                        className={cn(
-                          'mt-1 flex min-w-[140px] items-center gap-2 px-2 py-1',
-                          radiusControl,
-                          processingFileType === 'job' ? 'bg-green-600' : 'bg-brand'
-                        )}
-                      >
-                        <div className={cn('h-1.5 flex-1 overflow-hidden bg-black/20', radiusPill)}>
-                          <div className="h-full bg-white transition-all duration-500" style={{ width: `${fileProgress}%` }} />
-                        </div>
-                        <span className="text-xs font-medium text-white whitespace-nowrap">{fileProgress}%</span>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

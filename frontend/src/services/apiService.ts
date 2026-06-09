@@ -621,6 +621,11 @@ export const apiService = {
     return response.data;
   },
 
+  async clearJobChat(jobId: string): Promise<{ success: boolean }> {
+    const response = await apiClient.delete(API_ENDPOINTS.JOB_CHAT(jobId));
+    return response.data;
+  },
+
   async improveResume(candidateId: string): Promise<{ improved_resume: string }> {
     const response = await apiClient.post(`/candidates/${candidateId}/improve-resume`);
     return response.data;

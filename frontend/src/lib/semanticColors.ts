@@ -74,10 +74,10 @@ export const jobSectionNeutralTitle = 'm-0 font-semibold text-gray-900 dark:text
 
 // —— External candidate cards ——
 export const externalCardSelected = cn(
-  'border-l-brand ring-1 ring-brand/20 dark:ring-brand/30 bg-brand-soft/50 dark:bg-brand/10'
+  'border-brand ring-1 ring-brand/20 dark:ring-brand/30 bg-brand-soft/50 dark:bg-brand/10'
 );
 export const externalCardDefault =
-  'border-l-gray-200 dark:border-l-line hover:border-l-brand dark:hover:border-l-brand-on-dark';
+  'hover:border-gray-300 dark:hover:border-line';
 
 // —— Email thread ——
 export const emailSentText = textPrimary;

@@ -47,15 +47,14 @@ const Login: React.FC = () => {
         <div className="absolute right-4 top-4">
           <ThemeToggle />
         </div>
-        <div className="flex flex-1 items-center justify-center p-6">
+        <div className="relative flex flex-1 items-center justify-center p-6">
+          <div className="absolute left-1/2 top-24 -translate-x-1/2 sm:top-32 lg:top-36">
+            <BrandLogo size={44} />
+          </div>
           <div className="w-full max-w-sm">
             <div className="flex flex-col gap-6">
-              <div className="flex flex-col items-center gap-4 text-center">
-                <BrandLogo size={44} />
-                <div className="flex flex-col gap-1">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-ink">Welcome back</h1>
-                  <p className="text-sm text-muted-foreground">Sign in to continue to TalentMax</p>
-                </div>
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-ink">Welcome back</h1>
               </div>
 
               <button

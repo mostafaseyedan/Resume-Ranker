@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Job, Candidate, ChatMessage, apiService, ExternalCandidateProfile, EmailThreadMessage } from '../services/apiService';
-import { API_BASE_URL, API_ENDPOINTS } from '../config/apiConfig';
-import { useChat } from 'ai/react';
+import { Job, Candidate, apiService, ExternalCandidateProfile, EmailThreadMessage } from '../services/apiService';
 import ResumeUpload from './ResumeUpload';
+import JobChatTab from './JobChatTab';
 import CandidateList from './CandidateList';
 import CandidateDetail from './CandidateDetail';
 import CandidatesGroupedList from './CandidatesGroupedList';
@@ -16,19 +15,17 @@ import { Button as UiButton } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { RotateCw, X } from 'lucide-react';
 import { getVibeLabelColor } from '../lib/mondayColors';
 import SharePointFilesExplorer from './SharePointFilesExplorer';
 import { getSharePointFileKey } from '../utils/sharepointFolderNav';
-import { panelShellClass } from '@/lib/radius';
+import { panelShellClass, radiusSurface, radiusPill } from '@/lib/radius';
 import { DetailPanelBack } from './common/DetailPanelBack';
 import UserAvatar from './common/UserAvatar';
 import {
   bgSelection,
   btnPrimary,
-  chatBubbleUser,
   chipPrimary,
   emailSentBorder,
   emailSentText,
@@ -150,10 +147,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
   const [replySubject, setReplySubject] = useState('');
   const [replyBody, setReplyBody] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
-  const [chatInitialized, setChatInitialized] = useState(false);
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatError, setChatError] = useState<string | null>(null);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   // Files Tab State
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
@@ -198,28 +191,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     return job; // Default to root (most recent)
   }, [job, previewProvider]);
 
-  const chatApiUrl = useMemo(
-    () => `${API_BASE_URL}${API_ENDPOINTS.JOB_CHAT(job.id)}`,
-    [job.id]
-  );
-
-  const {
-    messages: chatMessages,
-    input: chatInput,
-    handleInputChange: handleChatInputChange,
-    handleSubmit: handleChatSubmit,
-    isLoading: chatStreaming,
-    setMessages: setChatMessages
-  } = useChat({
-    api: chatApiUrl,
-    streamProtocol: 'data',
-    fetch: (input, init) =>
-      fetch(input, {
-        ...init,
-        credentials: 'include'
-      })
-  });
-
   // Sync previewProvider with job's current provider when job loads/changes
   useEffect(() => {
     setPreviewProvider(job.review_provider || null);
@@ -247,10 +218,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     setSharepointFiles(null);
     setSuccessMessage(null);
     setProcessingFile(null);
-    setChatInitialized(false);
-    setChatError(null);
-    setChatLoading(false);
-    setChatMessages([]);
 
     // Reset and load potential candidates from job if available
     setPotentialCandidates([]);
@@ -294,42 +261,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     };
     loadUser();
   }, [job.id]);
-
-  useEffect(() => {
-    if (activeTab !== 'ai-chat' || chatInitialized) {
-      return;
-    }
-    let cancelled = false;
-    setChatLoading(true);
-    setChatError(null);
-    apiService.getJobChat(job.id)
-      .then((response) => {
-        if (cancelled) {
-          return;
-        }
-        const messages = (response.messages || []) as ChatMessage[];
-        setChatMessages(messages);
-        setChatInitialized(true);
-      })
-      .catch((err) => {
-        if (cancelled) {
-          return;
-        }
-        setChatError(err?.response?.data?.error || err.message || 'Failed to load chat history');
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setChatLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, chatInitialized, job.id, setChatMessages]);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages, chatStreaming]);
 
   // Load model names mapped from backend env vars (no hardcoded model labels)
   useEffect(() => {
@@ -1264,7 +1195,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                   </div>
                 ) : sharepointFiles ? (
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-center justify-end gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-ink">SharePoint Files</h3>
+                      <div className="flex flex-wrap items-center gap-2">
                         <SplitButton
                           id="resume-split-button"
                           ariaLabel="Analyze Resume split button"
@@ -1332,7 +1265,57 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         >
                           {batchProcessing ? 'Processing...' : 'Review Job'}
                         </SplitButton>
+                      </div>
                     </div>
+
+                    {processingFile && (
+                      <div
+                        className={cn(
+                          radiusSurface,
+                          'border p-4',
+                          processingFileType === 'job'
+                            ? 'border-green-200 bg-green-50 dark:border-emerald-800 dark:bg-emerald-950/40'
+                            : 'border-brand/25 bg-brand-soft/40 dark:border-brand/35 dark:bg-brand/10'
+                        )}
+                      >
+                        <div className="mb-1.5 flex items-center justify-between text-sm">
+                          <span
+                            className={cn(
+                              'truncate pr-2',
+                              processingFileType === 'job'
+                                ? 'text-green-800 dark:text-emerald-300'
+                                : 'text-brand-ink dark:text-brand-on-dark'
+                            )}
+                          >
+                            {processingFileType === 'job'
+                              ? `Reviewing job description from "${processingFile}"...`
+                              : `Analyzing resume "${processingFile}"...`}
+                          </span>
+                          <span
+                            className={cn(
+                              'shrink-0 font-medium tabular-nums',
+                              processingFileType === 'job'
+                                ? 'text-green-800 dark:text-emerald-300'
+                                : 'text-brand-ink dark:text-brand-on-dark'
+                            )}
+                          >
+                            {fileProgress}%
+                          </span>
+                        </div>
+                        <div
+                          className={cn(
+                            'h-2 w-full overflow-hidden',
+                            radiusPill,
+                            processingFileType === 'job' ? 'bg-green-200 dark:bg-emerald-900/60' : 'bg-brand-soft dark:bg-brand/20'
+                          )}
+                        >
+                          <div
+                            className={cn('h-2 transition-all duration-300', processingFileType === 'job' ? 'bg-green-600' : 'bg-brand')}
+                            style={{ width: `${fileProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     <SharePointFilesExplorer
                       key={job.id}
@@ -1354,9 +1337,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                         if (fileNameSets.resumeNames.has(normalizedName)) return 'resume';
                         return null;
                       }}
-                      processingFileName={processingFile}
-                      processingFileType={processingFileType}
-                      fileProgress={fileProgress}
                       navigationDisabled={batchProcessing || processingFile !== null}
                     />
 
@@ -1372,14 +1352,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg bg-gray-50 p-4 dark:bg-canvas">
-                    <button
-                      type="button"
-                      onClick={loadSharePointFiles}
-                      className={cn('text-sm font-medium', textLink)}
-                    >
+                  <div className={cn(radiusSurface, 'flex flex-col items-center gap-2 border border-dashed border-gray-300 dark:border-line bg-gray-50 dark:bg-canvas px-6 py-10 text-center')}>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-ink">SharePoint files not loaded</p>
+                    <p className="text-sm text-gray-500 dark:text-ink-muted">Load the files linked to this job to analyze resumes or review the job description.</p>
+                    <Button onClick={loadSharePointFiles} size="small" kind="primary" className="mt-1">
                       Load SharePoint files
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -1812,83 +1790,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
         )}
 
         {activeTab === 'ai-chat' && (
-          <div className="h-full w-full">
-            <div className="flex h-full w-full flex-col bg-white dark:bg-surface">
-              {chatLoading ? (
-                <div className="flex flex-1 items-center justify-center">
-                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-ink-muted">
-                    <div className={cn('animate-spin h-4 w-4 border-2 rounded-full', spinner)}></div>
-                    Loading chat history...
-                  </div>
-                </div>
-              ) : chatError ? (
-                <div className="flex flex-1 items-center justify-center p-6">
-                  <div className="text-sm text-red-600 dark:text-red-400">{chatError}</div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex-1 overflow-y-auto px-4 py-4">
-                    {chatMessages.length === 0 && !chatStreaming ? (
-                      <div className="text-sm text-gray-500 dark:text-ink-muted">
-                        Ask about the job, candidates, or resume improvements to get started.
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {chatMessages.map((message, index) => {
-                          const isUser = message.role === 'user';
-                          return (
-                            <div key={message.id || index} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                              <div
-                                className={`max-w-[75%] rounded-md px-3 py-2 text-sm leading-relaxed ${
-                                  isUser ? chatBubbleUser : 'bg-gray-100 dark:bg-surface text-gray-900 dark:text-ink'
-                                }`}
-                              >
-                                <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {message.content}
-                                  </ReactMarkdown>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {chatStreaming && (
-                          <div className="flex justify-start">
-                            <div className="max-w-[75%] rounded-md bg-gray-100 dark:bg-surface px-3 py-2 text-sm text-gray-700 dark:text-ink">
-                              Generating response...
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div ref={chatEndRef} />
-                  </div>
-
-                  <form onSubmit={handleChatSubmit} className="border-t border-gray-200 dark:border-line px-4 py-2">
-                    <div className="flex items-center bg-white dark:bg-surface">
-                      <textarea
-                        value={chatInput}
-                        onChange={handleChatInputChange}
-                        placeholder="Type your question"
-                        rows={2}
-                        disabled={chatStreaming}
-                        className="w-full resize-none border-0 bg-white dark:bg-surface px-3 py-2 text-sm text-gray-900 dark:text-ink focus:outline-none"
-                      />
-                      <div className="border-l border-transparent px-2 py-2">
-                        <Button
-                          type="submit"
-                          disabled={chatStreaming || chatInput.trim().length === 0}
-                          size="small"
-                          kind="primary"
-                        >
-                          Send
-                        </Button>
-                      </div>
-                    </div>
-                  </form>
-                </>
-              )}
-            </div>
+          <div className="h-full w-full p-4">
+            <JobChatTab job={job} />
           </div>
         )}
 
@@ -2125,10 +2028,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
           <div className="p-6">
             {/* Search Form */}
             <div className="mb-6">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h4 className="text-base font-semibold text-gray-900 dark:text-ink">
-                  LinkedIn Search Query
-                </h4>
+              <div className="mb-3 flex flex-wrap items-center justify-end gap-3">
                 <Button
                   kind="secondary"
                   size="small"
@@ -2178,7 +2078,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                   loading={searchingExternalCandidates}
                   className="w-full md:w-auto"
                 >
-                  Search
+                  Search LinkedIn
                 </Button>
               </div>
               {externalSearchRole && (
@@ -2190,12 +2090,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
             {/* Results Section */}
             {externalCandidates.length === 0 && !searchingExternalCandidates && !externalSearchError ? (
-              <div className="text-center py-8">
+              <div className="text-center py-12">
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                 </svg>
-                <p className="mt-4 text-sm text-gray-500 dark:text-ink-muted">
-                  Click "Extract" to get suggested role and location from the job description, then click "Search".
+                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">External Candidates</h3>
+                <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">
+                  Extract a suggested role and location from the job description, then search LinkedIn for matching profiles.
                 </p>
               </div>
             ) : (
@@ -2214,11 +2115,17 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                     <p className="text-gray-600 dark:text-ink-muted">Finding matching profiles...</p>
                   </div>
                 ) : externalSearchError && externalCandidates.length === 0 ? (
-                  <div className="text-center py-8">
-                    <svg className="mx-auto h-12 w-12 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="text-center py-12">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="mt-4 text-sm text-gray-500 dark:text-ink-muted">{externalSearchError}</p>
+                    <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">Search Failed</h3>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">{externalSearchError}</p>
+                    <div className="mt-6">
+                      <Button onClick={handleSearchExternalCandidates} size="small" kind="primary">
+                        Try Again
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div>
@@ -2230,25 +2137,25 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                       </span>
                       <div className="flex items-center gap-2">
                         {selectedExternalIds.size > 0 && (
-                          <UiButton
-                            variant="outline"
-                            size="sm"
+                          <Button
+                            kind="primary"
+                            size="small"
                             onClick={handleFindEmails}
                             disabled={findingEmails}
-                            className="border-teal-500 text-teal-600 hover:bg-teal-50 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-900/20"
+                            loading={findingEmails}
                           >
                             {findingEmails ? 'Finding...' : `Find Emails (${selectedExternalIds.size})`}
-                          </UiButton>
+                          </Button>
                         )}
-                        <UiButton
-                          variant="ghost"
-                          size="icon"
+                        <button
                           onClick={handleSearchExternalCandidates}
                           disabled={searchingExternalCandidates}
+                          className={cn('inline-flex items-center px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50', textLink, 'hover:bg-brand-soft dark:hover:bg-brand/10')}
                           title="Refresh email statuses"
                         >
-                          <RotateCw className={`h-4 w-4 ${searchingExternalCandidates ? 'animate-spin' : ''}`} />
-                        </UiButton>
+                          <RotateCw className={cn('w-4 h-4 mr-2', searchingExternalCandidates && 'animate-spin')} />
+                          Refresh
+                        </button>
                       </div>
                     </div>
 
@@ -2275,13 +2182,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                           canCompose || canViewThread || linkedinUrl
                         );
 
-                        const badgeVariant =
-                          emailStatus === 'found' ? 'success' :
+                        const emailLabelColor =
+                          emailStatus === 'found' ? 'positive' :
                           emailStatus === 'not_found' ? 'warning' :
-                          emailStatus === 'sent' ? 'teal' :
+                          emailStatus === 'sent' ? 'bright-blue' :
                           emailStatus === 'replied' ? 'purple' :
-                          emailStatus === 'failed' ? 'error' :
-                          'default';
+                          emailStatus === 'failed' ? 'negative' :
+                          'dark';
 
                         const emailBadgeText =
                           emailStatus === 'found' ? profile.email || 'Email found' :
@@ -2297,7 +2204,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             role={isCardClickable ? 'button' : undefined}
                             tabIndex={isCardClickable ? 0 : undefined}
                             className={cn(
-                              'bg-white dark:bg-canvas-deep rounded-lg border-l-4 border border-gray-200 dark:border-line p-4 transition-all shadow-sm flex flex-col gap-2',
+                              radiusSurface,
+                              'bg-white dark:bg-canvas-deep border border-gray-200 dark:border-line p-4 transition-all shadow-sm flex flex-col gap-2',
                               isSelected ? externalCardSelected : externalCardDefault,
                               isCardClickable &&
                                 'cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40'
@@ -2368,31 +2276,39 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                             {/* Footer */}
                             <div className="border-t border-gray-100 dark:border-line pt-2 mt-auto" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <Badge variant={badgeVariant as any} className="truncate max-w-[130px] shrink-0" title={emailBadgeText}>
-                                  {emailBadgeText}
-                                </Badge>
-                                <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+                                <Label
+                                  text={emailBadgeText}
+                                  color={emailLabelColor as any}
+                                  size="small"
+                                  className="!min-w-0 max-w-[130px] shrink-0"
+                                />
+                                <div className="ml-auto flex shrink-0 items-center gap-3">
                                   {canCompose && (
-                                    <UiButton variant="ghost" size="xs" className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" onClick={() => handleOpenCompose(profile)}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenCompose(profile)}
+                                      className="text-xs font-medium text-green-600 hover:text-green-700 hover:underline dark:text-green-400"
+                                    >
                                       Compose
-                                    </UiButton>
+                                    </button>
                                   )}
                                   {canViewThread && (
-                                    <UiButton variant="ghost" size="xs" onClick={() => handleOpenThread(profile)}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenThread(profile)}
+                                      className={cn('text-xs font-medium hover:underline', textLink)}
+                                    >
                                       Thread
-                                    </UiButton>
+                                    </button>
                                   )}
                                   {linkedinUrl && (
-                                    <UiButton
-                                      variant="ghost"
-                                      size="xs"
-                                      className={textPrimary}
-                                      onClick={() =>
-                                        window.open(linkedinUrl, '_blank', 'noopener,noreferrer')
-                                      }
+                                    <button
+                                      type="button"
+                                      onClick={() => window.open(linkedinUrl, '_blank', 'noopener,noreferrer')}
+                                      className={cn('text-xs font-medium hover:underline', textLink)}
                                     >
                                       Profile
-                                    </UiButton>
+                                    </button>
                                   )}
                                 </div>
                               </div>
@@ -2457,20 +2373,22 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
           )}
 
           <DialogFooter className="justify-between">
-            <UiButton variant="ghost" size="sm" onClick={handleRegenerateEmail} disabled={generatingEmail || !composeCandidate}>
+            <Button kind="tertiary" size="small" onClick={handleRegenerateEmail} disabled={generatingEmail || !composeCandidate}>
               Regenerate
-            </UiButton>
+            </Button>
             <div className="flex gap-2">
-              <UiButton variant="outline" size="sm" onClick={() => { setComposeOpen(false); setComposeCandidate(null); }}>
+              <Button kind="tertiary" size="small" onClick={() => { setComposeOpen(false); setComposeCandidate(null); }}>
                 Cancel
-              </UiButton>
-              <UiButton
-                size="sm"
+              </Button>
+              <Button
+                kind="primary"
+                size="small"
                 onClick={handleSendEmail}
+                loading={sendingEmail}
                 disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim() || emailToAddresses.length === 0}
               >
                 {sendingEmail ? 'Sending...' : 'Send'}
-              </UiButton>
+              </Button>
             </div>
           </DialogFooter>
         </DialogContent>
@@ -2570,9 +2488,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
               placeholder="Type your reply..."
             />
             <div className="flex justify-end gap-2">
-              <UiButton
-                variant="outline"
-                size="sm"
+              <Button
+                kind="tertiary"
+                size="small"
+                loading={generatingEmail}
                 onClick={async () => {
                   if (!threadCandidate) return;
                   setGeneratingEmail(true);
@@ -2592,14 +2511,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                 disabled={generatingEmail}
               >
                 {generatingEmail ? 'Generating...' : 'Generate follow-up'}
-              </UiButton>
-              <UiButton
-                size="sm"
+              </Button>
+              <Button
+                kind="primary"
+                size="small"
                 onClick={handleSendReply}
+                loading={sendingReply}
                 disabled={sendingReply || !replySubject.trim() || !replyBody.trim()}
               >
                 {sendingReply ? 'Sending...' : 'Send Reply'}
-              </UiButton>
+              </Button>
             </div>
           </div>
         </DialogContent>

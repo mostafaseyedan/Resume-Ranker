@@ -35,6 +35,8 @@ import json
 import uuid
 import time
 from datetime import datetime
+from typing import List
+from pydantic import BaseModel
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
@@ -246,6 +248,157 @@ def build_job_chat_context(job: dict, candidates: list) -> str:
         "CONTEXT DATA (do not omit any details):\n"
         f"{json.dumps(context, indent=2)}"
     )
+
+
+# --- Chat structured-output schema + helpers (mirrors the proposal app's AIChatService) ---
+
+# Context-file caps for the chat file picker.
+CHAT_MAX_CONTEXT_FILES = 6
+
+# Artificial typewriter replay: structured generate is a single call, so we chunk the
+# answer into word groups so the front-end streams smoothly regardless of length.
+CHAT_STREAM_TARGET_TICKS = 64
+
+
+class ChatFollowUp(BaseModel):
+    label: str
+    prompt: str
+
+
+class ChatResponseSchema(BaseModel):
+    answer: str
+    followUps: List[ChatFollowUp]
+
+
+CHAT_FOLLOW_UP_INSTRUCTION = (
+    "RESPONSE FORMAT:\n"
+    "Return a JSON object with two fields:\n"
+    '- "answer": your full response to the user, in markdown (this is the only thing the user reads as your reply).\n'
+    '- "followUps": an array of up to 3 short, specific follow-up questions the user is likely to ask next, '
+    "each building naturally on your answer and answerable from the available job/candidate context. Each item has a "
+    'concise "label" (2-4 words for a button) and the full "prompt" to send. Make them specific to this job, not '
+    "generic. If no useful follow-ups apply, return an empty array."
+)
+
+
+def build_chat_file_context(context_files: list) -> str:
+    """Download user-selected SharePoint files as text and build a capped context block."""
+    if not isinstance(context_files, list) or not context_files:
+        return ''
+
+    blocks = []
+    for raw in context_files[:CHAT_MAX_CONTEXT_FILES]:
+        if not isinstance(raw, dict):
+            continue
+
+        file_name = raw.get('fileName') or raw.get('name') or 'Selected file'
+        download_url = raw.get('downloadUrl') or raw.get('download_url')
+        file_id = raw.get('fileId') or raw.get('id')
+        site_id = raw.get('siteId') or raw.get('site_id')
+        drive_id = raw.get('driveId') or raw.get('drive_id')
+        web_url = raw.get('webUrl') or raw.get('web_url')
+
+        if not download_url and web_url and 'sharepoint.com' in web_url:
+            try:
+                fresh = sharepoint_service.convert_web_url_to_download_url(web_url)
+                if fresh:
+                    download_url = fresh.get('download_url')
+            except Exception as e:
+                logger.warning(f"Chat context: failed to convert web URL for {file_name}: {e}")
+
+        if not download_url:
+            continue
+
+        try:
+            text = sharepoint_service.get_file_content_as_text(download_url)
+        except Exception as e:
+            logger.warning(f"Chat context: failed to read {file_name}: {e}")
+            text = None
+
+        if not text:
+            continue
+
+        blocks.append(f"### {file_name}\n\n{text}")
+
+    if not blocks:
+        return ''
+
+    return "\n\n".join([
+        "USER-SELECTED FILE CONTEXT:",
+        "Use these files as additional context for the current request. They supplement, not replace, the job context.",
+        *blocks,
+    ])
+
+
+def parse_structured_chat_response(raw_text):
+    """Parse the structured {answer, followUps} JSON; fall back to raw text as the answer."""
+    text = (raw_text or '').strip()
+    if not text:
+        return '', []
+    try:
+        parsed = json.loads(text)
+    except (ValueError, TypeError):
+        logger.warning("Structured chat response was not valid JSON; using raw text as answer")
+        return text, []
+
+    answer = parsed.get('answer') if isinstance(parsed.get('answer'), str) else text
+    follow_ups = []
+    seen = set()
+    for item in (parsed.get('followUps') or []):
+        if not isinstance(item, dict):
+            continue
+        label = (item.get('label') or '').strip()
+        prompt = (item.get('prompt') or '').strip()
+        if not label or not prompt or prompt in seen:
+            continue
+        seen.add(prompt)
+        follow_ups.append({'label': label, 'prompt': prompt})
+        if len(follow_ups) >= 3:
+            break
+    return answer, follow_ups
+
+
+def extract_chat_sources(response):
+    """Resolve grounded citations from the response's grounding metadata."""
+    sources = []
+    seen = set()
+    try:
+        candidates = getattr(response, 'candidates', None) or []
+        if not candidates:
+            return sources
+        metadata = getattr(candidates[0], 'grounding_metadata', None)
+        chunks = getattr(metadata, 'grounding_chunks', None) or [] if metadata else []
+        for idx, chunk in enumerate(chunks):
+            title = ''
+            url = ''
+            web = getattr(chunk, 'web', None)
+            if web:
+                url = getattr(web, 'uri', '') or ''
+                title = getattr(web, 'title', '') or ''
+            context = getattr(chunk, 'retrieved_context', None)
+            if context:
+                title = title or getattr(context, 'title', '') or getattr(context, 'document_name', '') or ''
+                ctx_uri = getattr(context, 'uri', '') or ''
+                if ctx_uri.startswith('http'):
+                    url = url or ctx_uri
+            title = title or url or 'Source'
+            key = url or title
+            if key in seen:
+                continue
+            seen.add(key)
+            sources.append({'id': f'src-{idx}', 'title': title, 'url': url or None})
+    except Exception as e:
+        logger.warning(f"Failed to extract chat sources: {e}")
+    return sources
+
+
+def chunk_for_streaming(text):
+    """Split an answer into word-grouped pieces for artificial typewriter replay."""
+    if not text:
+        return []
+    tokens = re.findall(r'\S+\s*', text) or [text]
+    words_per_chunk = max(1, -(-len(tokens) // CHAT_STREAM_TARGET_TICKS))  # ceil div
+    return [''.join(tokens[i:i + words_per_chunk]) for i in range(0, len(tokens), words_per_chunk)]
 
 
 def normalize_chat_messages(raw_messages: list) -> list:
@@ -1726,75 +1879,112 @@ def get_job_chat(job_id):
 @require_auth
 def stream_job_chat(job_id):
     data = request.get_json(silent=True) or {}
-    incoming_messages = normalize_chat_messages(data.get('messages', []))
-    if not incoming_messages:
-        return jsonify({'error': 'No messages provided'}), 400
 
+    prompt = (data.get('prompt') or '').strip()
+    if not prompt:
+        # Backward compatibility with the old {messages: [...]} body.
+        incoming = normalize_chat_messages(data.get('messages', []))
+        if incoming:
+            prompt = incoming[-1]['content']
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'}), 400
+
+    include_job_context = data.get('includeJobContext', True) is not False
+    context_files = data.get('contextFiles') or []
+
+    job = firestore_service.get_job(job_id)
+    if not job:
+        return jsonify({'error': 'Job not found'}), 404
+
+    # Prior turns come from our own store, not a client-sent array.
     chat_state = firestore_service.get_job_chat(job_id) or {}
-    context_seeded = bool(chat_state.get('context_seeded'))
-    system_prompt = chat_state.get('system_prompt') if context_seeded else None
+    stored_messages = chat_state.get('messages', [])
+    if not isinstance(stored_messages, list):
+        stored_messages = []
 
-    should_save_system_prompt = False
-    if not context_seeded or not system_prompt:
-        job = firestore_service.get_job(job_id)
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
+    if include_job_context:
         candidates = firestore_service.get_candidates_by_job(job_id)
-        system_prompt = build_job_chat_context(job, candidates)
-        should_save_system_prompt = True
+        base_context = build_job_chat_context(job, candidates)
+    else:
+        base_context = (
+            "You are an AI assistant for a resume evaluation system. The job context is currently "
+            "unloaded; answer from the conversation so far, any user-selected files, and grounded "
+            "retrieval results."
+        )
+
+    file_context = build_chat_file_context(context_files)
+    system_prompt = "\n\n---\n\n".join(
+        part for part in [base_context, CHAT_FOLLOW_UP_INSTRUCTION, file_context] if part
+    )
 
     contents = []
-    for message in incoming_messages:
-        role = 'model' if message['role'] == 'assistant' else 'user'
-        contents.append({
-            'role': role,
-            'parts': [{'text': message['content']}]
-        })
+    for message in stored_messages:
+        if not isinstance(message, dict):
+            continue
+        text = message.get('content')
+        if not isinstance(text, str) or not text.strip():
+            continue
+        role = 'model' if message.get('role') == 'assistant' else 'user'
+        contents.append({'role': role, 'parts': [{'text': text}]})
+    contents.append({'role': 'user', 'parts': [{'text': prompt}]})
 
     tool = vertex_search_service.build_grounding_tool()
     model = os.getenv("VERTEX_MODEL", "gemini-1.5-flash")
 
-    def generate():
-        assistant_text = ""
+    def run_chat_generation():
+        """Generate with grounding + structured output; fall back to structured-only if the
+        grounding tool is rejected alongside a response schema on this model/region."""
+        schema_config = dict(
+            system_instruction=system_prompt,
+            response_mime_type='application/json',
+            response_schema=ChatResponseSchema,
+        )
         try:
-            stream = vertex_search_service.client.models.generate_content_stream(
+            return vertex_search_service.client.models.generate_content(
                 model=model,
                 contents=contents,
-                config=types.GenerateContentConfig(
-                    tools=[tool],
-                    system_instruction=system_prompt
-                )
+                config=types.GenerateContentConfig(tools=[tool], **schema_config),
+            )
+        except Exception as combo_err:
+            logger.warning(f"Chat grounding+schema call failed, retrying without grounding: {combo_err}")
+            return vertex_search_service.client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=types.GenerateContentConfig(**schema_config),
             )
 
-            for chunk in stream:
-                chunk_text = getattr(chunk, 'text', None)
-                if not chunk_text:
-                    continue
-                if chunk_text.startswith(assistant_text):
-                    delta = chunk_text[len(assistant_text):]
-                    assistant_text = chunk_text
-                else:
-                    delta = chunk_text
-                    assistant_text += delta
-                if delta:
-                    yield f"data: 0:{json.dumps(delta)}\n\n"
+    def generate():
+        answer_text = ""
+        sources = []
+        follow_ups = []
+        try:
+            response = run_chat_generation()
+            answer_text, follow_ups = parse_structured_chat_response(getattr(response, 'text', ''))
+            sources = extract_chat_sources(response)
+
+            for piece in chunk_for_streaming(answer_text):
+                yield f"data: {json.dumps({'content': piece})}\n\n"
         except Exception as e:
-            yield f"data: e:{json.dumps({'error': str(e)})}\n\n"
+            logger.error(f"Job chat error for {job_id}: {e}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
         finally:
-            saved_messages = list(incoming_messages)
-            if assistant_text:
+            yield f"data: {json.dumps({'content': '', 'complete': True, 'sources': sources, 'followUps': follow_ups})}\n\n"
+
+            saved_messages = list(stored_messages)
+            saved_messages.append({'id': uuid.uuid4().hex, 'role': 'user', 'content': prompt})
+            if answer_text:
                 saved_messages.append({
                     'id': uuid.uuid4().hex,
                     'role': 'assistant',
-                    'content': assistant_text
+                    'content': answer_text,
+                    'sources': sources,
+                    'followUps': follow_ups,
                 })
-
-            firestore_service.save_job_chat(
-                job_id=job_id,
-                messages=saved_messages,
-                system_prompt=system_prompt if should_save_system_prompt else None,
-                context_seeded=True
-            )
+                firestore_service.save_job_chat(
+                    job_id=job_id,
+                    messages=saved_messages,
+                    context_seeded=True
+                )
 
             yield "data: [DONE]\n\n"
 
@@ -1805,6 +1995,17 @@ def stream_job_chat(job_id):
         'X-Accel-Buffering': 'no'
     }
     return Response(stream_with_context(generate()), headers=headers)
+
+
+@app.route('/api/jobs/<job_id>/chat', methods=['DELETE'])
+@require_auth
+def clear_job_chat(job_id):
+    try:
+        firestore_service.save_job_chat(job_id=job_id, messages=[], context_seeded=False)
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Clear job chat error: {e}")
+        return jsonify({'success': False, 'error': 'Failed to clear chat history'}), 500
 
 # Resume upload and analysis routes
 @app.route('/api/jobs/<job_id>/upload-resume', methods=['POST'])
