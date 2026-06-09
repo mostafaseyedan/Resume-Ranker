@@ -23,7 +23,7 @@ from services.web_verification_service import WebVerificationService
 from services.external_search_service import ExternalSearchService
 from services.prospeo_service import ProspeoService
 from services.hunter_service import HunterService, extract_company_from_profile
-from services.graph_email_service import GraphEmailService
+from services.graph_email_service import GraphEmailService, RECRUITING_MAILBOX
 from services.email_generator import EmailGeneratorService
 from services.tavily_enrichment_service import TavilyEnrichmentService
 from services.job_infographic_service import JobInfographicService
@@ -458,6 +458,34 @@ def require_auth(f):
         return f(*args, **kwargs)
     decorated_function.__name__ = f.__name__
     return decorated_function
+
+def _normalize_cendien_email(email):
+    """Return a normalized Cendien email address, or None if it is not allowed."""
+    value = (email or '').strip().lower()
+    if not re.fullmatch(r"[a-z0-9._%+\-]+@cendien\.com", value):
+        return None
+    return value
+
+def _sender_from_auth_email(email):
+    value = (email or '').strip().lower()
+    username = value.split('@')[0]
+    if not re.fullmatch(r"[a-z0-9._%+\-]+", username or ''):
+        return None
+    return f"{username}@cendien.com"
+
+def _resolve_allowed_sender(requested_sender):
+    user_email = _sender_from_auth_email((session.get('user') or {}).get('email'))
+    allowed_senders = {RECRUITING_MAILBOX}
+    if user_email:
+        allowed_senders.add(user_email)
+
+    requested = (requested_sender or '').strip()
+    sender_email = _normalize_cendien_email(requested) if requested else RECRUITING_MAILBOX
+    if requested and not sender_email:
+        return None, 'Sender must use a valid @cendien.com email address'
+    if sender_email not in allowed_senders:
+        return None, 'Sender must be recruiting@cendien.com or your authenticated Cendien email address'
+    return sender_email, None
 
 # Authentication routes
 @app.route('/api/auth/login', methods=['POST'])
@@ -1575,11 +1603,21 @@ def find_candidate_emails(job_id):
         external_candidates = job.get('external_candidates', []) or []
         results = {}
 
+        terminal_email_statuses = {'sent', 'replied'}
         candidates_to_lookup = [c for c in external_candidates if c.get('linkedinId') in linkedin_ids]
         for i, candidate in enumerate(candidates_to_lookup):
+            cid = candidate.get('linkedinId')
+            current_status = candidate.get('email_status')
+            if current_status in terminal_email_statuses:
+                results[cid] = {
+                    'email': candidate.get('email'),
+                    'email_status': current_status,
+                    'skipped': True,
+                }
+                continue
+
             if i > 0:
                 time.sleep(1.2)  # stay under Prospeo rate limit
-            cid = candidate.get('linkedinId')
             linkedin_url = candidate.get('linkedinUrl', '')
             lookup = prospeo_service.find_email(linkedin_url)
 
@@ -1606,8 +1644,10 @@ def find_candidate_emails(job_id):
         for c in external_candidates:
             if c.get('linkedinId') in results:
                 c = dict(c)
-                c['email'] = results[c['linkedinId']]['email']
-                c['email_status'] = results[c['linkedinId']]['email_status']
+                result = results[c['linkedinId']]
+                if c.get('email_status') not in terminal_email_statuses:
+                    c['email'] = result.get('email')
+                    c['email_status'] = result.get('email_status')
             updated.append(c)
 
         firestore_service.update_job(job_id, {'external_candidates': updated})
@@ -1707,6 +1747,9 @@ def send_candidate_email(job_id):
         linkedin_id = (data.get('linkedinId') or '').strip()
         subject = (data.get('subject') or '').strip()
         body = (data.get('body') or '').strip()
+        sender_email, sender_error = _resolve_allowed_sender(data.get('fromAddress') or data.get('senderEmail'))
+        if sender_error:
+            return jsonify({'success': False, 'error': sender_error}), 400
 
         if not linkedin_id or not subject or not body:
             return jsonify({'success': False, 'error': 'linkedinId, subject and body are required'}), 400
@@ -1733,6 +1776,7 @@ def send_candidate_email(job_id):
                 subject=subject,
                 body=body,
                 candidate_linkedin_id=linkedin_id,
+                sender_email=sender_email,
             )
             if not result['success']:
                 return jsonify(result)
@@ -1744,6 +1788,7 @@ def send_candidate_email(job_id):
                 c = dict(c)
                 c['email_status'] = 'sent'
                 c['sent_to_addresses'] = to_addresses
+                c['sent_from_address'] = sender_email
             updated.append(c)
         firestore_service.update_job(job_id, {'external_candidates': updated})
 
@@ -1755,6 +1800,7 @@ def send_candidate_email(job_id):
                 'candidate_name': candidate.get('name', 'Unknown'),
                 'job_title': job.get('title', 'Unknown job'),
                 'to_addresses': to_addresses,
+                'from_address': sender_email,
             }
         )
 
@@ -1791,11 +1837,13 @@ def get_candidate_email_thread(job_id, linkedin_id):
         if not sent_to:
             return jsonify({'success': False, 'error': 'No sent address on record for this candidate'}), 400
 
+        mailbox = _normalize_cendien_email(candidate.get('sent_from_address')) or RECRUITING_MAILBOX
+
         # Merge threads across all addresses (in case recruiter sent to multiple)
         all_messages = []
         seen_subjects_times = set()
         for addr in sent_to:
-            r = graph_email_service.get_thread(to_email=addr)
+            r = graph_email_service.get_thread(to_email=addr, mailbox=mailbox)
             for m in r.get('messages', []):
                 dedup_key = (m['direction'], m['received_at'])
                 if dedup_key not in seen_subjects_times:
@@ -1849,7 +1897,8 @@ def send_candidate_reply(job_id, linkedin_id):
         if not to_email:
             return jsonify({'success': False, 'error': 'Candidate does not have an email address'}), 400
 
-        result = graph_email_service.send_reply(to_email=to_email, subject=subject, body=body)
+        sender_email = _normalize_cendien_email(candidate.get('sent_from_address')) or RECRUITING_MAILBOX
+        result = graph_email_service.send_reply(to_email=to_email, subject=subject, body=body, sender_email=sender_email)
         return jsonify(result)
 
     except Exception as e:

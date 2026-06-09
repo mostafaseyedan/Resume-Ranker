@@ -41,6 +41,7 @@ import UserAvatar from './common/UserAvatar';
 import { cn } from '@/lib/utils';
 import { radiusControl, radiusSurface, radiusPill, radiusChip } from '@/lib/radius';
 import { chatBubbleUser, textLink } from '@/lib/semanticColors';
+import { ChatSkeleton } from './Skeletons';
 import { buildFollowUpSuggestions, createJobChatSuggestionAdapter } from '../utils/jobChatSuggestionAdapter';
 import { pruneMessageBranch } from '../utils/jobChatOverwriteReload';
 
@@ -303,14 +304,7 @@ const JobChatTab = ({ job }: JobChatTabProps) => {
   );
 
   if (isLoading) {
-    return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-ink-muted">
-          <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-          Loading chat
-        </div>
-      </div>
-    );
+    return <ChatSkeleton />;
   }
 
   if (error) {
@@ -325,13 +319,7 @@ const JobChatTab = ({ job }: JobChatTabProps) => {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div
-        className={cn(
-          'relative flex h-full w-full flex-col overflow-hidden border border-gray-200 dark:border-line bg-white dark:bg-surface shadow-elev-1',
-          radiusSurface
-        )}
-      >
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-white dark:bg-surface">
         <div className="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-line bg-gray-50/70 dark:bg-canvas-deep px-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-ink">Job Assistant</h3>
@@ -378,7 +366,6 @@ const JobChatTab = ({ job }: JobChatTabProps) => {
             hasSharePoint={hasSharePoint}
           />
         </div>
-      </div>
     </div>
   );
 };
@@ -794,7 +781,7 @@ const AssistantRegenerateButton = () => {
 };
 
 const suggestionBubbleClass = cn(
-  'inline-flex max-w-[min(100%,260px)] cursor-pointer border border-gray-200 dark:border-line bg-white dark:bg-surface-raised px-3.5 py-2 text-sm font-medium leading-5 text-gray-900 dark:text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:bg-gray-50 dark:hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-brand/35 disabled:cursor-not-allowed disabled:opacity-60',
+  'inline-flex max-w-[min(100%,260px)] cursor-pointer border border-gray-200 dark:border-line bg-white dark:bg-surface-raised px-3.5 py-2 text-sm font-medium leading-5 text-gray-900 dark:text-ink shadow-elev-2 transition hover:-translate-y-0.5 hover:border-brand/40 hover:bg-gray-50 hover:shadow-elev-3 dark:hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-brand/35 disabled:cursor-not-allowed disabled:opacity-60',
   radiusPill
 );
 
@@ -826,6 +813,7 @@ const ComposerSuggestionBubbles = () => {
           content={item.prompt}
           position="top"
           theme="dark"
+          maxWidth={320}
           showDelay={200}
           hideDelay={80}
           zIndex={10000}
@@ -1048,7 +1036,7 @@ const Composer = ({ contextControl, hasSharePoint }: { contextControl: ChatConte
         <ComposerPrimitive.Root>
           <div
             className={cn(
-              'flex gap-2 border border-gray-200 dark:border-line bg-white/95 dark:bg-surface-raised p-2 shadow-elev-1 backdrop-blur focus-within:border-brand/60',
+              'flex gap-2 border border-gray-200 dark:border-line bg-white/95 dark:bg-surface-raised p-2 shadow-elev-3 backdrop-blur transition focus-within:border-brand/60 focus-within:ring-2 focus-within:ring-brand/25',
               radiusControl,
               pinActionsToBottom ? 'items-end' : 'items-center'
             )}

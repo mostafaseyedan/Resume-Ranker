@@ -4,6 +4,7 @@ import { PDF, File as FileIcon, Doc, Table } from '@vibe/icons';
 import { Icon } from '@vibe/core';
 import '@vibe/core/tokens';
 import { FolderGlyph } from './common/FolderGlyph';
+import EmptyState from './common/EmptyState';
 import {
   countFilesUnderFolder,
   getSharePointFileKey,
@@ -58,15 +59,13 @@ const SharePointFilesExplorer: React.FC<SharePointFilesExplorerProps> = ({
   const parentPath = breadcrumbs.slice(0, -1).join('/');
   if (files.length === 0) {
     return (
-      <div
-        className={cn(
-          radiusSurface,
-          'flex flex-col items-center gap-2 border border-dashed border-gray-300 dark:border-line bg-gray-50 dark:bg-canvas px-6 py-10 text-center'
-        )}
-      >
-        <FolderGlyph />
-        <p className="text-sm font-semibold text-gray-900 dark:text-ink">No files found</p>
-        <p className="text-sm text-gray-500 dark:text-ink-muted">This SharePoint folder does not contain files yet.</p>
+      <div className={cn(radiusSurface, 'border border-dashed border-gray-300 dark:border-line bg-gray-50 dark:bg-canvas')}>
+        <EmptyState
+          icon={<FolderGlyph />}
+          title="No files found"
+          description="This SharePoint folder does not contain files yet."
+          className="py-10"
+        />
       </div>
     );
   }
@@ -150,14 +149,8 @@ const SharePointFilesExplorer: React.FC<SharePointFilesExplorerProps> = ({
       </div>
 
       {subFolders.length === 0 && filesInFolder.length === 0 ? (
-        <div
-          className={cn(
-            radiusSurface,
-            'flex flex-col items-center gap-2 border border-gray-200 dark:border-line bg-white dark:bg-surface px-4 py-10 text-center'
-          )}
-        >
-          <FolderGlyph />
-          <p className="text-sm font-semibold text-gray-900 dark:text-ink">This folder is empty</p>
+        <div className={cn(radiusSurface, 'border border-gray-200 dark:border-line bg-white dark:bg-surface')}>
+          <EmptyState icon={<FolderGlyph />} title="This folder is empty" className="py-10" />
         </div>
       ) : (
         <div

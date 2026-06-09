@@ -1,15 +1,16 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { toast } from 'sonner';
-import { Button, Label, TextField, TextArea, Search as SearchField } from '@vibe/core';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Button, Label, Search as SearchField } from '@vibe/core';
 import { Dropdown } from '@vibe/core/next';
 import '@vibe/core/tokens';
-import { Job, JobListItem, MondayBoardGroup, apiService, CreateJobRequest } from '../services/apiService';
+import { Job, JobListItem, MondayBoardGroup, apiService } from '../services/apiService';
 import {
   MONDAY_COLORS,
   getGroupColorFromVar,
   getVibeLabelColor,
 } from '../lib/mondayColors';
 import { JobGroupHeadersSkeleton, JobRowSkeleton } from './Skeletons';
+import EmptyState from './common/EmptyState';
+import NewJobModal from './NewJobModal';
 
 interface JobListProps {
   jobs: JobListItem[];
@@ -20,7 +21,6 @@ interface JobListProps {
   onJobSelect: (job: JobListItem) => void;
   onJobCreated: (job: Job) => void;
   onJobGenerated: (job: Job) => void;
-  onJobDeleted: (jobId: string) => void;
 }
 
 const JobList: React.FC<JobListProps> = ({
@@ -32,23 +32,8 @@ const JobList: React.FC<JobListProps> = ({
   onJobSelect,
   onJobCreated,
   onJobGenerated,
-  onJobDeleted,
 }) => {
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showPDFForm, setShowPDFForm] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [creatingFromPDF, setCreatingFromPDF] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<CreateJobRequest>({
-    title: '',
-    description: '',
-    status: 'active'
-  });
-  const [pdfFormData, setPdfFormData] = useState({
-    title: '',
-    file: null as File | null
-  });
+  const [showNewJobModal, setShowNewJobModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [resumeCounts, setResumeCounts] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -292,104 +277,6 @@ const JobList: React.FC<JobListProps> = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [toggleAllGroups]);
 
-  const handleGenerateJob = async () => {
-    if (!formData.title.trim()) return;
-    try {
-      setGenerating(true);
-      const response = await apiService.generateJobRequisition(formData.title.trim());
-      if (response.success) {
-        const jobResponse = await apiService.getJob(response.job_id);
-        onJobGenerated(jobResponse.job);
-        setFormData({ title: '', description: '', status: 'active' });
-        setShowCreateForm(false);
-        toast.success('Job requisition generated successfully');
-      }
-    } catch (err: any) {
-      toast.error('Failed to generate job: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title.trim() || !formData.description.trim()) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      setCreating(true);
-      const response = await apiService.createJob(formData);
-      if (response.success) {
-        // Get the created job details
-        const jobResponse = await apiService.getJob(response.job_id);
-        onJobCreated(jobResponse.job);
-        setFormData({ title: '', description: '', status: 'active' });
-        setShowCreateForm(false);
-        toast.success('Job created successfully');
-      }
-    } catch (err: any) {
-      toast.error('Failed to create job: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handlePDFSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pdfFormData.file) {
-      toast.error('Please select a PDF file');
-      return;
-    }
-
-    try {
-      setCreatingFromPDF(true);
-      const response = await apiService.createJobFromPDF(
-        pdfFormData.title,
-        pdfFormData.file
-      );
-      if (response.success) {
-        // Get the created job details
-        const jobResponse = await apiService.getJob(response.job_id);
-        onJobCreated(jobResponse.job);
-        setPdfFormData({ title: '', file: null });
-        setShowPDFForm(false);
-        toast.success('Job created from PDF successfully');
-      }
-    } catch (err: any) {
-      toast.error('Failed to create job from PDF: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setCreatingFromPDF(false);
-    }
-  };
-
-  const handleDeleteJob = async (jobId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent job selection when clicking delete
-
-    if (!confirm('Are you sure you want to delete this job? This will also delete all associated candidates.')) {
-      return;
-    }
-
-    setDeletingJobId(jobId);
-    try {
-      await apiService.deleteJob(jobId);
-      onJobDeleted(jobId);
-      toast.success('Job deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete job:', error);
-      toast.error('Failed to delete job. Please try again.');
-    } finally {
-      setDeletingJobId(null);
-    }
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600';
-    if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
   const hasJobDetails = (job: JobListItem) =>
     Boolean(job.has_job_details || (job as Job).extracted_data || (job as Job).description);
   const hasResumeAnalysis = (job: JobListItem) => {
@@ -481,9 +368,11 @@ const JobList: React.FC<JobListProps> = ({
     };
   };
 
-  // Load resume badge counts only after a group is expanded.
+  // Load resume badge counts lazily on the first group expansion, then cache.
+  // (Without this guard the full candidate list was re-fetched on every group switch.)
+  const resumeCountsLoadedRef = useRef(false);
   useEffect(() => {
-    if (!expandedGroupId) {
+    if (!expandedGroupId || resumeCountsLoadedRef.current) {
       return;
     }
 
@@ -500,8 +389,9 @@ const JobList: React.FC<JobListProps> = ({
           }
         });
         setResumeCounts(counts);
+        resumeCountsLoadedRef.current = true;
       } catch (_e) {
-        // Swallow errors; counts will remain unset.
+        // Swallow errors; counts will remain unset and may retry on next expand.
       }
     };
 
@@ -550,9 +440,10 @@ const JobList: React.FC<JobListProps> = ({
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
-              onClick={() => setShowCreateForm(!showCreateForm)}
+              onClick={() => setShowNewJobModal(true)}
               size="small"
               kind="primary"
+              color="positive"
             >
               + New Job
             </Button>
@@ -560,146 +451,21 @@ const JobList: React.FC<JobListProps> = ({
         </div>
       </div>
 
-      {showCreateForm && (
-        <div className="p-4 border-b dark:border-line bg-gray-50 dark:bg-surface">
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <TextField
-              id="job-title-field"
-              title="Job Title"
-              value={formData.title}
-              onChange={(value) => setFormData({ ...formData, title: value })}
-              placeholder="e.g. Senior Frontend Developer"
-              required
-              size="small"
-              wrapperClassName="w-full"
-            />
-            <TextArea
-              label="Job Description *"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Enter detailed job description including required skills, experience, and responsibilities..."
-              size="small"
-            />
-            <div className="flex space-x-2">
-              <Button
-                type="submit"
-                disabled={creating || generating}
-                loading={creating}
-                kind="primary"
-                color="positive"
-                size="small"
-                className="px-4 py-1"
-              >
-                {creating ? 'Creating...' : 'Create Job'}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  setShowPDFForm(true);
-                  setShowCreateForm(false);
-                }}
-                kind="secondary"
-                size="small"
-                className="px-4 py-1 border-brand text-brand hover:bg-brand-soft dark:hover:bg-brand/15"
-              >
-                From file
-              </Button>
-              <Button
-                type="button"
-                onClick={handleGenerateJob}
-                disabled={!formData.title.trim() || generating || creating}
-                loading={generating}
-                size="small"
-                className="px-4 py-1 bg-purple-600 hover:bg-purple-700 text-white border-0"
-              >
-                {generating ? 'Generating...' : 'Generate'}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setShowCreateForm(false)}
-                kind="tertiary"
-                size="small"
-                className="px-4 py-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {showPDFForm && (
-        <div className="p-4 border-b dark:border-line bg-green-50 dark:bg-green-900/30">
-          <form onSubmit={handlePDFSubmit} className="space-y-3">
-            <div>
-              <TextField
-                id="job-title-pdf-field"
-                title="Job Title"
-                value={pdfFormData.title}
-                onChange={(value) => setPdfFormData({ ...pdfFormData, title: value })}
-                placeholder="Leave empty to auto-extract from file"
-                size="small"
-                wrapperClassName="w-full"
-              />
-              <p className="text-xs text-gray-500 dark:text-ink-muted mt-1">Optional - The system will extract job title from the file if not provided</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-ink">Job Description File *</label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={(e) => setPdfFormData({ ...pdfFormData, file: e.target.files?.[0] || null })}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-line dark:bg-surface dark:text-ink shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
-                required
-              />
-              <p className="text-xs text-gray-500 dark:text-ink-muted mt-1">Upload a PDF or DOCX file containing the job description</p>
-            </div>
-            <div className="flex space-x-2">
-              <Button
-                type="submit"
-                disabled={creatingFromPDF}
-                loading={creatingFromPDF}
-                kind="primary"
-                color="positive"
-                size="small"
-                className="px-4 py-1"
-              >
-                {creatingFromPDF ? 'Creating...' : 'Create from file'}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setShowPDFForm(false)}
-                kind="tertiary"
-                size="small"
-                className="px-4 py-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
-
       <div className="flex-1 overflow-y-scroll bg-gray-100 dark:bg-canvas py-4">
         {showEmptyState ? (
-          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-soft/60 dark:bg-brand/10 mb-4">
-              <svg className="h-7 w-7 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <EmptyState
+            icon={
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0" />
               </svg>
-            </div>
-            {hasActiveFilters ? (
-              <>
-                <p className="text-sm font-semibold text-gray-900 dark:text-ink">No matching jobs</p>
-                <p className="mt-1 text-sm text-gray-500 dark:text-ink-muted">Try adjusting your search or status filter.</p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-semibold text-gray-900 dark:text-ink">No jobs yet</p>
-                <p className="mt-1 text-sm text-gray-500 dark:text-ink-muted">Create a job or sync from Monday.com to get started.</p>
-              </>
-            )}
-          </div>
+            }
+            title={hasActiveFilters ? 'No matching jobs' : 'No jobs yet'}
+            description={
+              hasActiveFilters
+                ? 'Try adjusting your search or status filter.'
+                : 'Create a job or sync from Monday.com to get started.'
+            }
+          />
         ) : (
           <div className="space-y-3">
             {Array.from(groupedJobs.entries()).map(([groupId, { items, groupTitle, groupColor }]) => {
@@ -861,6 +627,13 @@ const JobList: React.FC<JobListProps> = ({
           </div>
         )}
       </div>
+
+      <NewJobModal
+        open={showNewJobModal}
+        onClose={() => setShowNewJobModal(false)}
+        onJobCreated={onJobCreated}
+        onJobGenerated={onJobGenerated}
+      />
     </div>
   );
 };

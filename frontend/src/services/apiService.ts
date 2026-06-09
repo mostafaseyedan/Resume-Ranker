@@ -321,6 +321,7 @@ export interface ExternalCandidateProfile {
   location?: string;
   email?: string;
   email_status?: EmailStatus;
+  sent_from_address?: string;
 }
 
 export interface ParsedSearchQuery {
@@ -344,7 +345,7 @@ export interface ExternalCandidatesSearchResult {
 
 // Email outreach types
 export interface FindEmailsResult {
-  [linkedinId: string]: { email: string | null; email_status: EmailStatus };
+  [linkedinId: string]: { email: string | null; email_status: EmailStatus; skipped?: boolean };
 }
 
 export interface GeneratedEmail {
@@ -423,8 +424,15 @@ export const apiService = {
     return response.data;
   },
 
-  async sendCandidateEmail(jobId: string, linkedinId: string, subject: string, body: string, toAddresses?: string[]): Promise<{ success: boolean; error?: string }> {
-    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/send-email`, { linkedinId, subject, body, toAddresses });
+  async sendCandidateEmail(
+    jobId: string,
+    linkedinId: string,
+    subject: string,
+    body: string,
+    toAddresses?: string[],
+    fromAddress?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const response = await apiClient.post(`/jobs/${jobId}/external-candidates/send-email`, { linkedinId, subject, body, toAddresses, fromAddress });
     return response.data;
   },
 

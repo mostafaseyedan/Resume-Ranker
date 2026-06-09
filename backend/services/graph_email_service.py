@@ -97,9 +97,13 @@ class GraphEmailService:
             "Content-Type": "application/json",
         }
 
-    def send_email(self, to_email: str, subject: str, body: str, candidate_linkedin_id: str) -> dict:
+    @staticmethod
+    def _mailbox_path(mailbox: str) -> str:
+        return requests.utils.quote(mailbox, safe="")
+
+    def send_email(self, to_email: str, subject: str, body: str, candidate_linkedin_id: str, sender_email: str = RECRUITING_MAILBOX) -> dict:
         """
-        Send an outreach email from recruiting@cendien.com.
+        Send an outreach email from a Cendien mailbox.
 
         We store the linkedinId in a custom internet header (X-Candidate-Id) so we
         can match replies back to the candidate later.
@@ -126,14 +130,14 @@ class GraphEmailService:
 
         try:
             response = requests.post(
-                f"{GRAPH_BASE}/users/{RECRUITING_MAILBOX}/sendMail",
+                f"{GRAPH_BASE}/users/{self._mailbox_path(sender_email)}/sendMail",
                 headers=self._headers(),
                 json=payload,
                 timeout=20,
             )
 
             if response.status_code == 202:
-                logger.info("Email sent to %s for candidate %s", to_email, candidate_linkedin_id)
+                logger.info("Email sent from %s to %s for candidate %s", sender_email, to_email, candidate_linkedin_id)
                 return {"success": True, "message_id": None, "error": None}
 
             logger.error("Graph sendMail failed %s: %s", response.status_code, response.text[:300])
@@ -147,9 +151,9 @@ class GraphEmailService:
             logger.error("Graph sendMail exception: %s", e)
             return {"success": False, "message_id": None, "error": str(e)}
 
-    def get_thread(self, to_email: str) -> dict:
+    def get_thread(self, to_email: str, mailbox: str = RECRUITING_MAILBOX) -> dict:
         """
-        Fetch the email thread with a candidate (sent + received) from the recruiting mailbox.
+        Fetch the email thread with a candidate (sent + received) from a mailbox.
 
         Searches the Sent Items for emails to the candidate and the Inbox for replies.
 
@@ -163,7 +167,7 @@ class GraphEmailService:
         try:
             # toRecipients lambda filters are not supported by Exchange via Graph —
             # fetch recent sent items unfiltered and match recipients in Python.
-            all_sent = self._fetch_messages(folder="SentItems", filter_expr=None)
+            all_sent = self._fetch_messages(folder="SentItems", filter_expr=None, mailbox=mailbox)
             to_email_lower = to_email.lower()
             sent = [
                 m for m in all_sent
@@ -177,6 +181,7 @@ class GraphEmailService:
             received = self._fetch_messages(
                 folder="Inbox",
                 filter_expr=f"from/emailAddress/address eq '{to_email}'",
+                mailbox=mailbox,
             )
 
             messages = []
@@ -204,9 +209,9 @@ class GraphEmailService:
             logger.error("Graph get_thread exception for %s: %s", to_email, e)
             return {"success": False, "messages": [], "error": str(e)}
 
-    def send_reply(self, to_email: str, subject: str, body: str) -> dict:
+    def send_reply(self, to_email: str, subject: str, body: str, sender_email: str = RECRUITING_MAILBOX) -> dict:
         """
-        Send a follow-up/reply email to a candidate from the recruiting mailbox.
+        Send a follow-up/reply email to a candidate from a Cendien mailbox.
         """
         payload = {
             "message": {
@@ -224,7 +229,7 @@ class GraphEmailService:
 
         try:
             response = requests.post(
-                f"{GRAPH_BASE}/users/{RECRUITING_MAILBOX}/sendMail",
+                f"{GRAPH_BASE}/users/{self._mailbox_path(sender_email)}/sendMail",
                 headers=self._headers(),
                 json=payload,
                 timeout=20,
@@ -243,10 +248,10 @@ class GraphEmailService:
             logger.error("Graph send_reply exception: %s", e)
             return {"success": False, "error": str(e)}
 
-    def _fetch_messages(self, folder: str, filter_expr: Optional[str]) -> list:
+    def _fetch_messages(self, folder: str, filter_expr: Optional[str], mailbox: str = RECRUITING_MAILBOX) -> list:
         """Fetch messages from a mailbox folder, optionally with an OData filter."""
         base = (
-            f"{GRAPH_BASE}/users/{RECRUITING_MAILBOX}/mailFolders/{folder}/messages"
+            f"{GRAPH_BASE}/users/{self._mailbox_path(mailbox)}/mailFolders/{folder}/messages"
             f"?$select=subject,body,sentDateTime,receivedDateTime,toRecipients,from"
             f"&$top=50"
         )

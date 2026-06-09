@@ -16,16 +16,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { RotateCw, X } from 'lucide-react';
+import { ChevronDown, RotateCw, X } from 'lucide-react';
 import { getVibeLabelColor } from '../lib/mondayColors';
 import SharePointFilesExplorer from './SharePointFilesExplorer';
+import EmptyState from './common/EmptyState';
+import { ListRowsSkeleton, CardGridSkeleton, FileListSkeleton } from './Skeletons';
 import { getSharePointFileKey } from '../utils/sharepointFolderNav';
 import { panelShellClass, radiusSurface, radiusPill } from '@/lib/radius';
 import { DetailPanelBack } from './common/DetailPanelBack';
 import UserAvatar from './common/UserAvatar';
 import {
   bgSelection,
-  btnPrimary,
   chipPrimary,
   emailSentBorder,
   emailSentText,
@@ -37,8 +38,6 @@ import {
   jobSectionBrandTitle,
   jobSectionNeutral,
   jobSectionNeutralTitle,
-  loadingText,
-  loadingWell,
   progressFill,
   spinner,
   tabActive,
@@ -59,6 +58,17 @@ interface JobDetailProps {
 
 const JOB_TAB_ACTIVE = tabActive;
 const JOB_TAB_INACTIVE = tabInactive;
+const CENDIEN_DOMAIN = 'cendien.com';
+const RECRUITING_EMAIL = `recruiting@${CENDIEN_DOMAIN}`;
+
+const senderFromAuthEmail = (email?: string | null): string | null => {
+  const trimmed = (email || '').trim().toLowerCase();
+  const username = trimmed.split('@')[0];
+  if (!username || !/^[a-z0-9._%+-]+$/.test(username)) return null;
+  return `${username}@${CENDIEN_DOMAIN}`;
+};
+
+const getEmailUsername = (email: string) => email.split('@')[0] || email;
 
 function EmailTagInput({ emails, onChange }: { emails: string[]; onChange: (emails: string[]) => void }) {
   const [input, setInput] = useState('');
@@ -136,6 +146,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeCandidate, setComposeCandidate] = useState<ExternalCandidateProfile | null>(null);
   const [emailToAddresses, setEmailToAddresses] = useState<string[]>([]);
+  const [emailFromAddress, setEmailFromAddress] = useState(RECRUITING_EMAIL);
+  const [senderMenuOpen, setSenderMenuOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [generatingEmail, setGeneratingEmail] = useState(false);
@@ -163,6 +175,39 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
   const [previewProvider, setPreviewProvider] = useState<string | null>(null);
 
   const infographic = useJobInfographic(job, onJobUpdated);
+  const senderMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const senderOptions = useMemo(() => {
+    const options = [
+      { value: RECRUITING_EMAIL, label: getEmailUsername(RECRUITING_EMAIL) },
+    ];
+    const userEmail = senderFromAuthEmail(currentUser?.email);
+    if (userEmail && userEmail !== RECRUITING_EMAIL) {
+      options.push({ value: userEmail, label: getEmailUsername(userEmail) });
+    }
+    return options;
+  }, [currentUser?.email]);
+
+  useEffect(() => {
+    if (!senderOptions.some(option => option.value === emailFromAddress)) {
+      setEmailFromAddress(RECRUITING_EMAIL);
+    }
+  }, [emailFromAddress, senderOptions]);
+
+  const selectedSender = senderOptions.find(option => option.value === emailFromAddress) || senderOptions[0];
+
+  useEffect(() => {
+    if (!senderMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!senderMenuRef.current?.contains(event.target as Node)) {
+        setSenderMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [senderMenuOpen]);
 
   const fileNameSets = useMemo(() => {
     const jobNames = new Set<string>();
@@ -253,8 +298,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     // Load current user
     const loadUser = async () => {
       try {
-        const user = await apiService.getUser();
-        setCurrentUser(user);
+        const response = await apiService.getUser();
+        setCurrentUser((response as any).user ?? response);
       } catch (err) {
         console.error('Failed to load user:', err);
       }
@@ -579,9 +624,20 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
   const handleFindEmails = async () => {
     if (selectedExternalIds.size === 0) return;
+    const eligibleIds = Array.from(selectedExternalIds).filter(id => {
+      const candidate = externalCandidates.find(c => c.linkedinId === id);
+      const status = candidate?.email_status || 'none';
+      return status !== 'sent' && status !== 'replied';
+    });
+    if (eligibleIds.length === 0) {
+      toast.info('Selected candidates have already been contacted');
+      setSelectedExternalIds(new Set());
+      return;
+    }
+
     try {
       setFindingEmails(true);
-      const response = await apiService.findCandidateEmails(job.id, Array.from(selectedExternalIds));
+      const response = await apiService.findCandidateEmails(job.id, eligibleIds);
       if (response.success) {
         setExternalCandidates(prev =>
           prev.map(c => {
@@ -589,7 +645,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
             return r ? { ...c, email: r.email ?? undefined, email_status: r.email_status } : c;
           })
         );
-        toast.success(`Emails found for ${Object.values(response.results).filter(r => r.email_status === 'found').length} of ${selectedExternalIds.size} candidates`);
+        toast.success(`Emails found for ${Object.values(response.results).filter(r => r.email_status === 'found').length} of ${eligibleIds.length} candidates`);
         setSelectedExternalIds(new Set());
       } else {
         toast.error(response.error || 'Failed to find emails');
@@ -604,6 +660,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
   const handleOpenCompose = async (profile: ExternalCandidateProfile) => {
     setComposeCandidate(profile);
     setEmailToAddresses(profile.email ? [profile.email] : []);
+    setSenderMenuOpen(false);
     setEmailSubject('');
     setEmailBody('');
     setComposeOpen(true);
@@ -645,11 +702,16 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
     if (!composeCandidate || !emailSubject.trim() || !emailBody.trim() || emailToAddresses.length === 0) return;
     try {
       setSendingEmail(true);
-      const result = await apiService.sendCandidateEmail(job.id, composeCandidate.linkedinId, emailSubject.trim(), emailBody.trim(), emailToAddresses);
+      const result = await apiService.sendCandidateEmail(job.id, composeCandidate.linkedinId, emailSubject.trim(), emailBody.trim(), emailToAddresses, emailFromAddress);
       if (result.success) {
         setExternalCandidates(prev =>
-          prev.map(c => c.linkedinId === composeCandidate.linkedinId ? { ...c, email_status: 'sent' } : c)
+          prev.map(c => c.linkedinId === composeCandidate.linkedinId ? { ...c, email_status: 'sent', sent_from_address: emailFromAddress } : c)
         );
+        setSelectedExternalIds(prev => {
+          const next = new Set(prev);
+          next.delete(composeCandidate.linkedinId);
+          return next;
+        });
         toast.success('Email sent successfully');
         setComposeOpen(false);
         setComposeCandidate(null);
@@ -1122,20 +1184,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
             )}
             <div className="p-6">
               {loading ? (
-                <div className="text-center py-8">
-                  <div className="text-lg">Loading candidates...</div>
-                </div>
+                <ListRowsSkeleton />
               ) : error ? (
-                <div className="text-center py-8 text-red-600 dark:text-red-400">
-                  <div className="text-lg mb-2">Error</div>
-                  <div>{error}</div>
-                  <button
-                    onClick={loadCandidates}
-                    className={cn('mt-4 px-4 py-2', btnPrimary)}
-                  >
-                    Retry
-                  </button>
-                </div>
+                <EmptyState
+                  title="Couldn't load candidates"
+                  description={error}
+                  action={<Button onClick={loadCandidates} size="small" kind="primary">Retry</Button>}
+                />
               ) : selectedGroupCandidates ? (
                 <CandidateList
                   candidates={selectedGroupCandidates}
@@ -1157,20 +1212,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
         {activeTab === 'resumes' && (
           <div className="p-6">
             {loading ? (
-              <div className="text-center py-8">
-                <div className="text-lg">Loading resumes...</div>
-              </div>
+              <ListRowsSkeleton />
             ) : error ? (
-              <div className="text-center py-8 text-red-600 dark:text-red-400">
-                <div className="text-lg mb-2">Error</div>
-                <div>{error}</div>
-                <button
-                  onClick={loadCandidates}
-                  className={cn('mt-4 px-4 py-2', btnPrimary)}
-                >
-                  Retry
-                </button>
-              </div>
+              <EmptyState
+                title="Couldn't load resumes"
+                description={error}
+                action={<Button onClick={loadCandidates} size="small" kind="primary">Retry</Button>}
+              />
             ) : (
               <CandidateList
                 candidates={candidates}
@@ -1187,12 +1235,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
             {(job as any).monday_metadata?.sharepoint_link && (
               <div>
                 {loadingSharePoint ? (
-                  <div className={cn('rounded-lg', loadingWell)}>
-                    <div className="flex items-center gap-2">
-                      <div className={cn('h-4 w-4 animate-spin rounded-full border-2', spinner)} />
-                      <span className={loadingText}>Loading SharePoint files...</span>
-                    </div>
-                  </div>
+                  <FileListSkeleton />
                 ) : sharepointFiles ? (
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1352,12 +1395,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                     </div>
                   </div>
                 ) : (
-                  <div className={cn(radiusSurface, 'flex flex-col items-center gap-2 border border-dashed border-gray-300 dark:border-line bg-gray-50 dark:bg-canvas px-6 py-10 text-center')}>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-ink">SharePoint files not loaded</p>
-                    <p className="text-sm text-gray-500 dark:text-ink-muted">Load the files linked to this job to analyze resumes or review the job description.</p>
-                    <Button onClick={loadSharePointFiles} size="small" kind="primary" className="mt-1">
-                      Load SharePoint files
-                    </Button>
+                  <div className={cn(radiusSurface, 'border border-dashed border-gray-300 dark:border-line bg-gray-50 dark:bg-canvas')}>
+                    <EmptyState
+                      title="SharePoint files not loaded"
+                      description="Load the files linked to this job to analyze resumes or review the job description."
+                      action={<Button onClick={loadSharePointFiles} size="small" kind="primary">Load SharePoint files</Button>}
+                      className="py-10"
+                    />
                   </div>
                 )}
               </div>
@@ -1790,7 +1834,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
         )}
 
         {activeTab === 'ai-chat' && (
-          <div className="h-full w-full p-4">
+          // Bound the height to the viewport so the chat scrolls internally and the
+          // composer floats at the visible bottom (the panel itself is auto-height).
+          <div className="w-full h-[calc(100vh-15rem)] min-h-[420px]">
             <JobChatTab job={job} />
           </div>
         )}
@@ -1798,53 +1844,35 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
         {activeTab === 'potential-candidates' && (
           <div className="p-6">
             {potentialCandidates.length === 0 && !searchingCandidates && !searchError ? (
-              <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">Internal Candidates</h3>
-                <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">
-                  Search the knowledge base to find candidates whose skills and experience match this position.
-                </p>
-                <div className="mt-6">
-                  <Button
-                    onClick={handleSearchPotentialCandidates}
-                    disabled={!job.description}
-                    size="small"
-                    kind="primary"
-                  >
+              <EmptyState
+                icon={
+                  <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                }
+                title="Internal Candidates"
+                description="Search the knowledge base to find candidates whose skills and experience match this position."
+                action={
+                  <Button onClick={handleSearchPotentialCandidates} disabled={!job.description} size="small" kind="primary">
                     {!job.description ? 'Add Job Description First' : 'Start AI Search'}
                   </Button>
-                </div>
-              </div>
+                }
+              />
             ) : (
               <div>
                 {searchingCandidates ? (
-                  <div className="text-center py-16">
-                    <div className="relative mb-6">
-                      <div className={cn('animate-spin h-16 w-16 border-4 rounded-full mx-auto border-brand/30 border-t-brand')}></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <svg className={cn('h-8 w-8', textPrimary)} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                      </div>
-                    </div>
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-ink mb-2">Searching Knowledge Base</h4>
-                    <p className="text-gray-600 dark:text-ink-muted">AI is analyzing resumes to find the best matches...</p>
-                  </div>
+                  <ListRowsSkeleton rows={6} />
                 ) : searchError ? (
-                  <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">Search Failed</h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">{searchError}</p>
-                    <div className="mt-6">
-                      <Button onClick={handleSearchPotentialCandidates} size="small" kind="primary">
-                        Try Again
-                      </Button>
-                    </div>
-                  </div>
+                  <EmptyState
+                    icon={
+                      <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    }
+                    title="Search Failed"
+                    description={searchError}
+                    action={<Button onClick={handleSearchPotentialCandidates} size="small" kind="primary">Try Again</Button>}
+                  />
                 ) : (
                   <div>
                     <div className="flex items-center justify-between mb-6">
@@ -2090,43 +2118,30 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
             {/* Results Section */}
             {externalCandidates.length === 0 && !searchingExternalCandidates && !externalSearchError ? (
-              <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">External Candidates</h3>
-                <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">
-                  Extract a suggested role and location from the job description, then search LinkedIn for matching profiles.
-                </p>
-              </div>
+              <EmptyState
+                icon={
+                  <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                  </svg>
+                }
+                title="External Candidates"
+                description="Extract a suggested role and location from the job description, then search LinkedIn for matching profiles."
+              />
             ) : (
               <div>
                 {searchingExternalCandidates ? (
-                  <div className="text-center py-16">
-                    <div className="relative mb-6">
-                      <div className={cn('animate-spin h-16 w-16 border-4 rounded-full mx-auto border-brand/30 border-t-brand')}></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <svg className={cn('h-8 w-8', textPrimary)} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                        </svg>
-                      </div>
-                    </div>
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-ink mb-2">Searching LinkedIn</h4>
-                    <p className="text-gray-600 dark:text-ink-muted">Finding matching profiles...</p>
-                  </div>
+                  <CardGridSkeleton count={6} />
                 ) : externalSearchError && externalCandidates.length === 0 ? (
-                  <div className="text-center py-12">
-                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-ink">Search Failed</h3>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-ink-muted">{externalSearchError}</p>
-                    <div className="mt-6">
-                      <Button onClick={handleSearchExternalCandidates} size="small" kind="primary">
-                        Try Again
-                      </Button>
-                    </div>
-                  </div>
+                  <EmptyState
+                    icon={
+                      <svg className="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    }
+                    title="Search Failed"
+                    description={externalSearchError}
+                    action={<Button onClick={handleSearchExternalCandidates} size="small" kind="primary">Try Again</Button>}
+                  />
                 ) : (
                   <div>
                     {/* Results header with bulk actions */}
@@ -2163,7 +2178,8 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                       {externalCandidates.map((profile, index) => {
                         const emailStatus = profile.email_status || 'none';
-                        const isSelected = selectedExternalIds.has(profile.linkedinId);
+                        const canFindEmail = emailStatus !== 'sent' && emailStatus !== 'replied';
+                        const isSelected = canFindEmail && selectedExternalIds.has(profile.linkedinId);
                         const canCompose = emailStatus === 'found';
                         const canViewThread = emailStatus === 'sent' || emailStatus === 'replied';
                         const linkedinUrl = profile.linkedinUrl?.trim();
@@ -2228,7 +2244,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                                 <div className="flex-shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
                                   <Checkbox
                                     checked={isSelected}
-                                    onCheckedChange={() => handleExternalIdToggle(profile.linkedinId)}
+                                    disabled={!canFindEmail}
+                                    onCheckedChange={() => {
+                                      if (canFindEmail) handleExternalIdToggle(profile.linkedinId);
+                                    }}
                                   />
                                 </div>
                                 <h4 className="font-semibold text-gray-900 dark:text-ink text-sm leading-snug truncate" title={profile.name || profile.title}>
@@ -2339,6 +2358,63 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
 
           {composeCandidate && (
             <div className="px-5 py-4 space-y-3">
+              {/* From field */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500 dark:text-ink-muted">From</label>
+                <div className="grid grid-cols-1 sm:grid-cols-[minmax(180px,1fr)_auto] gap-2">
+                  <div ref={senderMenuRef} className="relative">
+                    <button
+                      id="email-from-username"
+                      type="button"
+                      onClick={() => setSenderMenuOpen(open => !open)}
+                      className={cn(
+                        'h-8 w-full rounded-md border bg-white dark:bg-canvas-deep px-3 text-sm text-gray-900 dark:text-ink outline-none transition-colors flex items-center justify-between gap-2',
+                        senderMenuOpen ? 'border-brand ring-2 ring-brand/20' : 'border-gray-300 dark:border-line hover:border-gray-400 dark:hover:border-ink-muted'
+                      )}
+                      aria-haspopup="listbox"
+                      aria-expanded={senderMenuOpen}
+                    >
+                      <span className="truncate">{selectedSender.label}</span>
+                      <ChevronDown className={cn('h-4 w-4 text-gray-500 dark:text-ink-muted transition-transform', senderMenuOpen && 'rotate-180')} />
+                    </button>
+                    {senderMenuOpen && (
+                      <div
+                        role="listbox"
+                        className="absolute left-0 right-0 top-full z-[80] mt-1 overflow-hidden rounded-md border border-gray-200 dark:border-line bg-white dark:bg-canvas-deep shadow-lg"
+                      >
+                        {senderOptions.map(option => {
+                          const isSelected = option.value === emailFromAddress;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              role="option"
+                              aria-selected={isSelected}
+                              onClick={() => {
+                                setEmailFromAddress(option.value);
+                                setSenderMenuOpen(false);
+                              }}
+                              className={cn(
+                                'h-8 w-full px-3 text-left text-sm transition-colors flex items-center justify-between gap-2',
+                                isSelected
+                                  ? 'bg-brand-soft text-gray-900 dark:bg-brand/20 dark:text-ink'
+                                  : 'text-gray-700 hover:bg-gray-50 dark:text-ink dark:hover:bg-surface-hover'
+                              )}
+                            >
+                              <span className="truncate">{option.label}</span>
+                              {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-brand" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="h-8 px-3 rounded-md border border-gray-200 dark:border-line bg-gray-50 dark:bg-canvas-deep text-sm text-gray-600 dark:text-ink-muted flex items-center">
+                    @{CENDIEN_DOMAIN}
+                  </div>
+                </div>
+              </div>
+
               {/* To field */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-500 dark:text-ink-muted">To</label>
@@ -2496,9 +2572,10 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, onJobUpdated, initialTab }) 
                   if (!threadCandidate) return;
                   setGeneratingEmail(true);
                   try {
+                    const latestSentBody = [...threadMessages].reverse().find(m => m.direction === 'sent')?.body || '';
                     const result = await apiService.generateCandidateEmail(job.id, threadCandidate.linkedinId, {
                       isFollowup: true,
-                      previousBody: threadMessages.find(m => m.direction === 'sent')?.body || '',
+                      previousBody: latestSentBody,
                     });
                     if (result.success) {
                       setReplySubject(result.subject);

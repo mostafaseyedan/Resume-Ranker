@@ -179,14 +179,6 @@ const Dashboard: React.FC = () => {
     setMobilePanel('detail');
   };
 
-  const handleJobDeleted = (jobId: string) => {
-    setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
-    // Clear selected job if it was deleted
-    if (selectedJob?.id === jobId) {
-      setSelectedJob(null);
-    }
-  };
-
   const handleJobUpdated = (updatedJob: Job) => {
     const summary = jobToListItem(updatedJob);
     setJobs((prevJobs) =>
@@ -375,7 +367,6 @@ const Dashboard: React.FC = () => {
                 onJobSelect={handleJobSelect}
                 onJobCreated={handleJobCreated}
                 onJobGenerated={handleJobGenerated}
-                onJobDeleted={handleJobDeleted}
               />
             ) : (
               <CandidateSidebar
